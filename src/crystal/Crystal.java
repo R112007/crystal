@@ -5,6 +5,7 @@ import arc.Events;
 import arc.graphics.Color;
 import arc.struct.Seq;
 import arc.util.Log;
+import crystal.core.UnitInfoSystem;
 import crystal.game.UnitInfo;
 import crystal.game.UnitInfoFileStorage;
 import crystal.ui.TimeControl;
@@ -20,7 +21,7 @@ import mindustry.ui.dialogs.BaseDialog;
 public class Crystal extends Mod {
   public static BaseDialog welcomeDialog;
   public static final String scqq = "http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=Rrju8RLWbsJstJ3rcJxWyrtop4u7uRb9&authKey=gdngZkPeYxZPhYTmjQUTjPos%2FJKckD02YSFnYLmdVojPZIzZw1T%2FbtubSoyuw2LA&noverify=0&group_code=756820891";
-  static int timer = 0;
+  public static int timer = 0;
   Seq<SectorPreset> sectorpresets = Vars.content.getBy(ContentType.sector);
   Seq<Sector> sectors = new Seq<>();
 
@@ -66,9 +67,12 @@ public class Crystal extends Mod {
     Events.run(Trigger.update, () -> {
       update();
     });
+    UnitInfoSystem.init();
   }
 
   public void update() {
+    timer++;
+    UnitInfoSystem.update();
   }
 
   public void showwelcome() {

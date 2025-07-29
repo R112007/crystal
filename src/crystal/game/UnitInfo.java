@@ -57,6 +57,13 @@ public class UnitInfo {
     return get(sector) != null;
   }
 
+  public void clear() {
+    imports.clear();
+    export.clear();
+    Log.info(getBoundSector() + "丢失，清空单位储存库 " + "import " + imports + " export " + export);
+    saveInfo();
+  }
+
   public static UnitInfo get(Sector targetSector) {
     for (UnitInfo info : all) {
       if (info == null) {
