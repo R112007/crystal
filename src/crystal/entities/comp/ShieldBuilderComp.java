@@ -22,7 +22,6 @@ import arc.graphics.g2d.Lines;
 import arc.math.Angles;
 import arc.math.Mathf;
 import arc.math.geom.Vec2;
-import arc.util.Log;
 import arc.util.Time;
 import arc.util.Tmp;
 import crystal.game.WaitTime;
@@ -38,13 +37,13 @@ abstract class ShieldBuilderComp implements Unitc {
   float x, y, rotation, buildSpeedMultiplier;
 
   @SyncLocal
-  transient float shieldHealth = 10000f;
+  transient float shieldHealth;
   @SyncLocal
-  transient float shieldMaxHealth = 10000f;
+  transient float shieldMaxHealth;
   @SyncLocal
-  transient float regenRate = 1f;
+  transient float regenRate;
   @SyncLocal
-  transient float cooldown = 600f, temp;
+  transient float cooldown, temp;
   @SyncLocal
   transient float widthScale = 0.8f, alpha, angle = 365f;
   @SyncLocal
@@ -61,6 +60,9 @@ abstract class ShieldBuilderComp implements Unitc {
     if (!(type instanceof BuildShieldUnitType)) {
       throw new IllegalArgumentException("ShieldBuilderUnit must use ShieldBuilderUnitType");
     }
+    this.shieldHealth = this.shieldMaxHealth = ((BuildShieldUnitType) type).shieldHealth;
+    this.cooldown = ((BuildShieldUnitType) type).cooldown;
+    this.regenRate = ((BuildShieldUnitType) type).regenRate;
     bulletc = b -> {
       if (b.team != this.team &&
           b.type.absorbable &&

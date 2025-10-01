@@ -665,7 +665,7 @@ public class CResearchDialog extends BaseDialog {
 
                               for (Objectives.Objective o : node.objectives) {
                                  if (!o.complete()) {
-                                    String var10001 = this.显示(o);
+                                    String var10001 = this.showObject(o);
                                     r.add("> " + var10001).color(Color.lightGray).left();
                                     r.image(o.complete() ? Icon.ok : Icon.cancel,
                                           o.complete() ? Color.lightGray : Color.scarlet).padLeft(3.0F);
@@ -708,7 +708,7 @@ public class CResearchDialog extends BaseDialog {
          }
       }
 
-      public String 显示(Objectives.Objective o) {
+      public String showObject(Objectives.Objective o) {
          if (o instanceof Objectives.Produce) {
             Objectives.Produce A = (Objectives.Produce) o;
             I18NBundle var4 = Core.bundle;

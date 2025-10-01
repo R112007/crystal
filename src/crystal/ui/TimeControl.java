@@ -7,7 +7,6 @@ import arc.func.Floatp;
 import arc.graphics.Color;
 import arc.scene.ui.Slider;
 import arc.scene.ui.layout.Table;
-import arc.util.Log;
 import arc.util.Time;
 import mindustry.Vars;
 import mindustry.game.EventType.ClientLoadEvent;
@@ -16,20 +15,20 @@ import mindustry.ui.Styles;
 
 public class TimeControl {
   static boolean first = true;
+  public static float height = 0;
 
   public static void load() {
     Events.on(ClientLoadEvent.class, a -> {
       Vars.ui.hudGroup.fill(null, table -> {
         table.table(null, t -> setup(t)).width(400).padRight(20);
         table.top().left().update(() -> {
-          float height = -115;
+          Vars.control.input.uiGroup.getChildren().each(e -> {
+            height -= e.visible ? e.getPrefHeight() : 0;
+          });
           if (Vars.state.rules.editor) {
             table.visible = false;
-          }
-          if (Vars.state.isCampaign()) {
-            table.visible = true;
-          }
-          table.translation.set(0, height);
+          } else
+            table.translation.set(0, height);
         });
       });
     });

@@ -5,6 +5,7 @@ import arc.Events;
 import arc.graphics.Color;
 import arc.struct.Seq;
 import arc.util.Log;
+import crystal.content.CPlanets;
 import crystal.core.UnitInfoSystem;
 import crystal.game.UnitInfo;
 import crystal.game.UnitInfoFileStorage;
@@ -35,6 +36,8 @@ public class Crystal extends Mod {
   @Override
   public void loadContent() {
     Log.info("Start to Load Contents");
+    Test.load();
+    CPlanets.load();
     TimeControl.load();
     Log.info("hava loaded all");
   }
@@ -42,7 +45,13 @@ public class Crystal extends Mod {
   public void constructor() {
     UnitInfoFileStorage.loadAll();
     loadlog();
+    UnitInfoSystem.loadUnitInfo();
     showwelcome();
+    Log.info("运行checkallsector");
+    UnitInfoSystem.checkAllSector();
+    UnitInfoSystem.saveUnitInfo();
+    UnitInfoFileStorage.saveAll();
+    Log.info("运行checkallsector结束");
   }
 
   public void loadlog() {
@@ -64,6 +73,7 @@ public class Crystal extends Mod {
   @Override
   public void init() {
     CVars.cui.init();
+    replaceUI();
     Events.run(Trigger.update, () -> {
       update();
     });
@@ -73,6 +83,25 @@ public class Crystal extends Mod {
   public void update() {
     timer++;
     UnitInfoSystem.update();
+  }
+
+  public void replaceUI() {
+    Events.on(ClientLoadEvent.class, (e) -> {
+      Events.run(Trigger.update, () -> {
+        if (Vars.ui.planet.isShown()) {
+          Vars.ui.planet.hide();
+          if (!CVars.cui.cplanet.isShown()) {
+            CVars.cui.cplanet.show();
+          }
+        }
+        if (Vars.ui.research.isShown()) {
+          Vars.ui.research.hide();
+          if (!CVars.cui.cresearch.isShown()) {
+            CVars.cui.cresearch.show();
+          }
+        }
+      });
+    });
   }
 
   public void showwelcome() {

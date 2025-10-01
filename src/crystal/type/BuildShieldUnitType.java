@@ -7,9 +7,9 @@ public class BuildShieldUnitType extends UnitType {
   @SyncField(value = true)
   public float shieldHealth = 1200f; // 护盾最大生命值
   @SyncField(value = true)
-  public float shieldRegenRate = 3f; // 护盾再生速率
+  public float regenRate = 3f; // 护盾再生速率
   @SyncField(value = true)
-  public int shieldSegments = 36; // 护盾分段数
+  public float cooldown = 3f; // 护盾再生速率
 
   public BuildShieldUnitType(String name) {
     super(name);
