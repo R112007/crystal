@@ -127,7 +127,7 @@ public class LiquidFloorGenerator extends PowerGenerator {
         }
       }
     }
-    stats.add(CStat.dependfloor, CStatValues.listcontents(liquids));
+    stats.add(CStat.dependfloor, CStatValues.contents(liquids));
   }
 
   public int[] getTileNumbers(Seq<Tile> tile, int[] list) {

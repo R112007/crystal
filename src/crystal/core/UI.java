@@ -3,6 +3,7 @@ package crystal.core;
 import arc.ApplicationListener;
 import crystal.ui.dialogs.CPlanetDialog;
 import crystal.ui.dialogs.CResearchDialog;
+import mindustry.Vars;
 
 public class UI implements ApplicationListener {
   public CResearchDialog cresearch;

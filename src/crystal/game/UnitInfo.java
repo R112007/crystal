@@ -3,8 +3,10 @@ package crystal.game;
 import arc.Core;
 import arc.math.WindowedMean;
 import arc.struct.ObjectMap;
+import arc.struct.ObjectSet;
 import arc.struct.Seq;
 import arc.util.Log;
+import crystal.CVars;
 import crystal.type.UnitStack;
 import mindustry.Vars;
 import mindustry.type.Planet;
@@ -13,15 +15,16 @@ import mindustry.type.UnitType;
 
 public class UnitInfo {
 
-  private static final int valueWindow = 60;
   public String planetName;
   public int id;
   public int sectorId;
-  public static final UnitInfo[] all = new UnitInfo[3000];
   public Seq<UnitStack> possessed = new Seq<>();
   public ObjectMap<UnitType, ExportStat> export = new ObjectMap<>();
   public ObjectMap<UnitType, ExportStat> imports = new ObjectMap<>();
+  public static final UnitInfo[] all = new UnitInfo[3000];
+  public static ObjectSet<String> jsonKeys = new ObjectSet<>();
   public static int lastId = loadLastId();
+  private static final int valueWindow = 60;
 
   public UnitInfo(Sector sector) {
     this.planetName = sector.planet.name;
@@ -108,7 +111,8 @@ public class UnitInfo {
   public void clear() {
     imports.clear();
     export.clear();
-    Log.info(getBoundSector() + "丢失，清空单位储存库 " + "import " + imports + " export " + export);
+    if (CVars.debug)
+      Log.info(getBoundSector() + "丢失，清空单位储存库 " + "import " + imports + " export " + export);
     saveInfo();
   }
 
@@ -124,7 +128,7 @@ public class UnitInfo {
     return null;
   }
 
-  private static int loadLastId() {
+  public static int loadLastId() {
     return Core.settings.getInt("unitinfo.lastid", 0);
   }
 
@@ -145,13 +149,49 @@ public class UnitInfo {
   }
 
   public void saveInfo() {
-    Core.settings.putJson(planetName + "-s-" + id + "-unitinfo", this);
+    jsonKeys.add(getKey());
+    Core.settings.putJson(getKey(), this);
+    Core.settings.putJson("unitinfo.jsonkeys", jsonKeys.toSeq().toArray(String.class));
   }
 
-  public void loadUnitInfo() {
-    UnitInfo info = Core.settings.getJson(planetName + "-s-" + id + "-unitinfo", UnitInfo.class, UnitInfo::new);
-    all[info.id] = info;
-    Log.info(info + "已被恢复");
+  public static void loadUnitInfo(String key) {
+    try {
+      UnitInfo info = Core.settings.getJson(key, UnitInfo.class, UnitInfo::new);
+      all[info.id] = info;
+    } catch (Exception e) {
+      Log.err(key + "标记的UnitInfo不存在", e);
+    }
+  }
+
+  /*
+   * public static void saveArray() {
+   * Core.settings.putJson("array-unitinfo.all", all);
+   * }
+   * 
+   * public static void loadArray() {
+   * UnitInfo[] array;
+   * try {
+   * array = Core.settings.getJson("array-unitinfo.all", UnitInfo[].class, () ->
+   * new UnitInfo[loadLastId()]);
+   * System.arraycopy(array, 0, UnitInfo.all, 0, 3000);
+   * Log.info("UnitInfo.all 恢复成功，共 " + countValidEntries() + " 条有效数据");
+   * } catch (Exception e) {
+   * array = new UnitInfo[3000];
+   * System.arraycopy(array, 0, UnitInfo.all, 0, 3000);
+   * }
+   * }
+   */
+  public String getKey() {
+    return planetName + "-s-" + id + "-unitinfo";
+  }
+
+  private static int countValidEntries() {
+    int count = 0;
+    for (UnitInfo info : UnitInfo.all) {
+      if (info != null)
+        count++;
+    }
+    return count;
   }
 
   public static class ExportStat {

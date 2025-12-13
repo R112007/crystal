@@ -1,0 +1,210 @@
+package crystal.util;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import arc.math.Mathf;
+import arc.math.geom.Vec2;
+
+public class CMath {
+  /**
+   * 简化版：已知线段出发点、方向（角度）、长度，判断线段与圆是否有交点
+   * 
+   * @param startPoint    线段出发点（A点）
+   * @param directionDeg  线段方向（与x轴正方向夹角，逆时针为正，单位：度）
+   * @param segmentLength 线段长度（需≥0，长度0则线段退化为点）
+   * @param circleCenter  圆心（B点）
+   * @param radius        圆半径（需≥0）
+   * @return true=有交点，false=无交点
+   * @note 若方向是弧度，需先转角度：弧度值 × Mathf.radiansToDegrees
+   */
+  public static boolean hasDirLenSegmentCircleIntersection(
+      Vec2 startPoint,
+      float directionDeg,
+      float segmentLength,
+      Vec2 circleCenter,
+      float radius) {
+    // 1. 参数合法性校验（长度和半径非负）
+    if (segmentLength < -Mathf.FLOAT_ROUNDING_ERROR || radius < -Mathf.FLOAT_ROUNDING_ERROR) {
+      return false;
+    }
+    // 处理长度为0的特殊情况（线段退化为出发点，直接判断点是否在圆内/圆上）
+    if (segmentLength < Mathf.FLOAT_ROUNDING_ERROR) {
+      return startPoint.dst2(circleCenter) <= radius * radius + Mathf.FLOAT_ROUNDING_ERROR;
+    }
+
+    // 2. 核心：将“方向+长度”转化为线段对应的向量n
+    Vec2 segmentVector = new Vec2()
+        .setAngle(directionDeg) // 按方向角设单位向量（内部自动转弧度）
+        .scl(segmentLength); // 按长度缩放，得到最终线段向量n
+
+    // 3. 复用之前的方法判断交点（直接传入转化后的向量）
+    return hasSegmentCircleIntersection(startPoint, segmentVector, circleCenter, radius);
+  }
+
+  /**
+   * 判断“从A出发沿向量n的线段”与“以B为圆心、R为半径的圆”是否有交点
+   * 
+   * @param pointA        向量出发点（线段起点）
+   * @param vectorN       从A出发的向量（线段终点 = A + vectorN）
+   * @param circleCenterB 圆心
+   * @param radiusR       圆的半径（需非负）
+   * @return true=有交点，false=无交点
+   */
+  public static boolean hasSegmentCircleIntersection(Vec2 pointA, Vec2 vectorN, Vec2 circleCenterB, float radiusR) {
+    // 1. 处理非法半径（半径非负）
+    if (radiusR < 0)
+      return false;
+    // 处理半径为0的特殊情况：圆退化为点B，判断线段是否包含B
+    if (radiusR == 0)
+      return isPointOnSegment(circleCenterB, pointA, vectorN);
+
+    // 2. 计算核心参数（对应之前推导的dx、dy、a、b、c）
+    float dx = pointA.x - circleCenterB.x; // A到B的x差值
+    float dy = pointA.y - circleCenterB.y; // A到B的y差值
+    float a = vectorN.len2(); // 向量n的长度平方（a = x1² + y1²）
+    float b = 2 * (dx * vectorN.x + dy * vectorN.y); // 2*(dx*x1 + dy*y1)
+    float c = pointA.dst2(circleCenterB) - radiusR * radiusR; // (dx²+dy²) - R²
+
+    // 3. 特殊情况：向量n为零向量（线段退化为点A）
+    if (a < Mathf.FLOAT_ROUNDING_ERROR) { // 浮点精度内判断a是否为0
+      // 判断点A是否在圆上或圆内（点与圆有交点）
+      return pointA.dst2(circleCenterB) <= radiusR * radiusR + Mathf.FLOAT_ROUNDING_ERROR;
+    }
+
+    // 4. 计算一元二次方程判别式 Δ = b² - 4ac
+    float delta = b * b - 4 * a * c;
+    // 判别式小于0：无实根，线段与圆无交点
+    if (delta < -Mathf.FLOAT_ROUNDING_ERROR) { // 允许微小负误差（浮点精度）
+      return false;
+    }
+
+    // 5. 计算两个实根 t1、t2（t∈[0,1]表示在线段上）
+    float sqrtDelta = (float) Math.sqrt(Math.max(delta, 0)); // 避免delta为负（浮点误差）
+    float t1 = (-b - sqrtDelta) / (2 * a);
+    float t2 = (-b + sqrtDelta) / (2 * a);
+
+    // 6. 判断是否有根在 [0,1] 区间内（允许微小偏移，处理浮点精度）
+    float eps = Mathf.FLOAT_ROUNDING_ERROR;
+    boolean t1Valid = t1 >= -eps && t1 <= 1 + eps;
+    boolean t2Valid = t2 >= -eps && t2 <= 1 + eps;
+
+    // 只要有一个有效根，线段与圆就有交点
+    return t1Valid || t2Valid;
+  }
+
+  /**
+   * 辅助方法：判断点P是否在“从A出发沿向量n的线段”上（处理圆半径为0的情况）
+   */
+  private static boolean isPointOnSegment(Vec2 pointP, Vec2 pointA, Vec2 vectorN) {
+    Vec2 segmentEnd = pointA.cpy().add(vectorN); // 线段终点 = A + n
+    // 条件1：P在A和终点构成的线段上（三点共线 + P在A与终点之间）
+    boolean collinear = Mathf
+        .zero((segmentEnd.x - pointA.x) * (pointP.y - pointA.y) - (segmentEnd.y - pointA.y) * (pointP.x - pointA.x));
+    boolean between = pointP.dst2(pointA) <= pointA.dst2(segmentEnd) + Mathf.FLOAT_ROUNDING_ERROR
+        && pointP.dst2(segmentEnd) <= pointA.dst2(segmentEnd) + Mathf.FLOAT_ROUNDING_ERROR;
+    return collinear && between;
+  }
+
+  /**
+   * 简化版：已知线段出发点、方向（角度）、长度，返回“是否有交点+交点坐标”
+   * 
+   * @param startPoint    线段出发点（A点）
+   * @param directionDeg  线段方向（与x轴正方向夹角，逆时针为正，单位：度）
+   * @param segmentLength 线段长度（需≥0，长度0则线段退化为点）
+   * @param circleCenter  圆心（B点）
+   * @param radius        圆半径（需≥0）
+   * @return 封装结果：isHasIntersection（是否有交点）、intersectionPoints（交点列表）
+   */
+  public static IntersectionResult getDirLenSegmentCircleIntersections(
+      Vec2 startPoint,
+      float directionDeg,
+      float segmentLength,
+      Vec2 circleCenter,
+      float radius) {
+    // 1. 参数合法性校验（长度和半径非负，浮点精度内允许微小负值）
+    if (segmentLength < -Mathf.FLOAT_ROUNDING_ERROR || radius < -Mathf.FLOAT_ROUNDING_ERROR) {
+      return IntersectionResult.of(false, List.of());
+    }
+    // 处理线段长度为0的特殊情况（退化为点A）
+    if (segmentLength < Mathf.FLOAT_ROUNDING_ERROR) {
+      List<Vec2> points = new ArrayList<>();
+      // 判断点A是否在圆上（圆内不算交点，仅圆上算）
+      boolean isOnCircle = Mathf.equal(startPoint.dst2(circleCenter), radius * radius, Mathf.FLOAT_ROUNDING_ERROR);
+      if (isOnCircle) {
+        points.add(startPoint.cpy()); // 复制向量，避免外部修改原出发点
+      }
+      return IntersectionResult.of(isOnCircle, points);
+    }
+
+    // 2. 核心转化：将“方向+长度”转为线段向量n（出发点→终点的向量）
+    Vec2 segmentVector = new Vec2()
+        .setAngle(directionDeg) // 按方向角生成单位向量（内部自动转弧度）
+        .scl(segmentLength); // 按长度缩放，得到最终向量n
+
+    // 3. 计算一元二次方程系数（a*t² + b*t + c = 0）
+    float dx = startPoint.x - circleCenter.x; // A到B的x差值
+    float dy = startPoint.y - circleCenter.y; // A到B的y差值
+    float a = segmentVector.len2(); // a = x1² + y1²（向量n长度平方）
+    float b = 2 * (dx * segmentVector.x + dy * segmentVector.y); // b = 2*(dx*x1 + dy*y1)
+    float c = startPoint.dst2(circleCenter) - radius * radius; // c = (dx²+dy²) - R²
+
+    // 4. 求解判别式，判断是否有实根
+    float delta = b * b - 4 * a * c;
+    List<Vec2> intersectionPoints = new ArrayList<>();
+    // 判别式小于0：无实根，无交点
+    if (delta < -Mathf.FLOAT_ROUNDING_ERROR) {
+      return IntersectionResult.of(false, intersectionPoints);
+    }
+
+    // 5. 计算有效t值（t∈[0,1]，浮点精度内允许微小偏移）
+    float sqrtDelta = (float) Math.sqrt(Math.max(delta, 0)); // 避免delta负误差
+    float t1 = (-b - sqrtDelta) / (2 * a);
+    float t2 = (-b + sqrtDelta) / (2 * a);
+    float eps = Mathf.FLOAT_ROUNDING_ERROR;
+
+    // 6. 根据有效t值计算交点坐标（t需在[0-eps, 1+eps]区间，避免精度丢失）
+    // 处理t1
+    if (t1 >= -eps && t1 <= 1 + eps) {
+      float clampedT1 = Mathf.clamp(t1, 0f, 1f); // 确保t在[0,1]内（修正精度偏移）
+      Vec2 point1 = new Vec2(
+          startPoint.x + clampedT1 * segmentVector.x,
+          startPoint.y + clampedT1 * segmentVector.y);
+      intersectionPoints.add(point1);
+    }
+    // 处理t2（避免t1=t2时重复添加，如相切场景）
+    if (t2 >= -eps && t2 <= 1 + eps && !Mathf.equal(t1, t2, eps)) {
+      float clampedT2 = Mathf.clamp(t2, 0f, 1f);
+      Vec2 point2 = new Vec2(
+          startPoint.x + clampedT2 * segmentVector.x,
+          startPoint.y + clampedT2 * segmentVector.y);
+      intersectionPoints.add(point2);
+    }
+
+    // 7. 返回结果（有交点当且仅当列表非空）
+    return IntersectionResult.of(!intersectionPoints.isEmpty(), intersectionPoints);
+  }
+
+  public static class IntersectionResult {
+    private final boolean hasIntersection;
+    private final List<Vec2> intersectionPoints;
+
+    private IntersectionResult(boolean hasIntersection, List<Vec2> intersectionPoints) {
+      this.hasIntersection = hasIntersection;
+      this.intersectionPoints = intersectionPoints;
+    }
+
+    public static IntersectionResult of(boolean hasIntersection, List<Vec2> points) {
+      List<Vec2> safePoints = hasIntersection ? points : List.of();
+      return new IntersectionResult(hasIntersection, safePoints);
+    }
+
+    public boolean isHasIntersection() {
+      return hasIntersection;
+    }
+
+    public List<Vec2> getIntersectionPoints() {
+      return intersectionPoints;
+    }
+  }
+}

@@ -2,6 +2,7 @@ package crystal.world.blocks.production.multicrafter;
 
 import arc.func.Prov;
 import arc.graphics.Color;
+import arc.graphics.g2d.TextureRegion;
 import arc.util.Nullable;
 import mindustry.content.Fx;
 import mindustry.entities.Effect;
@@ -9,27 +10,25 @@ import mindustry.entities.Effect;
 public class Recipe {
   public IO input;
   public IO output;
-  public float craftTime;
+  public float craftTime = 0f;
   @Nullable
-  public Prov icon;
+  public Prov<TextureRegion> icon;
   @Nullable
   public Color iconColor;
-  public Effect craftEffect;
+  public Effect craftEffect = Fx.none;
 
   public Recipe(IO input, IO output, float craftTime) {
-    this.craftEffect = Fx.none;
     this.input = input;
     this.output = output;
     this.craftTime = craftTime;
   }
 
   public Recipe() {
-    this.craftEffect = Fx.none;
   }
 
-  public void getSet() {
-    this.input.getSet();
-    this.output.getSet();
+  public void cacheUnique() {
+    this.input.cacheUnique();
+    this.output.cacheUnique();
   }
 
   public boolean isAnyEmpty() {
@@ -121,9 +120,10 @@ public class Recipe {
   }
 
   public String toString() {
-    return "Recipe{input=" +
-        this.input + "output=" +
-        this.output + "craftTime" +
-        this.craftTime + "}";
+    return "Recipe{" +
+        "input=" + this.input +
+        "output=" + this.output +
+        "craftTime" + this.craftTime +
+        "}";
   }
 }

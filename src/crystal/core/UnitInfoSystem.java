@@ -1,11 +1,12 @@
 package crystal.core;
 
+import arc.Core;
 import arc.Events;
 import arc.struct.ObjectMap;
 import arc.util.Log;
+import crystal.CVars;
 import crystal.Crystal;
 import crystal.game.UnitInfo;
-import crystal.game.UnitInfoFileStorage;
 import crystal.util.Time;
 import mindustry.Vars;
 import mindustry.core.GameState;
@@ -32,10 +33,8 @@ public class UnitInfoSystem {
         UnitInfo.get(e.sector).clear();
     });
     Events.on(GameOverEvent.class, e -> {
-      Log.info("GameOver监听器运行");
       if (e.winner != Vars.player.team()) {
         Sector currentSector = Vars.state.rules.sector;
-        Log.info("当前区块" + currentSector);
         UnitInfo.get(currentSector).clear();
       }
     });
@@ -47,8 +46,9 @@ public class UnitInfoSystem {
     }
     if (Crystal.timer % 300 == 1) {
       saveUnitInfo();
-      UnitInfoFileStorage.saveAll();
-      Time.logTime();
+      // UnitInfo.saveArray();
+      if (CVars.debug)
+        Time.logTime();
     }
   }
 
@@ -69,7 +69,8 @@ public class UnitInfoSystem {
 
   private static void onSectorSaveDeleted(Sector sector) {
     UnitInfo.get(sector).clear();
-    Log.info("区块 " + sector.name() + " 的save已被删除并置空");
+    if (CVars.debug)
+      Log.info("区块 " + sector.name() + " 的save已被删除并置空");
   }
 
   public static boolean check(Sector sector) {
@@ -93,12 +94,6 @@ public class UnitInfoSystem {
     Events.on(StateChangeEvent.class, event -> {
       if (event.to == GameState.State.menu) {
         saveUnitInfo();
-        UnitInfoFileStorage.saveAll();
-        Log.info("lastid " + UnitInfo.returnLastId());
-        for (var u : UnitInfo.all) {
-          if (u != null)
-            Log.info("id+" + u.id + "  sector " + u.getBoundSector());
-        }
       }
     });
   }
@@ -108,7 +103,6 @@ public class UnitInfoSystem {
     for (int i = 0; i < amount; i++) {
       if (UnitInfo.all[i] != null) {
         UnitInfo.all[i].saveInfo();
-        Log.info("已保存" + UnitInfo.all[i]);
       }
     }
   }
@@ -118,12 +112,15 @@ public class UnitInfoSystem {
       for (var sector : planet.sectors) {
         if (sector.hasBase()) {
           if (UnitInfo.get(sector) == null) {
-            Log.err("发现区块" + sector + "没有UnitInfo");
+            if (CVars.debug)
+              Log.err("发现区块" + sector + "没有UnitInfo");
             try {
               addNewUnitInfo(sector);
-              Log.info("成功创建");
-              Log.info("已为区块" + sector + "新建UnitInfo");
-              Log.info(UnitInfo.get(sector));
+              if (CVars.debug) {
+                Log.info("成功创建");
+                Log.info("已为区块" + sector + "新建UnitInfo");
+                Log.info(UnitInfo.get(sector));
+              }
             } catch (Exception e) {
               Log.err(e);
               Log.info("区块" + sector + "新建UnitInfo失败");
@@ -135,14 +132,10 @@ public class UnitInfoSystem {
   }
 
   public static void loadUnitInfo() {
-    int amount = UnitInfo.returnLastId();
-
-    for (int i = 0; i < amount; i++) {
-      if (UnitInfo.all[i] != null) {
-        UnitInfo.all[i].loadUnitInfo();
-        ;
-        Log.info("已加载" + UnitInfo.all[i]);
-      }
+    String[] load = Core.settings.getJson("unitinfo.jsonkeys", String[].class, () -> new String[UnitInfo.loadLastId()]);
+    UnitInfo.jsonKeys.addAll(load);
+    for (var k : UnitInfo.jsonKeys) {
+      UnitInfo.loadUnitInfo(k);
     }
   }
 }

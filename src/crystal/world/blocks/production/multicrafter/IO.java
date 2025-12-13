@@ -11,26 +11,19 @@ import mindustry.type.Liquid;
 import mindustry.type.LiquidStack;
 
 public class IO {
-  public ItemStack[] items;
-  public LiquidStack[] liquids;
-  public float power;
-  public float heat;
-  public float crystal;
-  public ObjectSet<Item> itemsSet;
-  public ObjectSet<Liquid> liquidSet;
+  public ItemStack[] items = ItemStack.empty;
+  public LiquidStack[] liquids = LiquidStack.empty;
+  public float power = 0f;
+  public float heat = 0f;
+  public float crystal = 0f;
+  public ObjectSet<Item> itemsSet = new ObjectSet<>();
+  public ObjectSet<Liquid> liquidSet = new ObjectSet<>();
   @Nullable
   public Prov<TextureRegion> icon;
   @Nullable
   public Color iconColor;
 
   public IO(ItemStack[] items, LiquidStack[] liquids, float power, float crystal, float heat) {
-    this.items = ItemStack.with(new Object[0]);
-    this.liquids = new LiquidStack[0];
-    this.power = 0.0f;
-    this.heat = 0.0f;
-    this.crystal = 0.0f;
-    this.itemsSet = new ObjectSet<>();
-    this.liquidSet = new ObjectSet<>();
     this.items = items;
     this.liquids = liquids;
     this.power = power;
@@ -55,16 +48,9 @@ public class IO {
   }
 
   public IO() {
-    this.items = ItemStack.with(new Object[0]);
-    this.liquids = new LiquidStack[0];
-    this.power = 0.0f;
-    this.heat = 0.0f;
-    this.crystal = 0.0f;
-    this.itemsSet = new ObjectSet<>();
-    this.liquidSet = new ObjectSet<>();
   }
 
-  public void getSet() {
+  public void cacheUnique() {
     for (ItemStack item : items) {
       itemsSet.add(item.item);
     }

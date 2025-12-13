@@ -12,6 +12,7 @@ public class CStat {
   public static final Stat length;
   public static final Stat reducepercent;
   public static final Stat consumeCrystalE;
+  public static final Stat produceCrystal;
   public static final Stat MaxCrystalE;
   public static final Stat insideCrystalE;;
   public static final Stat hasCrystal;
@@ -31,6 +32,7 @@ public class CStat {
     consumeCrystalE = new Stat("consumeCrystalE", CStatCat.crystal);
     MaxCrystalE = new Stat("MaxCrystalE", CStatCat.crystal);
     insideCrystalE = new Stat("insideCrystalE", CStatCat.crystal);
+    produceCrystal = new Stat("produceCrystal", CStatCat.crystal);
     healpercent = new Stat("healpercent", StatCat.function);
     dependbuild = new Stat("dependbuild", CStatCat.depend);
     dependfloor = new Stat("dependfloor", CStatCat.depend);

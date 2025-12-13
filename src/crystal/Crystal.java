@@ -3,27 +3,31 @@ package crystal;
 import arc.Core;
 import arc.Events;
 import arc.graphics.Color;
+import arc.math.geom.Intersector;
+import arc.math.geom.Vec2;
 import arc.struct.Seq;
 import arc.util.Log;
+import crystal.content.CBlocks;
+import crystal.content.CIcons;
+import crystal.content.CItems;
 import crystal.content.CPlanets;
+import crystal.content.CTechTree;
+import crystal.content.CUnits;
 import crystal.core.UnitInfoSystem;
 import crystal.game.UnitInfo;
-import crystal.game.UnitInfoFileStorage;
 import crystal.ui.TimeControl;
+import crystal.world.blocks.environment.DamageFloor;
 import mindustry.Vars;
-import mindustry.ctype.ContentType;
 import mindustry.game.EventType.ClientLoadEvent;
 import mindustry.game.EventType.Trigger;
 import mindustry.mod.Mod;
 import mindustry.type.Sector;
-import mindustry.type.SectorPreset;
 import mindustry.ui.dialogs.BaseDialog;
 
 public class Crystal extends Mod {
   public static BaseDialog welcomeDialog;
   public static final String scqq = "http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=Rrju8RLWbsJstJ3rcJxWyrtop4u7uRb9&authKey=gdngZkPeYxZPhYTmjQUTjPos%2FJKckD02YSFnYLmdVojPZIzZw1T%2FbtubSoyuw2LA&noverify=0&group_code=756820891";
   public static int timer = 0;
-  Seq<SectorPreset> sectorpresets = Vars.content.getBy(ContentType.sector);
   Seq<Sector> sectors = new Seq<>();
 
   public Crystal() {
@@ -36,33 +40,48 @@ public class Crystal extends Mod {
   @Override
   public void loadContent() {
     Log.info("Start to Load Contents");
-    Test.load();
+    CItems.load();
+    CUnits.load();
+    CBlocks.load();
+    if (CVars.debug)
+      Test.load();
     CPlanets.load();
-    TimeControl.load();
-    Log.info("hava loaded all");
+    CTechTree.load();
+    // TimeControl.load();
+    Log.info("Have Loaded All Contents!");
   }
 
   public void constructor() {
-    UnitInfoFileStorage.loadAll();
-    loadlog();
+    /*
+     * UnitInfo.loadArray();
+     * try {
+     * for (var u : UnitInfo.all) {
+     * if (u != null)
+     * Log.info("id+" + u.id + "  sector " + u.getBoundSector());
+     * }
+     * } catch (Exception e) {
+     * Log.err("loadarray出错", e);
+     * }
+     */
+    // UnitInfoFileStorage.loadAll();
+    if (CVars.debug)
+      loadlog();
     UnitInfoSystem.loadUnitInfo();
     showwelcome();
-    Log.info("运行checkallsector");
+    if (CVars.debug)
+      Log.info("运行checkallsector");
     UnitInfoSystem.checkAllSector();
     UnitInfoSystem.saveUnitInfo();
-    UnitInfoFileStorage.saveAll();
-    Log.info("运行checkallsector结束");
+    if (CVars.debug)
+      Log.info("运行checkallsector结束");
+    if (CVars.debug)
+      test();
   }
 
   public void loadlog() {
     for (var preset : UnitInfo.all) {
       if (preset != null)
         sectors.add(preset.getBoundSector());
-    }
-    Log.info("开始遍历sectors");
-    for (var u : UnitInfo.all) {
-      if (u != null)
-        Log.info("id+" + u.id + "  sector " + u.getBoundSector());
     }
     Log.info("");
     for (var u : sectors) {
@@ -73,6 +92,7 @@ public class Crystal extends Mod {
   @Override
   public void init() {
     CVars.cui.init();
+    CIcons.load();
     replaceUI();
     Events.run(Trigger.update, () -> {
       update();
@@ -83,6 +103,7 @@ public class Crystal extends Mod {
   public void update() {
     timer++;
     UnitInfoSystem.update();
+    DamageFloor.update();
   }
 
   public void replaceUI() {
@@ -120,6 +141,15 @@ public class Crystal extends Mod {
       }).color(Color.valueOf("#556352")).size(120.0f, 50.0f);
     }).pad(3f).row();
     welcomeDialog.show();
+  }
+
+  public void test() {
+    Seq<Vec2> t = new Seq<>();
+    t.addAll(new Vec2(1, 1), new Vec2(1, 2));
+    boolean b1 = Intersector.isInPolygon(t, new Vec2(1, 1));
+    Log.info("boolean1" + b1);
+    boolean b2 = Intersector.isInPolygon(t, new Vec2(-1, -1));
+    Log.info("boolean2" + b2);
   }
 
   public void closeMod(String name) {
