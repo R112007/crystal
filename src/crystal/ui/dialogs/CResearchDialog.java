@@ -559,7 +559,7 @@ public class CResearchDialog extends BaseDialog {
          CResearchDialog.this.treeLayout();
          this.rebuild();
          Core.scene.act();
-         Sounds.unlock.play();
+         Sounds.uiUnlock.play();
          Events.fire(new EventType.ResearchEvent(node.content));
       }
 

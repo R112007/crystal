@@ -1,0 +1,45 @@
+package crystal.world.meta;
+
+import arc.Events;
+import arc.util.Log;
+import crystal.CVars;
+import crystal.Crystal;
+import crystal.world.blocks.environment.SpawnBossFloor;
+import mindustry.Vars;
+import mindustry.game.EventType.Trigger;
+import mindustry.maps.Map;
+import mindustry.world.meta.BuildVisibility;
+
+public class CBuildVisibility {
+  public static final BuildVisibility leadFindFloor = new BuildVisibility(
+      () -> Vars.state.rules.sector.save != null
+          && Vars.state.rules.sector.isCaptured() && Vars.state.getSector().hasBase());
+
+  public static void updateBool() {
+    Runnable[] rebuild = { null };
+    Map[] lastMap = { null };
+    rebuild[0] = () -> {
+      if (Vars.state.isGame()) {
+        var floors = Vars.content.blocks()
+            .select(block -> ((block instanceof SpawnBossFloor) && Vars.indexer.isBlockPresent(block)));
+        if (floors.any()) {
+          if (CVars.debug && Crystal.timer % 120 == 0) {
+            Log.info("有spawnfloor");
+          }
+        } else {
+          if (CVars.debug && Crystal.timer % 120 == 0) {
+            Log.info("没有spawnfloor");
+          }
+        }
+      }
+    };
+    rebuild[0].run();
+    Events.run(Trigger.update, () -> {
+      Map current = Vars.state.isGame() ? Vars.state.map : null;
+      if (current != lastMap[0]) {
+        rebuild[0].run();
+        lastMap[0] = current;
+      }
+    });
+  }
+}

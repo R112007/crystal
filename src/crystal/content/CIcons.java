@@ -8,7 +8,7 @@ public class CIcons {
   public static TextureRegionDrawable crystalCore;
 
   public static void load() {
-    crystalCore = atlas.getDrawable("sc-crystal-core");
+    crystalCore = atlas.getDrawable("crystal-crystal-core");
     icons.put("crystalCore", crystalCore);
   }
 }

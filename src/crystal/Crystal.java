@@ -3,115 +3,184 @@ package crystal;
 import arc.Core;
 import arc.Events;
 import arc.graphics.Color;
-import arc.math.geom.Intersector;
-import arc.math.geom.Vec2;
+import arc.math.Mathf;
 import arc.struct.Seq;
 import arc.util.Log;
+import arc.util.Time;
 import crystal.content.CBlocks;
+import crystal.content.CEnvironment;
 import crystal.content.CIcons;
 import crystal.content.CItems;
 import crystal.content.CPlanets;
-import crystal.content.CTechTree;
 import crystal.content.CUnits;
+import crystal.content.CrystalTechTree;
+import crystal.content.GongFas;
+import crystal.content.MuchLoadUnit;
+import crystal.content.hzr.HZRBlocks;
+import crystal.core.CSettings;
+import crystal.core.PlayerXiuWeiSystem;
 import crystal.core.UnitInfoSystem;
+import crystal.entities.shentong.FaTianXiangDi;
+import crystal.entities.shentong.ShenTong;
+import crystal.entities.units.MultiStageMechUnit;
+import crystal.entities.units.SummonUnit;
+import crystal.game.GongFaObjectives;
 import crystal.game.UnitInfo;
-import crystal.ui.TimeControl;
+import crystal.game.CEventType.MapChangeEvent;
+import crystal.game.CEventType.SectorChangeEvent;
+import crystal.gen.EntityRegistry;
+import crystal.ui.CStyles;
+import crystal.ui.dialogs.CPlanetDialog;
+import crystal.util.DLog;
 import crystal.world.blocks.environment.DamageFloor;
+import crystal.world.blocks.payloads.UnitLaunchPayload;
 import mindustry.Vars;
+import mindustry.content.Items;
+import mindustry.content.SectorPresets;
+import mindustry.game.Objectives;
 import mindustry.game.EventType.ClientLoadEvent;
 import mindustry.game.EventType.Trigger;
+import mindustry.gen.EntityMapping;
+import mindustry.maps.Map;
 import mindustry.mod.Mod;
+import mindustry.type.ItemStack;
 import mindustry.type.Sector;
 import mindustry.ui.dialogs.BaseDialog;
+import mindustry.ui.dialogs.PlanetDialog;
+
+import static mindustry.Vars.*;
+import static crystal.content.GongFaTechTree.*;
 
 public class Crystal extends Mod {
   public static BaseDialog welcomeDialog;
   public static final String scqq = "http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=Rrju8RLWbsJstJ3rcJxWyrtop4u7uRb9&authKey=gdngZkPeYxZPhYTmjQUTjPos%2FJKckD02YSFnYLmdVojPZIzZw1T%2FbtubSoyuw2LA&noverify=0&group_code=756820891";
   public static int timer = 0;
+  public static Sector hereSector = null;
+  public static Map hereMap = null;
   Seq<Sector> sectors = new Seq<>();
+  static {
+    registerEntity();
+  }
 
   public Crystal() {
     Log.info("Start to Loaded Crystal Mod Constructor.");
-    Events.on(ClientLoadEvent.class, e -> {
-      constructor();
-    });
   }
 
   @Override
   public void loadContent() {
     Log.info("Start to Load Contents");
+    registerShenTongs();
+    EntityRegistry.register();
+    CStyles.load();
     CItems.load();
+    CEnvironment.load();
     CUnits.load();
     CBlocks.load();
+    HZRBlocks.load();
     if (CVars.debug)
       Test.load();
     CPlanets.load();
-    CTechTree.load();
-    // TimeControl.load();
+    try {
+      MuchLoadUnit.load();
+    } catch (IllegalAccessException e) {
+      throw new RuntimeException(e);
+    }
+    loadGongFaTechTree();
+    CrystalTechTree.load();
     Log.info("Have Loaded All Contents!");
   }
 
   public void constructor() {
-    /*
-     * UnitInfo.loadArray();
-     * try {
-     * for (var u : UnitInfo.all) {
-     * if (u != null)
-     * Log.info("id+" + u.id + "  sector " + u.getBoundSector());
-     * }
-     * } catch (Exception e) {
-     * Log.err("loadarray出错", e);
-     * }
-     */
-    // UnitInfoFileStorage.loadAll();
     if (CVars.debug)
       loadlog();
-    UnitInfoSystem.loadUnitInfo();
     showwelcome();
+  }
+
+  public void registerShenTongs() {
+    ShenTong.shengTongMap.clear();
+    ShenTong.shengTongMap.put(0, new FaTianXiangDi(0, 0, 0, 0));
+  }
+
+  public void loadlog() {
+  }
+
+  @Override
+  public void init() {
+    UnitInfoSystem.init();
+    UnitInfoSystem.loadUnitInfo();
     if (CVars.debug)
       Log.info("运行checkallsector");
     UnitInfoSystem.checkAllSector();
     UnitInfoSystem.saveUnitInfo();
     if (CVars.debug)
       Log.info("运行checkallsector结束");
-    if (CVars.debug)
-      test();
-  }
-
-  public void loadlog() {
-    for (var preset : UnitInfo.all) {
-      if (preset != null)
-        sectors.add(preset.getBoundSector());
-    }
-    Log.info("");
-    for (var u : sectors) {
-      Log.info("id+" + u.id + "  sector " + u + " " + u.name());
-    }
-  }
-
-  @Override
-  public void init() {
+    PlayerXiuWeiSystem.init();
+    Events.on(ClientLoadEvent.class, e -> {
+      constructor();
+    });
+    CVars.register();
     CVars.cui.init();
     CIcons.load();
+    CSettings.load();
     replaceUI();
     Events.run(Trigger.update, () -> {
       update();
     });
-    UnitInfoSystem.init();
+    SummonUnit.init();
   }
 
   public void update() {
-    timer++;
+    timer += Time.delta;
     UnitInfoSystem.update();
     DamageFloor.update();
+    updateSector();
+    updateMap();
+    FaTianXiangDi.faShens.update();
+  }
+
+  public void updateSector() {
+    if (Vars.state.getSector() != null && Vars.state.getSector() != hereSector) {
+      Events.fire(new SectorChangeEvent(Vars.state.getSector()));
+      hereSector = Vars.state.getSector();
+    }
+  }
+
+  public void updateMap() {
+    if (Vars.state.map != null && Vars.state.map != hereMap) {
+      Events.fire(new MapChangeEvent(Vars.state.map));
+      hereMap = Vars.state.map;
+    }
   }
 
   public void replaceUI() {
     Events.on(ClientLoadEvent.class, (e) -> {
       Events.run(Trigger.update, () -> {
-        if (Vars.ui.planet.isShown()) {
+        if (Vars.ui.planet.isShown() && Vars.ui.planet.mode == PlanetDialog.Mode.look) {
+          DLog.info("planet为look模式");
           Vars.ui.planet.hide();
           if (!CVars.cui.cplanet.isShown()) {
+            CVars.cui.cplanet.mode = CPlanetDialog.Mode.look;
+            CVars.cui.cplanet.show();
+          }
+        } else if (Vars.ui.planet.isShown() && Vars.ui.planet.mode == PlanetDialog.Mode.select) {
+          DLog.info("planet为select模式");
+          Vars.ui.planet.hide();
+          if (!CVars.cui.cplanet.isShown()) {
+            CVars.cui.cplanet.showSelect(state.rules.sector, other -> {
+              if (state.isCampaign() && other.planet == state.rules.sector.planet) {
+                var prev = state.rules.sector.info.destination;
+                state.rules.sector.info.destination = other;
+                if (prev != null) {
+                  prev.info.refreshImportRates(state.getPlanet());
+                }
+              }
+            });
+          }
+        } else if (Vars.ui.planet.isShown() && Vars.ui.planet.mode == PlanetDialog.Mode.planetLaunch) {
+          DLog.info("planet为planetlaunch模式");
+          Vars.ui.planet.hide();
+          if (!CVars.cui.cplanet.isShown()) {
+            CVars.cui.cplanet.mode = CPlanetDialog.Mode.planetLaunch;
             CVars.cui.cplanet.show();
           }
         }
@@ -143,19 +212,67 @@ public class Crystal extends Mod {
     welcomeDialog.show();
   }
 
-  public void test() {
-    Seq<Vec2> t = new Seq<>();
-    t.addAll(new Vec2(1, 1), new Vec2(1, 2));
-    boolean b1 = Intersector.isInPolygon(t, new Vec2(1, 1));
-    Log.info("boolean1" + b1);
-    boolean b2 = Intersector.isInPolygon(t, new Vec2(-1, -1));
-    Log.info("boolean2" + b2);
+  public static void registerEntity() {
+    EntityMapping.idMap[51] = MultiStageMechUnit::create;
+    EntityMapping.nameMap.put("crystal-multistagemechunit", EntityMapping.idMap[51]);
+    EntityMapping.idMap[53] = UnitLaunchPayload::create;
+    EntityMapping.nameMap.put("crystal-unitLaunchPayload", EntityMapping.idMap[53]);
   }
 
   public void closeMod(String name) {
     Events.on(ClientLoadEvent.class, (e) -> {
       if (Vars.mods.getMod(name) != null)
         Vars.mods.removeMod(Vars.mods.getMod(name));
+    });
+  }
+
+  public void loadGongFaTechTree() {
+    // 根节点：基础道基（0阶，默认解锁）
+    nodeRoot(GongFas.none, ItemStack.empty, () -> {
+      // 主线：太玄天宫1-3阶（线性解锁）
+      node(GongFas.taiXuanTianGong1, ItemStack.with(Items.copper, 100, Items.lead, 50), () -> {
+        node(GongFas.taiXuanTianGong2, ItemStack.with(Items.copper, 200, Items.lead, 100, Items.titanium, 50), () -> {
+          node(GongFas.taiXuanTianGong3, ItemStack.with(Items.thorium, 100),
+              Seq.with(new Objectives.SectorComplete(SectorPresets.frozenForest)),
+              () -> {
+                // ========== 核心：4阶平行境界分支 ==========
+                // 分支1：心煌线（4阶）
+                node(GongFas.xinHuang, ItemStack.with(Items.silicon, 200),
+                    // 互斥：解锁了古煌就不能走心煌线，二选一
+                    Seq.with(new GongFaObjectives.GongFaExclusive(GongFas.guHuang)),
+                    () -> {
+                      // 心煌线进阶：5阶心尊
+                      node(GongFas.xinZun, ItemStack.with(Items.plastanium, 300), () -> {
+                      });
+                    });
+
+                // 分支2：古煌线（4阶，平行境界，同ID）
+                node(GongFas.guHuang, ItemStack.with(Items.metaglass, 200),
+                    // 互斥：解锁了心煌就不能走古煌线
+                    Seq.with(new GongFaObjectives.GongFaExclusive(GongFas.xinHuang)),
+                    () -> {
+                      // 古煌线进阶：5阶古尊
+                      node(GongFas.guZun, ItemStack.with(Items.phaseFabric, 300), () -> {
+                      });
+                    });
+              });
+        });
+      });
+
+      // ========== 跨分支境界解锁：阴阳功法 ==========
+      // 只要达到4阶（不管心煌还是古煌，任意一个解锁即可），就能解锁阴阳功法
+      node(GongFas.yinYang1, ItemStack.with(Items.surgeAlloy, 150),
+          Seq.with(new GongFaObjectives.GongFaRealmReach(4, "金丹境")),
+          () -> {
+            node(GongFas.yinYang2, ItemStack.with(Items.surgeAlloy, 300), () -> {
+            });
+          });
+
+      // 后续高阶功法，以此类推
+      node(GongFas.yuHua, ItemStack.with(Items.phaseFabric, 500),
+          Seq.with(new GongFaObjectives.GongFaRealmReach(5, "元婴境")),
+          () -> {
+          });
     });
   }
 }

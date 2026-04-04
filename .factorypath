@@ -1,4 +1,16 @@
 <factorypath>
-    <factorypathentry kind="EXTJAR" id="/root/.gradle/caches/modules-2/files-2.1/com.github.Anuken.Arc/arc-core/v154.2/eab90779c5f5fef581df964e4ceaf388e3ab6bad/arc-core-v154.2.jar" enabled="true" runInBatchMode="false"/>
-    <factorypathentry kind="EXTJAR" id="/root/.gradle/caches/modules-2/files-2.1/com.github.GglLfr.EntityAnno/downgrader/v149.0.0/ddefeb985d18c3ba1dbefdb8e02bcaf6f9446cde/downgrader-v149.0.0.jar" enabled="true" runInBatchMode="false"/>
+    <factorypathentry kind="EXTJAR" id="/root/crystal/res/CrystalDesktop.jar" enabled="true" runInBatchMode="false"/>
+    <factorypathentry kind="EXTJAR" id="/root/.gradle/caches/modules-2/files-2.1/com.github.Anuken.Arc/arc-core/v156.2/2d6315df4a760ab97f632f417b3dc0ddb18c96f/arc-core-v156.2.jar" enabled="true" runInBatchMode="false"/>
+    <factorypathentry kind="EXTJAR" id="/root/crystal/res/downgrader.jar" enabled="true" runInBatchMode="false"/>
+    <factorypathentry kind="EXTJAR" id="/root/.gradle/caches/modules-2/files-2.1/com.squareup/javapoet/1.13.0/d6562d385049f35eb50403fa86bb11cce76b866a/javapoet-1.13.0.jar" enabled="true" runInBatchMode="false"/>
+    <factorypathentry kind="EXTJAR" id="/root/crystal/res/entity.jar" enabled="true" runInBatchMode="false"/>
+    <factorypathentry kind="EXTJAR" id="/root/.gradle/caches/modules-2/files-2.1/com.github.Anuken/rhino/54b75cbd1207ef1fd5cff517cbd188e763c85baa/a0856f75fc38f9794151724da8e662d59c7b65a0/rhino-54b75cbd1207ef1fd5cff517cbd188e763c85baa.jar" enabled="true" runInBatchMode="false"/>
+    <factorypathentry kind="EXTJAR" id="/root/.gradle/caches/modules-2/files-2.1/com.github.Anuken.Arc/g3d/v156.2/12e56aac572588da1ddd6681caf99101ee75d032/g3d-v156.2.jar" enabled="true" runInBatchMode="false"/>
+    <factorypathentry kind="EXTJAR" id="/root/.gradle/caches/modules-2/files-2.1/com.github.Anuken.Arc/packer/v156.2/c74c01bce26ad21bf40b61e62e41a3089d409336/packer-v156.2.jar" enabled="true" runInBatchMode="false"/>
+    <factorypathentry kind="EXTJAR" id="/root/.gradle/caches/modules-2/files-2.1/com.github.Anuken.Arc/arcnet/v156.2/79877c7ca31eeee54d4c3b95878fa1ad49e91711/arcnet-v156.2.jar" enabled="true" runInBatchMode="false"/>
+    <factorypathentry kind="EXTJAR" id="/root/.gradle/caches/modules-2/files-2.1/at.yawk.lz4/lz4-java/1.10.2/1df182cf1b030e347c81ca8768c24dab414a04d8/lz4-java-1.10.2.jar" enabled="true" runInBatchMode="false"/>
+    <factorypathentry kind="EXTJAR" id="/root/.gradle/caches/modules-2/files-2.1/com.github.Anuken.Arc/freetype/v156.2/8956f6e55568c01900fbd3b17766816eb4b182/freetype-v156.2.jar" enabled="true" runInBatchMode="false"/>
+    <factorypathentry kind="EXTJAR" id="/root/.gradle/caches/modules-2/files-2.1/com.github.Anuken.Mindustry/core/v156.2/f752463fc4f479d67c62af4e20e56d74c9a922b4/core-v156.2.jar" enabled="true" runInBatchMode="false"/>
+    <factorypathentry kind="EXTJAR" id="/root/.gradle/caches/modules-2/files-2.1/com.github.Anuken.Arc/fx/v156.2/12ad47e8b82c12af09d37e27dd5925bab763cb7f/fx-v156.2.jar" enabled="true" runInBatchMode="false"/>
+    <factorypathentry kind="EXTJAR" id="/root/.gradle/caches/modules-2/files-2.1/com.github.Anuken.Arc/flabel/v156.2/ddffbf8a4582ca44d8fb9213199c90832ef7a8cf/flabel-v156.2.jar" enabled="true" runInBatchMode="false"/>
 </factorypath>

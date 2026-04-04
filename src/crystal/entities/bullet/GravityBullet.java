@@ -3,6 +3,7 @@ package crystal.entities.bullet;
 import arc.math.geom.Vec2;
 import arc.util.Nullable;
 import arc.util.Time;
+import crystal.util.CTmp;
 import mindustry.entities.Units;
 import mindustry.entities.bullet.BasicBulletType;
 import mindustry.gen.Bullet;
@@ -55,7 +56,8 @@ public class GravityBullet extends BasicBulletType {
   }
 
   private void moveEnemyToBulletSmoothly(Unit enemyEntity, Vec2 bulletPos, float moveSpeed, Bullet bullet) {
-    if (!bullet.isAdded() || bullet.hit()) {
+    float inner = CTmp.v3.set(enemyEntity.x - bullet.x, enemyEntity.y - bullet.y).len();
+    if (!bullet.isAdded() || bullet.hit() || inner <= 8) {
       enemyEntity.vel.setZero(); // 子弹消失，敌人停止运动
       return;
     }

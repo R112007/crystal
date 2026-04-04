@@ -10,6 +10,7 @@ public class CPal {
   public static Color blue2;
   public static Color dark_blue2;
   public static Color light_sharedyellow, sharedyellow, dark_sharedyellow;
+  public static Color magicColor1;
 
   static {
     CPal.light_blue1 = Color.valueOf("#99F8FFFF");
@@ -21,5 +22,6 @@ public class CPal {
     CPal.light_sharedyellow = Color.valueOf("#FFE18FFF");
     CPal.sharedyellow = Color.valueOf("#F8C266FF");
     CPal.dark_sharedyellow = Color.valueOf("#DE9458FF");
+    magicColor1 = Color.valueOf("#AE00FFFF");
   }
 }

@@ -165,6 +165,7 @@ public class LinkWall extends Wall {
       for (var b : links) {
         b.updateConnectedBuildings();
       }
+      super.remove();
     }
 
     @Override

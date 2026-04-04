@@ -28,34 +28,46 @@ public class CrystalConsumer implements CrystalInterface {
 
   @Override
   public void update(Building entity) {
-    Log.info(tick + "tick");
-    Log.info(efficiency + "efficiency");
-    if (crystalSaver < 0f)
-      crystalSaver = 0f;
-    if (crystalSaver > crystalCapacity)
-      crystalSaver = crystalCapacity;
-    if (tick <= 0 && crystalSaver <= 0)
-      efficiency = 0;
-    if (tick > consumeCrystal && crystalSaver < crystalCapacity && canConsume(entity)) {
-      crystalSaver += (tick - consumeCrystal);
-      Log.info("level1");
-    } else if (tick > consumeCrystal && crystalSaver < crystalCapacity && !canConsume(entity)) {
-      crystalSaver += tick;
-      Log.info("level2");
-    }
-    if (canConsume(entity)) {
-      if (tick < consumeCrystal && crystalSaver > 0f) {
-        Log.info("level3");
-        crystalSaver -= (consumeCrystal - tick);
+    tick += 1f;
+    float required = consumeCrystal;
+    boolean canWork = canConsume(entity);
+
+    // 2. 先处理储蓄上限
+    crystalSaver = Math.min(crystalSaver, crystalCapacity);
+
+    // 3. 核心消耗逻辑：工作时才消耗tick，不工作时不积累也不消耗
+    if (canWork) {
+      if (tick >= required) {
+        // tick足够，直接消耗，多余的存入储蓄
+        float excess = tick - required;
+        if (crystalSaver < crystalCapacity) {
+          crystalSaver += excess;
+          crystalSaver = Math.min(crystalSaver, crystalCapacity);
+        }
         efficiency = 1f;
-      } else if (tick < consumeCrystal && crystalSaver <= 0f) {
-        Log.info("level4");
-        efficiency = tick / consumeCrystal;
-      } else if (tick > consumeCrystal) {
-        Log.info("level5");
-        efficiency = 1f;
+        tick = 0f; // 消耗后重置tick
+      } else {
+        // tick不足，尝试用储蓄补足
+        float deficit = required - tick;
+        if (crystalSaver >= deficit) {
+          // 储蓄足够，补足缺口
+          crystalSaver -= deficit;
+          efficiency = 1f;
+          tick = 0f;
+        } else {
+          // 储蓄不足，按比例计算效率
+          efficiency = (tick + crystalSaver) / required;
+          crystalSaver = 0f;
+          tick = 0f; // 用完所有tick和储蓄，重置
+        }
       }
+    } else {
+      // 不工作时，重置tick，不积累储蓄
+      tick = 0f;
+      // 可选：不工作时缓慢消耗储蓄，或保持不变，根据需求调整
     }
+
+    Log.info("tick: {}, efficiency: {}, crystalSaver: {}", tick, efficiency, crystalSaver);
   }
 
   public boolean canConsume(Building entity) {

@@ -53,7 +53,7 @@ abstract class ShieldBuilderComp implements Unitc {
   transient BuildPlan currentPlan;
   public boolean drawArc = true;
   protected static Vec2 paramPos = new Vec2();
-  protected Cons<Bullet> bulletc;
+  protected static transient Cons<Bullet> bulletc;
 
   @Override
   public void setType(UnitType type) {

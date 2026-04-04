@@ -3,8 +3,10 @@ package crystal.content;
 import arc.graphics.Color;
 import crystal.graphics.CPal;
 import mindustry.content.Fx;
+import mindustry.content.StatusEffects;
 import mindustry.entities.bullet.BasicBulletType;
 import mindustry.entities.bullet.BulletType;
+import mindustry.entities.bullet.MissileBulletType;
 import mindustry.entities.bullet.ShrapnelBulletType;
 import mindustry.entities.part.HaloPart;
 import mindustry.entities.part.ShapePart;
@@ -73,7 +75,7 @@ public class CBullets {
   };
   public static BulletType taichu1 = new BasicBulletType(5.0f, 28f) {
     {
-      this.splashDamage = 58;
+      this.splashDamage = 25;
       this.splashDamageRadius = 12f;
       this.width = 7f;
       this.height = 14f;
@@ -84,15 +86,44 @@ public class CBullets {
       this.frontColor = CPal.blue1;
       this.hitEffect = this.despawnEffect = Fx.smokeCloud;
     }
-  };;
+  };
   public static BulletType taichu2 = new ShrapnelBulletType() {
     {
-      this.damage = 48;
+      this.damage = 26;
       this.length = 138;
       this.reloadMultiplier = 1.5f;
       this.ammoMultiplier = 3;
       this.knockback = 0.8f;
       this.toColor = Color.valueOf("#79C5C5FF");
     }
-  };;
+  };
+  public static BulletType tuxibullet1 = new MissileBulletType(8f, 25, "missile-large") {
+    {
+      this.lifetime = 240f / 8f + 5f;
+      this.splashDamage = 30;
+      this.splashDamageRadius = 12.5f;
+      this.height = 11f;
+    }
+  };
+  public static BulletType tuxibullet2 = new MissileBulletType(8f, 12f, "missile-large") {
+    {
+      this.lifetime = 240f / 8f + 5f;
+      this.splashDamage = 26;
+      this.splashDamageRadius = 16.5f;
+      this.status = StatusEffects.burning;
+      this.frontColor = Color.valueOf("#EC4848FF");
+      this.backColor = Color.valueOf("#B91515FF");
+      this.height = 11f;
+    }
+  };
+  public static BulletType tuxibullet3 = new MissileBulletType(8f, 20f, "missile-large") {
+    {
+      this.lifetime = 240f / 8f + 5f;
+      this.splashDamage = 36;
+      this.splashDamageRadius = 12.5f;
+      // this.status = SCStatusEffects.duanlu;
+      this.frontColor = CPal.light_blue1;
+      this.height = 11f;
+    }
+  };
 }

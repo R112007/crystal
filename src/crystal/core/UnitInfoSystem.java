@@ -35,6 +35,7 @@ public class UnitInfoSystem {
     Events.on(GameOverEvent.class, e -> {
       if (e.winner != Vars.player.team()) {
         Sector currentSector = Vars.state.rules.sector;
+      if (UnitInfo.get(currentSector) != null)
         UnitInfo.get(currentSector).clear();
       }
     });

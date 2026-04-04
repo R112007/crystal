@@ -2,6 +2,7 @@ package crystal.content;
 
 import arc.graphics.Color;
 import crystal.graphics.CPal;
+import crystal.map.planet.GreenPlanetGenerator;
 import crystal.map.planet.LxPlanetGenerator;
 import mindustry.game.Team;
 import mindustry.graphics.g3d.HexMesh;
@@ -45,8 +46,8 @@ public class CPlanets {
     CPlanets.lx = new Planet("lx", csun, 1.3f, 3) {
       {
         loadPlanetData = true;
-        orbitRadius = 45f;
-        generator = new LxPlanetGenerator();
+        generator = new GreenPlanetGenerator();
+        // generator = new LxPlanetGenerator();
         meshLoader = () -> new HexMesh(this, 6);
         cloudMeshLoader = () -> new MultiMesh(
             new HexSkyMesh(this, 11, 0.15f, 0.13f, 5, new Color().set(Color.valueOf("#ffffff")).mul(0.9f).a(0.75f), 2,
@@ -55,15 +56,14 @@ public class CPlanets {
             new HexSkyMesh(this, 11, 0.15f, 0.13f, 5, new Color().set(CPal.light_blue1).mul(0.9f).a(0.75f), 2,
                 0.45f, 0.9f,
                 0.38f),
-            new HexSkyMesh(this, 1, 0.6f, 0.16f, 5, Color.white.cpy().lerp(Color.valueOf("#EAC3EF"), 0.55f).a(0.75f), 2,
+            new HexSkyMesh(this, 1, 0.6f, 0.16f, 5, Color.white.cpy().lerp(CPal.blue1, 0.55f).a(0.75f), 2,
                 0.45f, 1f,
                 0.41f));
         launchCapacityMultiplier = 0.7f;
         sectorSeed = 8888;
         allowWaves = true;
-        orbitRadius = 50;
+        orbitRadius = 60;
         allowLegacyLaunchPads = true;
-        allowWaveSimulation = true;
         allowSectorInvasion = true;
         allowLaunchSchematics = true;
         enemyCoreSpawnReplace = true;
@@ -81,7 +81,7 @@ public class CPlanets {
         atmosphereRadOut = 0.35f;
         startSector = 0;
         alwaysUnlocked = true;
-        bloom = true;
+        bloom = false;
         campaignRuleDefaults.showSpawns = true;
         updateLighting = true;
         allowSelfSectorLaunch = true;

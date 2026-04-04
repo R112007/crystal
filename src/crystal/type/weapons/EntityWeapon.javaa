@@ -1,0 +1,126 @@
+package crystal.type.weapons;
+
+import arc.math.geom.Position;
+import arc.util.Nullable;
+import mindustry.content.Blocks;
+import mindustry.core.World;
+import mindustry.entities.units.WeaponMount;
+import mindustry.game.Team;
+import mindustry.gen.Building;
+import mindustry.gen.Healthc;
+import mindustry.gen.Hitboxc;
+import mindustry.gen.Teamc;
+import mindustry.gen.Unit;
+import mindustry.type.Weapon;
+import mindustry.world.Block;
+import mindustry.world.Tile;
+import mindustry.world.blocks.environment.Floor;
+import mindustry.world.blocks.storage.CoreBlock.CoreBuild;
+
+import static mindustry.Vars.*;
+
+public class EntityWeapon extends Weapon implements Healthc, Teamc, Hitboxc {
+  public boolean destoryed = false;
+  public Team team = Team.derelict;
+
+  public EntityWeapon(String name) {
+    this.name = name;
+  }
+
+  public EntityWeapon() {
+    this("");
+  }
+
+  @Override
+  public void update(Unit unit, WeaponMount mount) {
+    if (destoryed)
+      return;
+    super.update(unit, mount);
+  }
+
+  public void set(float x, float y) {
+    this.x = x;
+    this.y = y;
+  }
+
+  public void set(Position pos) {
+    set(pos.getX(), pos.getY());
+  }
+
+  public void trns(float x, float y) {
+    set(this.x + x, this.y + y);
+  }
+
+  public void trns(Position pos) {
+    trns(pos.getX(), pos.getY());
+  }
+
+  public int tileX() {
+    return World.toTile(x);
+  }
+
+  public int tileY() {
+    return World.toTile(y);
+  }
+
+  /** Returns air if this unit is on a non-air top block. */
+  public Floor floorOn() {
+    Tile tile = tileOn();
+    return tile == null || tile.block() != Blocks.air ? (Floor) Blocks.air : tile.floor();
+  }
+
+  public Block blockOn() {
+    Tile tile = tileOn();
+    return tile == null ? Blocks.air : tile.block();
+  }
+
+  @Nullable
+  public Building buildOn() {
+    return world.buildWorld(x, y);
+  }
+
+  @Nullable
+  public Tile tileOn() {
+    return world.tileWorld(x, y);
+  }
+
+  public boolean onSolid() {
+    Tile tile = tileOn();
+    return tile == null || tile.solid();
+  }
+
+  @Override
+  public float getX() {
+    return x;
+  }
+
+  @Override
+  public float getY() {
+    return y;
+  }
+
+  public boolean cheating() {
+    return team.rules().cheat;
+  }
+
+  /** @return whether the center of this entity is visible to the viewing team. */
+  public boolean inFogTo(Team viewer) {
+    return this.team != viewer && !fogControl.isVisible(viewer, x, y);
+  }
+
+  @Nullable
+  public CoreBuild core() {
+    return team.core();
+  }
+
+  @Nullable
+  public CoreBuild closestCore() {
+    return state.teams.closestCore(x, y, team);
+  }
+
+  @Nullable
+  public CoreBuild closestEnemyCore() {
+    return state.teams.closestEnemyCore(x, y, team);
+  }
+
+}

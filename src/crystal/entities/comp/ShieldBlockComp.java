@@ -1,18 +1,27 @@
 package crystal.entities.comp;
 
+import arc.math.Angles;
+import arc.math.Mathf;
+import arc.math.geom.Vec2;
+import arc.util.Time;
+import arc.util.Tmp;
+import crystal.game.WaitTime;
+import crystal.type.BuildShieldUnitType;
+import arc.func.Cons;
+import arc.graphics.Color;
+import arc.graphics.g2d.Draw;
+import arc.graphics.g2d.Lines;
 import arc.graphics.g2d.TextureRegion;
 import ent.anno.Annotations.EntityComponent;
 import ent.anno.Annotations.Import;
 import ent.anno.Annotations.ReadOnly;
 import ent.anno.Annotations.Replace;
-import mindustry.game.Team;
-import mindustry.gen.Building;
-import crystal.game.WaitTime;
-import crystal.type.BuildShieldUnitType;
 import ent.anno.Annotations.SyncLocal;
 import mindustry.Vars;
 import mindustry.content.Fx;
 import mindustry.entities.units.BuildPlan;
+import mindustry.game.Team;
+import mindustry.gen.Building;
 import mindustry.gen.Bullet;
 import mindustry.gen.Groups;
 import mindustry.gen.Unitc;
@@ -20,17 +29,6 @@ import mindustry.graphics.Layer;
 import mindustry.type.UnitType;
 
 import static mindustry.Vars.*;
-
-import arc.func.Cons;
-import arc.graphics.Color;
-import arc.graphics.g2d.Draw;
-import arc.graphics.g2d.Lines;
-import arc.math.Angles;
-import arc.math.Mathf;
-import arc.math.geom.Vec2;
-import arc.util.Log;
-import arc.util.Time;
-import arc.util.Tmp;
 
 @EntityComponent
 abstract class ShieldBlockComp implements Unitc {
@@ -58,7 +56,7 @@ abstract class ShieldBlockComp implements Unitc {
   transient BuildPlan currentPlan;
   public boolean drawArc = true;
   protected static Vec2 paramPos = new Vec2();
-  protected Cons<Bullet> bulletc;
+  protected static transient Cons<Bullet> bulletc;
 
   @Override
   public void setType(UnitType type) {

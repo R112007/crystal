@@ -39,8 +39,8 @@ public class CrystalDrill extends Drill {
 
     @Override
     public void updateTile() {
-      super.updateTile();
       crycons.update(this);
+      super.updateTile();
     }
 
     @Override

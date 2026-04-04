@@ -1,13 +1,18 @@
 package crystal.world.blocks.defence.turrets;
 
+import arc.Events;
+import arc.scene.style.TextureRegionDrawable;
 import arc.scene.ui.layout.Table;
 import arc.struct.Seq;
 import arc.util.Nullable;
+import arc.util.Timer;
+import crystal.game.CEventType.GenerateBuild;
 import crystal.world.interfaces.LevelUpBuilding;
 import mindustry.Vars;
 import mindustry.content.Blocks;
 import mindustry.ctype.UnlockableContent;
 import mindustry.gen.Building;
+import mindustry.ui.Styles;
 import mindustry.world.Block;
 import mindustry.world.blocks.ItemSelection;
 import mindustry.world.blocks.defense.turrets.Turret;
@@ -23,7 +28,7 @@ public class LevelUpTurret extends Turret implements LevelUpBuilding {
     solid = true;
     update = true;
     configurable = true;
-    blocks.add(Blocks.duo, Blocks.arc);
+    blocks.add(Blocks.duo, Blocks.arc, Blocks.graphitePress);
     config(Block.class, (LevelUpTurretBuild build, Block block) -> {
       if (canProduce(block, this.size) && build.config != block) {
         build.config = block;
@@ -59,9 +64,14 @@ public class LevelUpTurret extends Turret implements LevelUpBuilding {
 
     @Override
     public void buildConfiguration(Table table) {
-      ItemSelection.buildTable(LevelUpTurret.this, table,
-          content.blocks().select(b -> blocks.contains(b)).<UnlockableContent>as(),
-          () -> (UnlockableContent) config(), this::configure, selectionRows, selectionColumns);
+      for (var b : blocks) {
+        TextureRegionDrawable reg = new TextureRegionDrawable();
+        reg.set(b.uiIcon);
+        table.button(reg, Styles.cleari, () -> {
+          Events.fire(new GenerateBuild(b, this.tile, this.team, (byte) this.rotation));
+          kill();
+        }).size(40f);
+      }
     }
   }
 }

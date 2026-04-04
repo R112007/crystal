@@ -37,7 +37,7 @@ public class Tree {
   public static TechNode node(UnlockableContent content, ItemStack[] requirements, Seq<Objective> objectives,
       Runnable children) {
     if (content == null) {
-      throw new Error(content + " is null!");
+      throw new NullPointerException(content + " is null!");
     }
     TechNode node = new TechNode(context, content, requirements);
     if (objectives != null) {
@@ -77,5 +77,15 @@ public class Tree {
 
   public static @Nullable TechNode context() {
     return context;
+  }
+
+  public static void addNode(UnlockableContent content, UnlockableContent child) {
+    context = TechTree.all.find(t -> t.content == content);
+    TechNode node = new TechNode(null, child, child.researchRequirements());
+    if (!context.children.contains(node)) {
+      context.children.add(node);
+    }
+    node.parent = context;
+    node.planet = context.planet;
   }
 }
