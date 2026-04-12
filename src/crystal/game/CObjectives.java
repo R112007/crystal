@@ -3,6 +3,7 @@ package crystal.game;
 import arc.Core;
 import arc.func.Boolp;
 import crystal.CVars;
+import crystal.entities.units.UnitEnum.JingJie;
 import crystal.entities.units.UnitEnum.XiuWei;
 import mindustry.ctype.UnlockableContent;
 import mindustry.game.Objectives.Objective;
@@ -31,26 +32,26 @@ public class CObjectives {
     }
   }
 
-  public static class ArchieveXiuWei implements Objective {
-    public XiuWei xiuWei;
+  public static class ArchieveJingJie implements Objective {
+    public JingJie jingJie;
 
-    public ArchieveXiuWei(XiuWei xiuWei) {
-      this.xiuWei = xiuWei;
+    public ArchieveJingJie(JingJie jingJie) {
+      this.jingJie = jingJie;
     }
 
     @Override
     public boolean complete() {
-      return CVars.playerXiuWei.ordinal() >= this.xiuWei.ordinal();
+      return CVars.playerJingJie.amount >= this.jingJie.amount;
     }
 
     @Override
     public String display() {
-      return Core.bundle.get("xiuweiarchieve") + ": " + xiuWei.str;
+      return Core.bundle.get("xiuweiarchieve") + ": " + jingJie.str;
     }
 
     @Override
     public String toString() {
-      return "xiuWei: " + xiuWei;
+      return "JingJie: " + jingJie;
     }
   }
 }

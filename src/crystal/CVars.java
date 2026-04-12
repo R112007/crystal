@@ -4,6 +4,7 @@ import arc.Events;
 import arc.struct.ObjectMap;
 import arc.struct.ObjectSet;
 import arc.struct.Seq;
+import arc.util.Nullable;
 import arc.util.Timer;
 import crystal.core.UI;
 import crystal.entities.units.UnitEnum.JingJie;
@@ -14,6 +15,7 @@ import crystal.game.CEventType.XiuWeiChange;
 import crystal.type.GongFa;
 import mindustry.core.GameState;
 import mindustry.game.EventType.StateChangeEvent;
+import mindustry.type.SectorPreset;
 
 public class CVars {
   public static boolean debug = true;
@@ -22,14 +24,6 @@ public class CVars {
   public static String modName = "crystal";
   public static String[] threats = new String[] { "low", "medium", "high", "extreme", "eradication", "lianyu", "diyu",
       "school", "daoshu" };
-
-  public static void register() {
-    Events.on(GenerateBuild.class, e -> {
-      Timer.schedule(() -> {
-        e.tile.setBlock(e.block, e.team, e.rotation);
-      }, 0.2f);
-    });
-  }
 
   public static ObjectSet<GongFa> gongfaHave = new ObjectSet<>();
   /**
@@ -48,4 +42,11 @@ public class CVars {
   public static XiuWei playerXiuWei = XiuWei.yong;
   public static JingJie playerJingJie = JingJie.fan;
   public static float playerMagicPower;
+  /** 当前待渡劫的境界（玩家即将突破的境界） */
+  public static @Nullable JingJie pendingDuJieJingJie;
+  /** 已完成的渡劫Sector名称集合（永久记录，重启不丢失） */
+  public static ObjectSet<SectorPreset> completedDuJiePresets = new ObjectSet<>();
+  /** 是否正在渡劫中（防止重复触发、卡bug） */
+  public static boolean isInDuJie = false;
+
 }

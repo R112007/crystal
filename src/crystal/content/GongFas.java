@@ -1,5 +1,6 @@
 package crystal.content;
 
+import crystal.core.PlayerXiuWeiSystem;
 import crystal.type.GongFa;
 
 public class GongFas {
@@ -20,4 +21,12 @@ public class GongFas {
   public static GongFa dongHua = new GongFa("donghua", 11);
   public static GongFa suiYue = new GongFa("suiyue", 12);
   public static GongFa daDao = new GongFa("dadao", 13);
+  static {
+    none.unlock();
+    taiXuanTianGong1.unlock();
+    taiXuanTianGong2.unlock();
+    taiXuanTianGong3.unlock();
+    guHuang.unlock();
+    PlayerXiuWeiSystem.setChooseNewRoad(true);
+  }
 }

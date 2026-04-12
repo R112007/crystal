@@ -110,4 +110,29 @@ public class CEventType {
       this.gongFa = gongFa;
     }
   }
+
+  public static class GalDialogShowEvent {
+    // 人物立绘名称（对应mod assets里的纹理名）
+    public String characterSprite;
+    // 人物名称
+    public String characterName;
+    // 对话文本
+    public String dialogText;
+    // 对话关闭后的回调（可选）
+    public Runnable onDismiss;
+
+    // 快速构造方法
+    public GalDialogShowEvent(String characterSprite, String characterName, String dialogText) {
+      this.characterSprite = characterSprite;
+      this.characterName = characterName;
+      this.dialogText = dialogText;
+    }
+
+    public GalDialogShowEvent(String characterSprite, String characterName, String dialogText, Runnable onDismiss) {
+      this.characterSprite = characterSprite;
+      this.characterName = characterName;
+      this.dialogText = dialogText;
+      this.onDismiss = onDismiss;
+    }
+  }
 }

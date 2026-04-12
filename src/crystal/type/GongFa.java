@@ -1,11 +1,13 @@
 package crystal.type;
 
 import arc.Core;
+import arc.Events;
 import arc.graphics.g2d.TextureRegion;
 import arc.struct.ObjectMap;
 import arc.util.Nullable;
 import crystal.CVars;
 import mindustry.Vars;
+import mindustry.game.EventType.ClientLoadEvent;
 import mindustry.type.ItemStack;
 
 public class GongFa {
@@ -17,6 +19,16 @@ public class GongFa {
   protected boolean unlocked;
   public ItemStack[] researchRequirements = ItemStack.empty;
   public TextureRegion uiIcon;
+  static {
+    Events.on(ClientLoadEvent.class, e -> {
+      for (GongFa gongFa : gongFas.values()) {
+        gongFa.unlocked = Core.settings.getBool(gongFa.name + "-unlocked", false);
+        if (gongFa.unlocked) {
+          CVars.gongfaHave.add(gongFa);
+        }
+      }
+    });
+  }
 
   public GongFa(String name, int id) {
     this.name = Vars.content.transformName(name);
@@ -24,10 +36,7 @@ public class GongFa {
     handleMap(this);
     this.localizedName = Core.bundle.get("gongfa" + "." + this.name + ".name", this.name);
     this.description = Core.bundle.getOrNull("gongfa" + "." + this.name + ".description");
-    this.unlocked = Core.settings != null && Core.settings.getBool(this.name + "-unlocked", false);
     this.uiIcon = Core.atlas.find("gongfa-" + name);
-    if (unlocked)
-      CVars.gongfaHave.add(this);
   }
 
   public void handleMap(GongFa gongFa) {
@@ -43,6 +52,13 @@ public class GongFa {
     Core.settings.put(name + "-unlocked", true);
     Core.settings.manualSave();
     CVars.gongfaHave.add(this);
+  }
+
+  public void lock() {
+    this.unlocked = false;
+    Core.settings.put(name + "-unlocked", false);
+    Core.settings.manualSave();
+    CVars.gongfaHave.remove(this);
   }
 
   public boolean unlocked() {

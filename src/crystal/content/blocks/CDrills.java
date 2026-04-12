@@ -19,7 +19,7 @@ public class CDrills {
       {
         this.size = 2;
         this.health = 200;
-        this.drillTime = 500.0f;
+        this.drillTime = 470.0f;
         this.armor = 2;
         this.tier = 2;
         this.hasLiquids = true;
@@ -30,7 +30,7 @@ public class CDrills {
         this.rotateSpeed = 2.0f;
         this.drawRim = false;
         this.heatColor = Color.valueOf("#71d5ff");
-        this.warmupSpeed = 0.005f;
+        this.warmupSpeed = 0.02f;
         this.liquidBoostIntensity = 1.85f;
         this.consumeLiquid(Liquids.water, 0.1f).boost().optional = true;
         this.requirements(Category.production, ItemStack.with(new Object[] { lv, 10 }));
@@ -51,7 +51,7 @@ public class CDrills {
         this.rotateSpeed = 2.0f;
         this.drawRim = false;
         this.heatColor = Color.valueOf("#71d5ff");
-        this.warmupSpeed = 0.005f;
+        this.warmupSpeed = 0.02f;
         this.liquidBoostIntensity = 1.4f;
         this.consumeLiquid(Liquids.water, 0.1f).boost().optional = true;
         this.requirements(Category.production, ItemStack.with(new Object[] { lv, 25, cuguijing, 20 }));

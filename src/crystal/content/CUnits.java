@@ -33,7 +33,7 @@ import mindustry.world.meta.BlockFlag;
 
 public class CUnits {
   public static @EntityDef({ Unitc.class, ShieldBuilderc.class }) BuildShieldUnitType taichu;
-  public static @EntityDef({ Unitc.class, Magicc.class, Mechc.class }) MagicUnitType chujia1;
+  public static @EntityDef({ Unitc.class, Magicc.class, Mechc.class }) MagicUnitType chujia1, chujia2;
   public static @EntityDef({ Unitc.class, Magicc.class, Crawlc.class }) MagicUnitType papa1;
   public static @EntityDef({ Unitc.class, Magicc.class }) MagicUnitType liekong1;
   public static @EntityDef({ Unitc.class, Magicc.class, WaterMovec.class }) MagicUnitType xiji;
@@ -99,7 +99,8 @@ public class CUnits {
         this.armor = 1.0f;
         this.rotateSpeed = 3.0f;
         this.hitSize = 8.0f;
-        this.shenTongs.add(new FaTianXiangDi(3f, 3f, 3, 480, 50));
+        this.magicPowerRegen = 10;
+        this.shenTongs.add(new FaTianXiangDi(2f, 2f, 3, 480, 50));
         this.xiuWeiAmount = 0.5f;
         this.weapons.add(new Weapon("crystal-chujia1-weapon") {
           {
@@ -116,6 +117,44 @@ public class CUnits {
                 this.shootEffect = Fx.shootSmall;
                 this.smokeEffect = Fx.shootSmallSmoke;
                 this.ammoMultiplier = 1.5f;
+              }
+            };
+          }
+        });
+      }
+    };
+    chujia2 = new MagicUnitType("chujia2") {
+      {
+        this.controller = UnitTypes.dagger.controller;
+        this.speed = 0.35f;
+        this.ammoType = new ItemAmmoType(CItems.cuguijing);
+        this.health = 1260.0f;
+        this.itemCapacity = 0;
+        this.armor = 4.0f;
+        this.rotateSpeed = 2.0f;
+        this.hitSize = 8.0f;
+        this.magicPowerRegenTime = 90;
+        this.magicPowerRegen = 20;
+        this.magicPower = 400;
+        this.shenTongs.add(new FaTianXiangDi(3f, 2f, 3, 480, 100));
+        this.weapons.add(new Weapon("crystal-chujia2-weapon") {
+          {
+            this.reload = 7.0f;
+            this.top = false;
+            this.x = -6.75f;
+            this.y = 0.0f;
+            this.ejectEffect = Fx.casing1;
+            this.bullet = new MissileBulletType(7.0f, 25.0f) {
+              {
+                this.width = 4.0f;
+                this.height = 12.0f;
+                this.lifetime = 30.0f;
+                this.splashDamage = 32.0f;
+                this.splashDamageRadius = 16.0f;
+                this.status = StatusEffects.blasted;
+                this.hitEffect = Fx.flakExplosion;
+                this.homingPower = 2.0f;
+                this.trailChance = 0.4f;
               }
             };
           }

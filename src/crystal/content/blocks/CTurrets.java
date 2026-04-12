@@ -93,7 +93,7 @@ public class CTurrets {
         this.rotateSpeed = 5.0f;
         this.maxAmmo = 40;
         this.coolant = consumeCoolant(0.1f);
-        this.requirements(Category.turret, ItemStack.with(new Object[] { CItems.lv, 50, CItems.li, 50 }));
+        this.requirements(Category.turret, ItemStack.with(new Object[] { CItems.lv, 20, CItems.li, 20 }));
         this.shoot = new ShootBarrel() {
           {
             this.shots = 2;
@@ -166,7 +166,7 @@ public class CTurrets {
         this.coolantMultiplier = 2;
         this.heatColor = Color.valueOf("#FF0000");
         this.coolant = consumeCoolant(0.2f);
-        this.requirements(Category.turret, ItemStack.with(new Object[] { CItems.lv, 120, CItems.li, 85 }));
+        this.requirements(Category.turret, ItemStack.with(new Object[] { CItems.lv, 45, CItems.li, 45 }));
         this.ammo(CItems.lv, zhentianbullet, CItems.li, zhentianbullet, CItems.cuguijing,
             new BasicBulletType(6, 6f) {
               {

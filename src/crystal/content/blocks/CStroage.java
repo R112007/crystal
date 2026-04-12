@@ -23,7 +23,7 @@ public class CStroage {
         this.unitCapModifier = 8;
         this.alwaysUnlocked = true;
         this.unitType = CUnits.taichu;
-        this.requirements(Category.effect, ItemStack.with(new Object[] { CItems.yellowcopper, 1200 }));
+        this.requirements(Category.effect, ItemStack.with(new Object[] { CItems.lv, 1500, CItems.li, 1200 }));
       }
     };
     core0 = new CoreBlock("core0") {

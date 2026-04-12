@@ -2,8 +2,9 @@ package crystal.content;
 
 import arc.struct.Seq;
 import crystal.content.blocks.*;
+import crystal.entities.units.UnitEnum.JingJie;
 import crystal.entities.units.UnitEnum.XiuWei;
-import crystal.game.CObjectives.ArchieveXiuWei;
+import crystal.game.CObjectives.ArchieveJingJie;
 import mindustry.content.Liquids;
 import mindustry.content.SectorPresets;
 import mindustry.game.Objectives;
@@ -16,9 +17,11 @@ import static crystal.content.Tree.*;
 public class CrystalTechTree {
   public static void load() {
     CPlanets.lx.techTree = nodeRoot("lx", CStroage.core1, () -> {
-      node(CTurrets.duoguanpao, () -> {
+      node(LxMaps.jianglindian, () -> {
+      });
+      node(CTurrets.duoguanpao, ItemStack.with(CItems.lv, 25, CItems.li, 25), () -> {
         node(CWalls.lvwall1, () -> {
-          node(CWalls.lvwall4, Seq.with(new ArchieveXiuWei(XiuWei.shen)), () -> {
+          node(CWalls.lvwall4, Seq.with(new ArchieveJingJie(JingJie.huayuan)), () -> {
             node(CWalls.xiwall4, () -> {
             });
           });
@@ -34,19 +37,19 @@ public class CrystalTechTree {
           });
         });
         node(CTurrets.powerair1, () -> {
-          node(CTurrets.chuantou, new Seq<Objective>().add(new ArchieveXiuWei(XiuWei.fan)), () -> {
+          node(CTurrets.chuantou, Seq.with(new ArchieveJingJie(JingJie.zhenyuan)), () -> {
           });
         });
-        node(CTurrets.zhentian, () -> {
-          node(CTurrets.liuxing, Seq.with(new ArchieveXiuWei(XiuWei.fan)), () -> {
-            node(CTurrets.tujin1, Seq.with(new ArchieveXiuWei(XiuWei.fan)), () -> {
+        node(CTurrets.zhentian, ItemStack.with(CItems.lv, 50, CItems.li, 50), () -> {
+          node(CTurrets.liuxing, () -> {
+            node(CTurrets.tujin1, Seq.with(new ArchieveJingJie(JingJie.zhenyuan)), () -> {
               node(CTurrets.tuxi, () -> {
               });
             });
           });
         });
       });
-      node(CDistribution.lvconveyor, () -> {
+      node(CDistribution.lvconveyor, ItemStack.with(CItems.lv, 5), () -> {
         node(CDistribution.lvlianjieqi, () -> {
           node(CDistribution.lvluyouqi, () -> {
             node(CDistribution.lvbridge, () -> {

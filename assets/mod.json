@@ -3,7 +3,7 @@
     "displayName": "Crystal",
     "description": "",
     "version": "v0.1",
-    "minGameVersion": "156.~",
+    "minGameVersion": "156.2",
     "author": "R(代码+部分💩图)，花开、小惜、Yk(贴图)，沉白(一些点子)，颉(冒泡)……",
     "java": true,
     "main": "crystal.Crystal"

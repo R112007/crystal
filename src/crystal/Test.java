@@ -546,7 +546,6 @@ public class Test {
                 requirements = ItemStack.with(Items.copper, 2);
             }
         };
-        Tree.addNode(Blocks.coreShard, guidecandle);
         spfloor = new SpawnBossFloor("spfloor") {
             {
             }

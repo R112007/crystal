@@ -10,6 +10,7 @@ import arc.math.Angles;
 import arc.math.Interp;
 import arc.math.Mathf;
 import arc.math.Rand;
+import arc.math.geom.Vec2;
 import arc.scene.ui.layout.Table;
 import arc.util.Time;
 import arc.util.io.Reads;
@@ -24,6 +25,7 @@ import crystal.type.MagicUnitType;
 import crystal.util.DLog;
 import mindustry.entities.Effect;
 import mindustry.entities.EntityGroup;
+import mindustry.entities.Effect.EffectContainer;
 import mindustry.entities.bullet.*;
 import mindustry.entities.effect.ExplosionEffect;
 import mindustry.entities.effect.ParticleEffect;
@@ -51,121 +53,168 @@ public class FaTianXiangDi extends ShenTong {
   public float spawnAnimDuration = 100f;
   public float targetSizeMultiplier;
 
-  private Effect createSummonEffect(Magicc magic) {
-    float baseSize = magic.hitSize() * getSizeMultiplier(magic);
-    float texWidth = magic.type().region.width * magic.type().region.scl() * getSizeMultiplier(magic);
-    Color teamColor = magic.team().color;
+  public final Effect summonEffect = new Effect(100f, e -> {
+    // 从data获取施法单位，做空值保护
+    Magicc magic = e.data();
+    if (magic == null)
+      return;
 
-    return new SeqEffect(
-        new MultiEffect(
-            new Effect(25f, baseSize * 5f, e -> {
-              float fin = e.fin(Interp.pow2Out);
-              Draw.color(CPal.magicColor1, teamColor, fin);
-              Lines.stroke(4f * e.fout());
-              Lines.circle(e.x, e.y, baseSize * (0.8f + fin * 2.2f));
-              Drawf.light(e.x, e.y, baseSize * 3f * fin, CPal.magicColor1, 0.4f * e.fout());
-            }),
-            new ParticleEffect() {
-              {
-                particles = Math.max(3, (int) (baseSize / 4f));
-                lifetime = 25f;
-                length = baseSize * 1.5f;
-                baseLength = 0f;
-                cone = 90f;
-                sizeFrom = baseSize * 0.15f;
-                sizeTo = 0f;
-                colorFrom = CPal.light_blue1;
-                colorTo = Color.white;
-                interp = Interp.pow2Out;
-              }
-            }),
-        new MultiEffect(
-            new Effect(35f, baseSize * 5f, e -> {
-              float fin = e.fin(Interp.pow3In);
-              Draw.color(CPal.blue1, teamColor, 0.8f);
-              Lines.stroke(6f * e.fout(Interp.pow2Out));
-              Lines.circle(e.x, e.y, baseSize * (3.5f - fin * 2.5f));
-            }),
-            new Effect(35f, baseSize * 5f, e -> {
-              float fin = e.fin(Interp.pow3In);
-              Draw.color(CPal.magicColor1, teamColor, 0.6f);
-              Lines.stroke(3f * e.fout(Interp.pow2Out));
-              Lines.circle(e.x, e.y, baseSize * (4.5f - fin * 3.3f));
-            }),
-            new ParticleEffect() {
-              {
-                particles = Math.max(8, (int) (baseSize / 2f));
-                lifetime = 35f;
-                length = baseSize * 3f;
-                baseLength = baseSize * 0.5f;
-                randLength = true;
-                cone = 360f;
-                sizeFrom = baseSize * 0.12f;
-                sizeTo = 0f;
-                colorFrom = CPal.light_blue1;
-                colorTo = teamColor;
-                interp = Interp.pow2Out;
-              }
-            }),
-        new MultiEffect(
-            new WaveEffect() {
-              {
-                lifetime = 25f;
-                sizeFrom = baseSize * 1f;
-                sizeTo = baseSize * 4f;
-                strokeFrom = 8f;
-                strokeTo = 0f;
-                colorFrom = teamColor;
-                colorTo = CPal.magicColor1;
-                interp = Interp.pow2Out;
-                lightColor = teamColor;
-                lightScl = 2.5f;
-                lightOpacity = 0.7f;
-              }
-            },
-            new ExplosionEffect() {
-              {
-                lifetime = 25f;
-                clip = baseSize * 5f;
-                waveRad = baseSize * 1.2f;
-                waveLife = 20f;
-                waveStroke = 4f;
-                sparkRad = baseSize * 1.8f;
-                sparkLen = baseSize * 0.3f;
-                smokeRad = baseSize * 1.5f;
-                smokeSize = baseSize * 0.25f;
-                smokes = Math.max(4, (int) (baseSize / 3f));
-                sparks = Math.max(6, (int) (baseSize / 2f));
-                waveColor = teamColor;
-                sparkColor = CPal.magicColor1;
-                smokeColor = Color.gray.cpy().a(0.6f);
-              }
-            }),
-        new MultiEffect(
-            new Effect(15f, baseSize * 5f, e -> {
-              float fin = e.fin(Interp.linear);
-              Draw.color(teamColor, Color.white, fin);
-              Lines.stroke(2f * e.fout());
-              Lines.circle(e.x, e.y, baseSize * (1.2f + fin * 0.8f));
-              Drawf.light(e.x, e.y, baseSize * 2f * e.fout(), teamColor, 0.3f * e.fout());
-            }),
-            new ParticleEffect() {
-              {
-                particles = Math.max(4, (int) (baseSize / 3f));
-                lifetime = 15f;
-                length = baseSize * 1f;
-                baseLength = baseSize * 0.8f;
-                cone = 360f;
-                spin = 40f;
-                sizeFrom = baseSize * 0.1f;
-                sizeTo = 0f;
-                colorFrom = CPal.light_blue1;
-                colorTo = teamColor;
-                interp = Interp.linear;
-              }
-            }));
-  }
+    // 复刻原逻辑的动态参数计算
+    float baseSize = magic.hitSize() * this.getSizeMultiplier(magic);
+    Color teamColor = e.color;
+    EffectContainer inner = e.inner();
 
+    // ==================== 阶段1：0-25帧 原首个MultiEffect ====================
+    if (e.time <= 25f) {
+      inner.set(e.id, e.color, e.time, 25f, e.rotation, e.x, e.y, e.data);
+      float fin = inner.fin(Interp.pow2Out);
+
+      // 1. 扩张冲击波圈
+      Draw.color(CPal.magicColor1, teamColor, fin);
+      Lines.stroke(4f * inner.fout());
+      Lines.circle(inner.x, inner.y, baseSize * (0.8f + fin * 2.2f));
+      Drawf.light(inner.x, inner.y, baseSize * 3f * fin, CPal.magicColor1, 0.4f * inner.fout());
+
+      // 2. 锥形粒子效果
+      int particles = Math.max(3, (int) (baseSize / 4f));
+      float length = baseSize * 1.5f;
+      float cone = 90f;
+      float rad = Interp.pow2Out.apply(baseSize * 0.15f, 0f, fin) * 2;
+      Rand rand = new Rand(inner.id);
+      TextureRegion tex = Core.atlas.find("circle");
+
+      Draw.color(CPal.light_blue1, Color.white, fin);
+      for (int p = 0; p < particles; p++) {
+        float l = length * fin;
+        Vec2 rv = new Vec2().trns(inner.rotation + rand.range(cone), rand.random(l));
+        float px = inner.x + rv.x, py = inner.y + rv.y;
+        Draw.rect(tex, px, py, rad, rad / tex.ratio());
+        Drawf.light(px, py, rad * 2f, CPal.light_blue1, 0.6f * Draw.getColorAlpha());
+      }
+      Draw.reset();
+    }
+
+    // ==================== 阶段2：25-60帧 原第二个MultiEffect ====================
+    if (e.time > 25f && e.time <= 60f) {
+      inner.set(e.id + 1, e.color, e.time - 25f, 35f, e.rotation, e.x, e.y, e.data);
+      float fin = inner.fin(Interp.pow3In);
+      float foutPow2 = inner.fout(Interp.pow2Out);
+
+      // 1. 外层收缩冲击波
+      Draw.color(CPal.blue1, teamColor, 0.8f);
+      Lines.stroke(6f * foutPow2);
+      Lines.circle(inner.x, inner.y, baseSize * (3.5f - fin * 2.5f));
+
+      // 2. 内层收缩冲击波
+      Draw.color(CPal.magicColor1, teamColor, 0.6f);
+      Lines.stroke(3f * foutPow2);
+      Lines.circle(inner.x, inner.y, baseSize * (4.5f - fin * 3.3f));
+
+      // 3. 全向扩散粒子
+      int particles = Math.max(8, (int) (baseSize / 2f));
+      float length = baseSize * 3f;
+      float baseLength = baseSize * 0.5f;
+      float cone = 360f;
+      float particleFin = inner.fin(Interp.pow2Out);
+      float rad = Interp.pow2Out.apply(baseSize * 0.12f, 0f, particleFin) * 2;
+      Rand rand = new Rand(inner.id + 2);
+      TextureRegion tex = Core.atlas.find("circle");
+
+      Draw.color(CPal.light_blue1, teamColor, particleFin);
+      for (int p = 0; p < particles; p++) {
+        float l = length * particleFin + baseLength;
+        Vec2 rv = new Vec2().trns(inner.rotation + rand.range(cone), rand.random(l));
+        float px = inner.x + rv.x, py = inner.y + rv.y;
+        Draw.rect(tex, px, py, rad, rad / tex.ratio());
+        Drawf.light(px, py, rad * 2f, CPal.light_blue1, 0.6f * Draw.getColorAlpha());
+      }
+      Draw.reset();
+    }
+
+    // ==================== 阶段3：60-85帧 原WaveEffect+ExplosionEffect
+    // ====================
+    if (e.time > 60f && e.time <= 85f) {
+      inner.set(e.id + 3, e.color, e.time - 60f, 25f, e.rotation, e.x, e.y, e.data);
+      float fin = inner.fin();
+      float finPow2 = inner.fin(Interp.pow2Out);
+
+      // 1. 复刻原WaveEffect扩散冲击波
+      Draw.color(teamColor, CPal.magicColor1, finPow2);
+      Lines.stroke(Interp.pow2Out.apply(8f, 0f, fin));
+      float waveRad = Interp.pow2Out.apply(baseSize * 1f, baseSize * 4f, fin);
+      Lines.circle(inner.x, inner.y, waveRad);
+      Drawf.light(inner.x, inner.y, waveRad * 2.5f, teamColor, 0.7f * inner.fin(Interp.reverse));
+
+      // 2. 复刻原ExplosionEffect爆炸效果
+      // 2.1 爆炸内圈冲击波
+      Draw.color(teamColor);
+      inner.scaled(20f, w -> {
+        Lines.stroke(4f * w.fout());
+        Lines.circle(w.x, w.y, 2f + w.fin() * baseSize * 1.2f);
+      });
+
+      // 2.2 爆炸烟雾
+      Color smokeColor = Color.gray.cpy().a(0.6f);
+      Draw.color(smokeColor);
+      int smokes = Math.max(4, (int) (baseSize / 3f));
+      float smokeRad = baseSize * 1.5f;
+      float smokeSize = baseSize * 0.25f;
+      float smokeSizeBase = 0.5f;
+      Angles.randLenVectors(inner.id, smokes, 2f + smokeRad * inner.finpow(), (x, y) -> {
+        Fill.circle(inner.x + x, inner.y + y, inner.fout() * smokeSize + smokeSizeBase);
+      });
+
+      // 2.3 爆炸火花
+      Draw.color(CPal.magicColor1);
+      Lines.stroke(inner.fout() * 1f);
+      int sparks = Math.max(6, (int) (baseSize / 2f));
+      float sparkRad = baseSize * 1.8f;
+      float sparkLen = baseSize * 0.3f;
+      Angles.randLenVectors(inner.id + 4, sparks, 1f + sparkRad * inner.finpow(), (x, y) -> {
+        Lines.lineAngle(inner.x + x, inner.y + y, Mathf.angle(x, y), 1f + inner.fout() * sparkLen);
+        Drawf.light(inner.x + x, inner.y + y, inner.fout() * sparkLen * 4f, CPal.magicColor1, 0.7f);
+      });
+      Draw.reset();
+    }
+
+    // ==================== 阶段4：85-100帧 原收尾MultiEffect ====================
+    if (e.time > 85f && e.time <= 100f) {
+      inner.set(e.id + 5, e.color, e.time - 85f, 15f, e.rotation, e.x, e.y, e.data);
+      float fin = inner.fin(Interp.linear);
+      float fout = inner.fout();
+
+      // 1. 收尾扩散圈
+      Draw.color(teamColor, Color.white, fin);
+      Lines.stroke(2f * fout);
+      Lines.circle(inner.x, inner.y, baseSize * (1.2f + fin * 0.8f));
+      Drawf.light(inner.x, inner.y, baseSize * 2f * fout, teamColor, 0.3f * fout);
+
+      // 2. 旋转收尾粒子
+      int particles = Math.max(4, (int) (baseSize / 3f));
+      float length = baseSize * 1f;
+      float baseLength = baseSize * 0.8f;
+      float cone = 360f;
+      float spin = 40f;
+      float rad = Interp.linear.apply(baseSize * 0.1f, 0f, fin) * 2;
+      Rand rand = new Rand(inner.id + 6);
+      TextureRegion tex = Core.atlas.find("circle");
+
+      Draw.color(CPal.light_blue1, teamColor, fin);
+      for (int p = 0; p < particles; p++) {
+        float l = length * fin + baseLength;
+        Vec2 rv = new Vec2().trns(inner.rotation + rand.range(cone), rand.random(l));
+        float px = inner.x + rv.x, py = inner.y + rv.y;
+        Draw.rect(tex, px, py, rad, rad / tex.ratio(), inner.rotation + inner.time * spin);
+        Drawf.light(px, py, rad * 2f, CPal.light_blue1, 0.6f * Draw.getColorAlpha());
+      }
+      Draw.reset();
+    }
+  }) {
+    {
+      // 初始化裁剪范围，覆盖所有可能的尺寸需求
+      clip = 1000f;
+    }
+  };
   public Effect breakFaShenEffect = new Effect(200f, 800f, e -> {
     FaShen fashen = e.data();
     if (fashen == null)
@@ -300,8 +349,7 @@ public class FaTianXiangDi extends ShenTong {
           isCreating = true;
           createTimer = 80f;
           magic.consumeMagic(createMagicCost); // 扣除法力
-          Effect e = createSummonEffect(magic);
-          e.at(magic.x(), magic.y(), 0, magic.team().color, magic);
+          summonEffect.at(magic.x(), magic.y(), 0, magic.team().color, magic);
           return;
         }
         return; // 法力不足直接返回，不创建

@@ -3,6 +3,8 @@ package crystal.entities.units;
 import arc.graphics.Color;
 import arc.struct.Seq;
 import crystal.type.GongFa;
+import mindustry.content.SectorPresets;
+import mindustry.type.SectorPreset;
 
 import static arc.Core.bundle;
 import static crystal.content.GongFas.*;
@@ -59,57 +61,60 @@ public class UnitEnum {
   }
 
   public static enum JingJie {
-    fan(bundle.get("yong"), 0, false, false, none),
-    kaiqiao(bundle.get("kaiqiao"), 10, false, false, taiXuanTianGong1),
-    zhenyuan(bundle.get("zhenyuan"), 80, false, false, taiXuanTianGong1),
-    huayuan(bundle.get("huayuan"), 200, false, false, taiXuanTianGong2),
-    tianren(bundle.get("tianren"), 500, false, false, taiXuanTianGong2),
-    shenhai(bundle.get("shenhai"), 1000, false, false, taiXuanTianGong3),
-    hualong(bundle.get("hualong"), 2000, false, false, taiXuanTianGong3),
+    fan(bundle.get("yong"), 0, false, false, none, false, null),
+    kaiqiao(bundle.get("kaiqiao"), 10, false, false, taiXuanTianGong1, false, null),
+    zhenyuan(bundle.get("zhenyuan"), 80, false, false, taiXuanTianGong1, false, null),
+    huayuan(bundle.get("huayuan"), 200, false, false, taiXuanTianGong2, false, null),
+    tianren(bundle.get("tianren"), 500, false, false, taiXuanTianGong2, false, null),
+    shenhai(bundle.get("shenhai"), 1000, false, false, taiXuanTianGong3, false, null),
+    hualong(bundle.get("hualong"), 2000, false, false, taiXuanTianGong3, false, null),
+    // 旧路神级境界：不需要渡劫，最后两个参数为false、null
+    weishen(bundle.get("weishen"), 3200, true, false, xinHuang, false, null),
+    zhenshen(bundle.get("zhenshen"), 5000, true, false, xinHuang, false, null),
+    shenwang(bundle.get("shenwang"), 7500, true, false, xinHuang, false, null),
+    shenhuang(bundle.get("shenhuang"), 11000, true, false, xinZun, false, null),
+    shenjun(bundle.get("shenjun"), 14500, true, false, xinHuang, false, null),
+    shenling(bundle.get("shenling"), 19000, true, false, xinZun, false, null),
+    shenming(bundle.get("shenming"), 24000, true, false, xinZun, false, null),
+    shenzun(bundle.get("shenzun"), 30000, true, false, xinZun, false, null),
+    // 新路神级境界：需要渡劫，绑定对应Sector预设名（需提前创建好对应的SectorPreset）
+    kaiyang(bundle.get("kaiyang"), 3200, true, true, guHuang, true, SectorPresets.groundZero),
+    shentu(bundle.get("shentu"), 5000, true, true, guHuang, true, SectorPresets.frozenForest),
+    canghai(bundle.get("canghai"), 7500, true, true, guHuang, true, SectorPresets.crateredBattleground),
+    tianqiao(bundle.get("tianqiao"), 11000, true, true, guHuang, true, SectorPresets.biomassFacility),
+    wanling(bundle.get("wanling"), 14500, true, true, guZun, true, SectorPresets.basin),
+    sixiang(bundle.get("sixiang"), 19000, true, true, guZun, true, SectorPresets.atolls),
+    shengong(bundle.get("shengong"), 24000, true, true, guZun, true, SectorPresets.frontier),
+    zunzhu(bundle.get("zunzhu"), 30000, true, true, guZun, true, SectorPresets.planetaryTerminal),
 
-    weishen(bundle.get("weishen"), 3200, true, false, xinHuang),
-    kaiyang(bundle.get("kaiyang"), 3200, true, true, guHuang),
-    zhenshen(bundle.get("zhenshen"), 5000, true, false, xinHuang),
-    shentu(bundle.get("shentu"), 5000, true, true, guHuang),
-    shenjun(bundle.get("shenjun"), 7500, true, false, xinHuang),
-    canghai(bundle.get("canghai"), 7500, true, true, guHuang),
-    shenwang(bundle.get("shenwang"), 11000, true, false, xinHuang),
-    tianqiao(bundle.get("tianqiao"), 11000, true, true, guHuang),
-    shenhuang(bundle.get("shenhuang"), 14500, true, false, xinZun),
-    wanling(bundle.get("wanling"), 14500, true, true, guZun),
-    shenling(bundle.get("shenling"), 19000, true, false, xinZun),
-    sixiang(bundle.get("sixiang"), 19000, true, true, guZun),
-    shenming(bundle.get("shenming"), 24000, true, false, xinZun),
-    shengong(bundle.get("shengong"), 24000, true, true, guZun),
-    shenzun(bundle.get("shenzun"), 30000, true, false, xinZun), zunzhu(bundle.get("zunzhu"), 30000, true, true, guZun),
+    weisheng(bundle.get("weisheng"), 42000, false, false, yinYang1, false, null),
+    yasheng(bundle.get("yasheng"), 60000, false, false, yinYang1, false, null),
+    zhunsheng(bundle.get("zhunsheng"), 80000, false, false, yinYang1, false, null),
+    dasheng(bundle.get("dasheng"), 100000, false, false, yinYang2, false, null),
+    shengdaodadi(bundle.get("shengdaodadi"), 130000, false, false, yinYang2, false, null),
 
-    weisheng(bundle.get("weisheng"), 42000, false, false, yinYang1),
-    yasheng(bundle.get("yasheng"), 60000, false, false, yinYang1),
-    zhunsheng(bundle.get("zhunsheng"), 80000, false, false, yinYang1),
-    dasheng(bundle.get("dasheng"), 100000, false, false, yinYang2),
-    shengdaodadi(bundle.get("shengdaodadi"), 130000, false, false, yinYang2),
+    tianxian(bundle.get("tianxian"), 160000, false, false, yuHua, false, null),
+    zhenxian(bundle.get("zhenxian"), 180008, false, false, yuHua, false, null),
+    xuanxian(bundle.get("xuanxian"), 210000, false, false, yuHua, false, null),
+    jinxian(bundle.get("jinxian"), 240000, false, false, ziRi, false, null),
+    xianjun(bundle.get("xianjun"), 280000, false, false, ziRi, false, null),
+    xianzun(bundle.get("xianzun"), 320000, false, false, ziRi, false, null),
+    xianhuang(bundle.get("xianhuang"), 380000, false, false, buMie, false, null),
+    xianwang(bundle.get("xianwang"), 450000, false, false, buMie, false, null),
 
-    tianxian(bundle.get("tianxian"), 160000, false, false, yuHua),
-    zhenxian(bundle.get("zhenxian"), 180008, false, false, yuHua),
-    xuanxian(bundle.get("xuanxian"), 210000, false, false, yuHua),
-    jinxian(bundle.get("jinxian"), 240000, false, false, ziRi),
-    xianjun(bundle.get("xianjun"), 280000, false, false, ziRi),
-    xianzun(bundle.get("xianzun"), 320000, false, false, ziRi),
-    xianhuang(bundle.get("xianhuang"), 380000, false, false, buMie),
-    xianwang(bundle.get("xianwang"), 450000, false, false, buMie),
-
-    xiandi(bundle.get("xiandi"), 550000, false, false, dongHua),
-    tiandi(bundle.get("tiandi"), 650000, false, false, dongHua),
-    daodi(bundle.get("daodi"), 770000, false, false, suiYue),
-    dizun(bundle.get("dizun"), 900000, false, false, suiYue),
-    dijun(bundle.get("jingjie.dijun"), 1000000, false, false, daDao);
+    xiandi(bundle.get("xiandi"), 550000, false, false, dongHua, false, null),
+    tiandi(bundle.get("tiandi"), 650000, false, false, dongHua, false, null),
+    daodi(bundle.get("daodi"), 770000, false, false, suiYue, false, null),
+    dizun(bundle.get("dizun"), 900000, false, false, suiYue, false, null),
+    dijun(bundle.get("jingjie.dijun"), 1000000, false, false, daDao, false, null);
 
     public String str;
     public int amount;
     public boolean hasMirror;
     public boolean newRoad;
     public GongFa gongFa;
-
+    public boolean needDuJie; // 是否需要渡劫才能突破
+    public SectorPreset duJiePreset;
     public static final JingJie[] all = values();
     public static final Seq<JingJie> fajing = new Seq<>(
         new JingJie[] { kaiqiao, zhenyuan, huayuan, tianren, shenhai, hualong });
@@ -118,6 +123,14 @@ public class UnitEnum {
     public static final Seq<JingJie> shenNewRoad = new Seq<>(
         new JingJie[] { kaiyang, shentu, canghai, tianqiao, wanling, sixiang, shengong, zunzhu });
     public static final Seq<JingJie> shenjing = new Seq<>();
+    public static final JingJie[] jiuLu = { fan, kaiqiao, zhenyuan, huayuan, tianren, shenhai, hualong, weishen,
+        zhenshen, shenjun, shenwang, shenhuang, shenling, shenming, shenzun, weisheng, yasheng, zhunsheng, dasheng,
+        shengdaodadi, tianxian, zhenxian, xuanxian, jinxian, xianjun, xianzun, xianhuang, xianwang, xiandi, tiandi,
+        daodi, dizun, dijun };
+    public static final JingJie[] xinLu = { fan, kaiqiao, zhenyuan, huayuan, tianren, shenhai, hualong,
+        kaiyang, shentu, canghai, tianqiao, wanling, sixiang, shengong, zunzhu, weisheng, yasheng, zhunsheng, dasheng,
+        shengdaodadi, tianxian, zhenxian, xuanxian, jinxian, xianjun, xianzun, xianhuang, xianwang, xiandi, tiandi,
+        daodi, dizun, dijun };
     static {
       shenjing.add(shenOldRoad);
       shenjing.add(shenNewRoad);
@@ -129,12 +142,26 @@ public class UnitEnum {
     public static final Seq<JingJie> dijing = new Seq<>(
         new JingJie[] { xiandi, tiandi, daodi, dizun, dijun });
 
-    JingJie(String str, int amount, boolean hasMirror, boolean newRoad, GongFa gongFa) {
+    JingJie(String str, int amount, boolean hasMirror, boolean newRoad, GongFa gongFa, boolean needDuJie,
+        SectorPreset duJiePreset) {
       this.str = str;
       this.amount = amount;
       this.hasMirror = hasMirror;
       this.newRoad = newRoad;
       this.gongFa = gongFa;
+      this.needDuJie = needDuJie;
+      this.duJiePreset = duJiePreset;
+    }
+
+    public static JingJie getByOrdinal(int ordinal) {
+      if (ordinal < 0 || ordinal >= all.length) {
+        return null;
+      }
+      return all[ordinal];
+    }
+
+    public static JingJie getMin() {
+      return fan;
     }
   }
 

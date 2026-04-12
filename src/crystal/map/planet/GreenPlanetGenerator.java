@@ -21,6 +21,7 @@ import arc.util.Nullable;
 import arc.util.Structs;
 import arc.util.noise.Ridged;
 import arc.util.noise.Simplex;
+import crystal.content.CLoadouts;
 import crystal.content.CPlanets;
 import crystal.util.CTmp;
 import mindustry.ai.Astar;
@@ -58,22 +59,34 @@ public class GreenPlanetGenerator extends PlanetGenerator {
   float scl = 5f;
   float waterOffset = 0.07f;
   float heightScl = 1.02f;
-  Block[][] arr =
-    {
-    {Blocks.water, Blocks.water, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.deepwater, Blocks.grass, Blocks.grass},
-    {Blocks.water, Blocks.water, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.deepwater, Blocks.grass, Blocks.grass, Blocks.grass},
-    {Blocks.water, Blocks.water, Blocks.grass, Blocks.grass, Blocks.salt, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.deepwater, Blocks.grass, Blocks.grass, Blocks.grass},
-    {Blocks.water, Blocks.deepwater, Blocks.grass, Blocks.salt, Blocks.salt, Blocks.salt, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.snow, Blocks.iceSnow, Blocks.ice},
-    {Blocks.deepwater, Blocks.water, Blocks.deepwater, Blocks.grass, Blocks.salt, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.snow, Blocks.snow, Blocks.snow, Blocks.snow, Blocks.ice},
-    {Blocks.deepwater, Blocks.water, Blocks.deepwater, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.iceSnow, Blocks.snow, Blocks.snow, Blocks.ice, Blocks.snow, Blocks.ice},
-    {Blocks.deepwater, Blocks.deepwater, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.snow, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.ice, Blocks.snow, Blocks.ice},
-    {Blocks.deepTaintedWater, Blocks.deepwater, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.hotrock, Blocks.grass, Blocks.ice, Blocks.snow, Blocks.ice, Blocks.ice},
-    {Blocks.water, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.snow, Blocks.grass, Blocks.grass, Blocks.ice, Blocks.snow, Blocks.ice, Blocks.ice},
-    {Blocks.water, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.ice, Blocks.ice, Blocks.snow, Blocks.snow, Blocks.snow, Blocks.snow, Blocks.ice, Blocks.ice, Blocks.ice},
-    {Blocks.deepTaintedWater, Blocks.deepwater, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.ice, Blocks.ice, Blocks.snow, Blocks.snow, Blocks.ice, Blocks.ice, Blocks.ice, Blocks.ice},
-    {Blocks.water, Blocks.deepwater, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.iceSnow, Blocks.snow, Blocks.ice, Blocks.ice, Blocks.ice, Blocks.ice, Blocks.ice},
-    {Blocks.water, Blocks.grass, Blocks.snow, Blocks.ice, Blocks.iceSnow, Blocks.snow, Blocks.snow, Blocks.snow, Blocks.ice, Blocks.ice, Blocks.ice, Blocks.ice, Blocks.ice}
-    };
+  Block[][] arr = {
+      { Blocks.water, Blocks.water, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass,
+          Blocks.grass, Blocks.grass, Blocks.deepwater, Blocks.grass, Blocks.grass },
+      { Blocks.water, Blocks.water, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass,
+          Blocks.grass, Blocks.deepwater, Blocks.grass, Blocks.grass, Blocks.grass },
+      { Blocks.water, Blocks.water, Blocks.grass, Blocks.grass, Blocks.salt, Blocks.grass, Blocks.grass, Blocks.grass,
+          Blocks.grass, Blocks.deepwater, Blocks.grass, Blocks.grass, Blocks.grass },
+      { Blocks.water, Blocks.deepwater, Blocks.grass, Blocks.salt, Blocks.salt, Blocks.salt, Blocks.grass, Blocks.grass,
+          Blocks.grass, Blocks.grass, Blocks.snow, Blocks.iceSnow, Blocks.ice },
+      { Blocks.deepwater, Blocks.water, Blocks.deepwater, Blocks.grass, Blocks.salt, Blocks.grass, Blocks.grass,
+          Blocks.grass, Blocks.snow, Blocks.snow, Blocks.snow, Blocks.snow, Blocks.ice },
+      { Blocks.deepwater, Blocks.water, Blocks.deepwater, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass,
+          Blocks.iceSnow, Blocks.snow, Blocks.snow, Blocks.ice, Blocks.snow, Blocks.ice },
+      { Blocks.deepwater, Blocks.deepwater, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.snow,
+          Blocks.grass, Blocks.grass, Blocks.grass, Blocks.ice, Blocks.snow, Blocks.ice },
+      { Blocks.deepTaintedWater, Blocks.deepwater, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass,
+          Blocks.hotrock, Blocks.grass, Blocks.ice, Blocks.snow, Blocks.ice, Blocks.ice },
+      { Blocks.water, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.snow, Blocks.grass,
+          Blocks.grass, Blocks.ice, Blocks.snow, Blocks.ice, Blocks.ice },
+      { Blocks.water, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.ice, Blocks.ice, Blocks.snow, Blocks.snow,
+          Blocks.snow, Blocks.snow, Blocks.ice, Blocks.ice, Blocks.ice },
+      { Blocks.deepTaintedWater, Blocks.deepwater, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.ice, Blocks.ice,
+          Blocks.snow, Blocks.snow, Blocks.ice, Blocks.ice, Blocks.ice, Blocks.ice },
+      { Blocks.water, Blocks.deepwater, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.grass, Blocks.iceSnow,
+          Blocks.snow, Blocks.ice, Blocks.ice, Blocks.ice, Blocks.ice, Blocks.ice },
+      { Blocks.water, Blocks.grass, Blocks.snow, Blocks.ice, Blocks.iceSnow, Blocks.snow, Blocks.snow, Blocks.snow,
+          Blocks.ice, Blocks.ice, Blocks.ice, Blocks.ice, Blocks.ice }
+  };
   ObjectMap<Block, Block> dec = ObjectMap.of(
       Blocks.sporeMoss, Blocks.sporeCluster,
       Blocks.moss, Blocks.sporeCluster,
@@ -125,7 +138,11 @@ public class GreenPlanetGenerator extends PlanetGenerator {
   public boolean allowLanding(Sector sector) {
     // return sector.planet.allowLaunchToNumbered
     // && (sector.hasBase() || sector.near().contains(this::allowNumberedLaunch));
-    return true;
+    return false;
+  }
+
+  {
+    defaultLoadout = CLoadouts.jichuhexi;
   }
 
   @Override
@@ -138,16 +155,6 @@ public class GreenPlanetGenerator extends PlanetGenerator {
       }
     } else {
       return super.findLaunchCandidate(destination, selected);
-    }
-  }
-
-  @Override
-  public void getLockedText(Sector hovered, StringBuilder out) {
-    if ((hovered.preset == null || !hovered.preset.requireUnlock) && hovered.near().contains(Sector::hasBase)) {
-      out.append("[red]").append(Iconc.cancel).append("[]").append(Blocks.coreFoundation.emoji())
-          .append(Core.bundle.get("sector.foundationrequired"));
-    } else {
-      super.getLockedText(hovered, out);
     }
   }
 

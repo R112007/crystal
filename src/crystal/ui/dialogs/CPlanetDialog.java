@@ -860,7 +860,7 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
         }
     }
 
-    void rebuildList() {
+    public void rebuildList() {
         if (notifs == null)
             return;
 
@@ -1125,32 +1125,27 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
         }
     }
 
-    void showUnitInfoStats(Sector sector) {
-        BaseDialog dialog = new BaseDialog(sector.name() + Core.bundle.get("unitinfo.title"));
+    void showUnitInfoStats(Sector sector, Table c) {
         var info = UnitInfo.get(sector);
-        dialog.cont.pane(c -> {
-            c.defaults().padBottom(5);
-            c.add(Core.bundle.get("unitinfo.possessed")).left().row();
-            c.table(t -> {
-                int i;
-                if (!info.possessed.isEmpty()) {
-                    i = 0;
-                    info.possessed.sort();
-                    for (var stack : info.possessed) {
-                        if (stack.amount != 0) {
-                            t.add(StatValues.stack(stack.unit, stack.amount));
-                            i++;
-                            if (i % 4 == 0) {
-                                t.row();
-                            }
+        c.defaults().padBottom(5);
+        c.add(Core.bundle.get("unitinfo.possessed")).left().row();
+        c.table(t -> {
+            int i;
+            if (!info.possessed.isEmpty()) {
+                i = 0;
+                info.possessed.sort();
+                for (var stack : info.possessed) {
+                    if (stack.amount != 0) {
+                        t.add(StatValues.stack(stack.unit, stack.amount));
+                        i++;
+                        if (i % 4 == 0) {
+                            t.row();
                         }
                     }
                 }
-            });
-            c.row();
+            }
         });
-        dialog.addCloseButton();
-        dialog.show();
+        c.row();
     }
 
     void showStats(Sector sector) {
@@ -1239,6 +1234,8 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
                     }).padLeft(10f);
                 }).left().row();
             }
+            if (UnitInfo.get(sector) != null)
+                showUnitInfoStats(sector, c);
         });
 
         dialog.addCloseButton();
@@ -1246,7 +1243,6 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
         if (sector.hasBase()) {
             dialog.buttons.button("@sector.abandon", Icon.cancel, () -> abandonSectorConfirm(sector, dialog::hide));
         }
-
         dialog.show();
     }
 
@@ -1281,12 +1277,18 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
         }
     }
 
+    @Override
+    public void hide() {
+        ui.planet.hide();
+        super.hide();
+    }
+
     public void selectSector(Sector sector) {
         selected = sector;
         updateSelected();
     }
 
-    void updateSelected() {
+    public void updateSelected() {
         Sector sector = selected;
         Table stable = sectorTop;
 
@@ -1441,10 +1443,6 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
 
         if (sector.hasBase()) {
             stable.button("@stats", Icon.info, Styles.cleart, () -> showStats(sector)).height(40f).fillX().row();
-            if (UnitInfoSystem.check(sector)) {
-                stable.button("@stats", Icon.units, Styles.cleart, () -> showUnitInfoStats(sector)).height(40f).fillX()
-                        .row();
-            }
         }
 
         if ((sector.hasBase() && mode == look) || canSelect(sector)

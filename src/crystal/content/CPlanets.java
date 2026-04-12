@@ -1,6 +1,7 @@
 package crystal.content;
 
 import arc.graphics.Color;
+import crystal.content.blocks.CStroage;
 import crystal.graphics.CPal;
 import crystal.map.planet.GreenPlanetGenerator;
 import crystal.map.planet.LxPlanetGenerator;
@@ -59,6 +60,7 @@ public class CPlanets {
             new HexSkyMesh(this, 1, 0.6f, 0.16f, 5, Color.white.cpy().lerp(CPal.blue1, 0.55f).a(0.75f), 2,
                 0.45f, 1f,
                 0.41f));
+        defaultCore = CStroage.core1;
         launchCapacityMultiplier = 0.7f;
         sectorSeed = 8888;
         allowWaves = true;
@@ -81,7 +83,7 @@ public class CPlanets {
         atmosphereRadOut = 0.35f;
         startSector = 0;
         alwaysUnlocked = true;
-        bloom = false;
+        bloom = true;
         campaignRuleDefaults.showSpawns = true;
         updateLighting = true;
         allowSelfSectorLaunch = true;

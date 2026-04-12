@@ -11,10 +11,12 @@ import crystal.content.CBlocks;
 import crystal.content.CEnvironment;
 import crystal.content.CIcons;
 import crystal.content.CItems;
+import crystal.content.CLoadouts;
 import crystal.content.CPlanets;
 import crystal.content.CUnits;
 import crystal.content.CrystalTechTree;
 import crystal.content.GongFas;
+import crystal.content.LxMaps;
 import crystal.content.MuchLoadUnit;
 import crystal.content.hzr.HZRBlocks;
 import crystal.core.CSettings;
@@ -24,7 +26,6 @@ import crystal.entities.shentong.FaTianXiangDi;
 import crystal.entities.shentong.ShenTong;
 import crystal.entities.units.MultiStageMechUnit;
 import crystal.entities.units.SummonUnit;
-import crystal.game.GongFaObjectives;
 import crystal.game.UnitInfo;
 import crystal.game.CEventType.MapChangeEvent;
 import crystal.game.CEventType.SectorChangeEvent;
@@ -49,7 +50,6 @@ import mindustry.ui.dialogs.BaseDialog;
 import mindustry.ui.dialogs.PlanetDialog;
 
 import static mindustry.Vars.*;
-import static crystal.content.GongFaTechTree.*;
 
 public class Crystal extends Mod {
   public static BaseDialog welcomeDialog;
@@ -79,13 +79,14 @@ public class Crystal extends Mod {
     HZRBlocks.load();
     if (CVars.debug)
       Test.load();
+    CLoadouts.load();
     CPlanets.load();
     try {
       MuchLoadUnit.load();
     } catch (IllegalAccessException e) {
       throw new RuntimeException(e);
     }
-    loadGongFaTechTree();
+    LxMaps.load();
     CrystalTechTree.load();
     Log.info("Have Loaded All Contents!");
   }
@@ -118,7 +119,6 @@ public class Crystal extends Mod {
     Events.on(ClientLoadEvent.class, e -> {
       constructor();
     });
-    CVars.register();
     CVars.cui.init();
     CIcons.load();
     CSettings.load();
@@ -155,6 +155,8 @@ public class Crystal extends Mod {
   public void replaceUI() {
     Events.on(ClientLoadEvent.class, (e) -> {
       Events.run(Trigger.update, () -> {
+        if (!CVars.cui.cplanet.isShown() && Vars.ui.planet.isShown())
+          Vars.ui.planet.hide();
         if (Vars.ui.planet.isShown() && Vars.ui.planet.mode == PlanetDialog.Mode.look) {
           DLog.info("planet为look模式");
           Vars.ui.planet.hide();
@@ -223,56 +225,6 @@ public class Crystal extends Mod {
     Events.on(ClientLoadEvent.class, (e) -> {
       if (Vars.mods.getMod(name) != null)
         Vars.mods.removeMod(Vars.mods.getMod(name));
-    });
-  }
-
-  public void loadGongFaTechTree() {
-    // 根节点：基础道基（0阶，默认解锁）
-    nodeRoot(GongFas.none, ItemStack.empty, () -> {
-      // 主线：太玄天宫1-3阶（线性解锁）
-      node(GongFas.taiXuanTianGong1, ItemStack.with(Items.copper, 100, Items.lead, 50), () -> {
-        node(GongFas.taiXuanTianGong2, ItemStack.with(Items.copper, 200, Items.lead, 100, Items.titanium, 50), () -> {
-          node(GongFas.taiXuanTianGong3, ItemStack.with(Items.thorium, 100),
-              Seq.with(new Objectives.SectorComplete(SectorPresets.frozenForest)),
-              () -> {
-                // ========== 核心：4阶平行境界分支 ==========
-                // 分支1：心煌线（4阶）
-                node(GongFas.xinHuang, ItemStack.with(Items.silicon, 200),
-                    // 互斥：解锁了古煌就不能走心煌线，二选一
-                    Seq.with(new GongFaObjectives.GongFaExclusive(GongFas.guHuang)),
-                    () -> {
-                      // 心煌线进阶：5阶心尊
-                      node(GongFas.xinZun, ItemStack.with(Items.plastanium, 300), () -> {
-                      });
-                    });
-
-                // 分支2：古煌线（4阶，平行境界，同ID）
-                node(GongFas.guHuang, ItemStack.with(Items.metaglass, 200),
-                    // 互斥：解锁了心煌就不能走古煌线
-                    Seq.with(new GongFaObjectives.GongFaExclusive(GongFas.xinHuang)),
-                    () -> {
-                      // 古煌线进阶：5阶古尊
-                      node(GongFas.guZun, ItemStack.with(Items.phaseFabric, 300), () -> {
-                      });
-                    });
-              });
-        });
-      });
-
-      // ========== 跨分支境界解锁：阴阳功法 ==========
-      // 只要达到4阶（不管心煌还是古煌，任意一个解锁即可），就能解锁阴阳功法
-      node(GongFas.yinYang1, ItemStack.with(Items.surgeAlloy, 150),
-          Seq.with(new GongFaObjectives.GongFaRealmReach(4, "金丹境")),
-          () -> {
-            node(GongFas.yinYang2, ItemStack.with(Items.surgeAlloy, 300), () -> {
-            });
-          });
-
-      // 后续高阶功法，以此类推
-      node(GongFas.yuHua, ItemStack.with(Items.phaseFabric, 500),
-          Seq.with(new GongFaObjectives.GongFaRealmReach(5, "元婴境")),
-          () -> {
-          });
     });
   }
 }
