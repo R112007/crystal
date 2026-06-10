@@ -1,6 +1,7 @@
 package crystal.type;
 
 import arc.Core;
+import arc.Events;
 import arc.graphics.Color;
 import arc.math.Mathf;
 import arc.scene.ui.Image;
@@ -12,12 +13,14 @@ import arc.util.Timer;
 import arc.util.Timer.Task;
 import crystal.entities.shentong.ShenTong;
 import crystal.entities.units.UnitEnum.XiuWei;
+import crystal.game.CEventType.MagicPowerChange;
 import crystal.gen.Magicc;
 import crystal.gen.MechMagicUnit;
 import crystal.graphics.CPal;
 import crystal.util.DLog;
 import crystal.world.meta.CStat;
 import crystal.world.meta.CStatValues;
+import mindustry.Vars;
 import mindustry.ai.types.LogicAI;
 import mindustry.content.Blocks;
 import mindustry.entities.abilities.Ability;
@@ -196,5 +199,12 @@ public class MagicUnitType extends UnitType {
     }
 
     table.row();
+  }
+
+  @Override
+  public void killed(Unit unit) {
+    if (unit.team != Vars.player.team() && Vars.state.isCampaign())
+      Events.fire(new MagicPowerChange(
+          xiuWeiAmount * (Math.max(1f, XiuWei.xiuWeiMultiplier(xiuWei)))));
   }
 }

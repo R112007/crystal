@@ -87,9 +87,6 @@ abstract class MagicComp implements Unitc, Magicc {
 
   @Override
   public void killed() {
-    if (this.team == Vars.state.rules.waveTeam && Vars.state.isCampaign())
-      Events.fire(new MagicPowerChange(
-          ((MagicUnitType) type()).xiuWeiAmount * (Math.max(1f, XiuWei.xiuWeiMultiplier(xiuWei)))));
   }
 
   @Replace

@@ -29,6 +29,7 @@ import mindustry.type.SectorPreset;
 import mindustry.ui.Styles;
 import mindustry.ui.dialogs.BaseDialog;
 
+import static crystal.CVars.debug;
 import static crystal.content.GongFas.*;
 import static mindustry.Vars.*;
 
@@ -156,18 +157,19 @@ public class PlayerXiuWeiSystem {
       addbutton(1, 120);
       addbutton(10, 180);
       addbutton(100, 240);
-      Vars.ui.hudGroup.fill(null, table -> {
-        table.table(null, t -> {
-          t.button("重置" + Core.bundle.get("stat.xiuwei"), () -> clear()).size(100, 80);
-        }).size(100, 100);
-        table.center().left().update(() -> {
-          if (Core.settings.getBool("showXiuWei")) {
-            height = -120;
-          } else
-            height = 10000;
-          table.translation.set(0, height);
+      if (debug)
+        Vars.ui.hudGroup.fill(null, table -> {
+          table.table(null, t -> {
+            t.button("重置" + Core.bundle.get("stat.xiuwei"), () -> clear()).size(100, 80);
+          }).size(100, 100);
+          table.center().left().update(() -> {
+            if (Core.settings.getBool("showXiuWei")) {
+              height = -120;
+            } else
+              height = 10000;
+            table.translation.set(0, height);
+          });
         });
-      });
       Events.fire(new JingJieChange(CVars.playerMagicPower));
     });
     Events.on(JingJieChange.class, e -> {
@@ -247,9 +249,9 @@ public class PlayerXiuWeiSystem {
       updateCurrentAvailableJingJie();
       if (isLevelUp) {
         updateReachedJingJie(finalTargetJingJie);
-        Vars.ui.hudfrag.showToast(Icon.up, "境界突破！当前境界：" + finalTargetJingJie.str);
+        Vars.ui.hudfrag.showToast(Icon.up, Core.bundle.get("xiuweitupo") + finalTargetJingJie.str);
       } else if (isLevelDown) {
-        Vars.ui.hudfrag.showToast(Icon.down, "境界跌落！当前境界：" + finalTargetJingJie.str);
+        Vars.ui.hudfrag.showToast(Icon.down, Core.bundle.get("xiuweidieluo") + finalTargetJingJie.str);
       }
       Events.fire(new XiuWeiChange(CVars.playerJingJie));
       DLog.info("当前境界更新为：" + finalTargetJingJie.str + "，当前灵力：" + CVars.playerMagicPower);
@@ -276,7 +278,8 @@ public class PlayerXiuWeiSystem {
     Events.on(GongFaBuQuanEvent.class, e -> {
       String message = Core.bundle.get("gongfabuquan") + e.gongFa.localizedName + "," + Core.bundle.get("fail-upgrade")
           + e.jingJie.str;
-      Vars.ui.hudfrag.showToast(Icon.cancel, message);
+      if (Core.settings.getBool("showgongfabuquan", true))
+        Vars.ui.hudfrag.showToast(Icon.cancel, message);
     });
     Events.on(StateChangeEvent.class, event -> {
       if (event.to == State.menu) {

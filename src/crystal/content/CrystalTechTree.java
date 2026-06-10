@@ -25,7 +25,7 @@ public class CrystalTechTree {
             node(CWalls.xiwall4, () -> {
             });
           });
-          node(CWalls.lvwall2, () -> {
+          node(CWalls.lvwall2, Seq.with(new ArchieveJingJie(JingJie.kaiqiao)), () -> {
             node(CWalls.lvwall3, () -> {
             });
           });

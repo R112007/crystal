@@ -70,12 +70,12 @@ public class CTurrets {
         recoils = 2;
         recoil = 1.3f;
         shootY = 3f;
-        reload = 20f;
+        reload = 25f;
         range = 160;
         size = 2;
         shootCone = 15f;
         ammoUseEffect = Fx.casing1;
-        health = 500;
+        health = 300;
         inaccuracy = 2f;
         rotateSpeed = 10f;
         coolant = consumeCoolant(0.2f);
@@ -86,12 +86,12 @@ public class CTurrets {
       {
         this.health = 240;
         this.size = 1;
-        this.reload = 23.0f;
-        this.range = 190.0f;
+        this.reload = 30f;
+        this.range = 180.0f;
         this.inaccuracy = 0.0f;
         this.recoil = 1.0f;
         this.rotateSpeed = 5.0f;
-        this.maxAmmo = 40;
+        this.maxAmmo = 15;
         this.coolant = consumeCoolant(0.1f);
         this.requirements(Category.turret, ItemStack.with(new Object[] { CItems.lv, 20, CItems.li, 20 }));
         this.shoot = new ShootBarrel() {
@@ -100,7 +100,7 @@ public class CTurrets {
           }
         };
         this.ammo(
-            CItems.lv, new BasicBulletType(4f, 17f) {
+            CItems.lv, new BasicBulletType(4f, 14f) {
               {
                 this.width = 5.0f;
                 this.height = 8.0f;
@@ -109,7 +109,7 @@ public class CTurrets {
                 this.ammoMultiplier = 1.3f;
               }
             },
-            CItems.li, new BasicBulletType(4f, 17f) {
+            CItems.li, new BasicBulletType(4f, 14f) {
               {
                 this.width = 5.0f;
                 this.height = 8.0f;
@@ -118,7 +118,7 @@ public class CTurrets {
                 this.ammoMultiplier = 1.3f;
               }
             },
-            CItems.cuguijing, new BasicBulletType(4f, 25f) {
+            CItems.cuguijing, new BasicBulletType(4f, 22f) {
               {
                 this.width = 5.0f;
                 this.height = 8.0f;

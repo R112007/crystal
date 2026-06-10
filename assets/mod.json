@@ -1,8 +1,8 @@
 {
     "name":"crystal"
     "displayName": "Crystal",
-    "description": "",
-    "version": "v0.1",
+    "description": "介绍？肯定是一点都没的啊",
+    "version": "v1.0",
     "minGameVersion": "156.2",
     "author": "R(代码+部分💩图)，花开、小惜、Yk(贴图)，沉白(一些点子)，颉(冒泡)……",
     "java": true,

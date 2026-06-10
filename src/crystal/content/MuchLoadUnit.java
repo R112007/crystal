@@ -8,9 +8,11 @@ import arc.func.Boolp;
 import arc.struct.ObjectMap;
 import arc.struct.Seq;
 import arc.util.Log;
+import arc.util.Nullable;
 import arc.util.Timer;
 import arc.util.Timer.Task;
 import crystal.Crystal;
+import crystal.CVars;
 import crystal.entities.units.UnitEnum.XiuWei;
 import crystal.type.MagicUnitType;
 import crystal.util.DLog;
@@ -21,6 +23,26 @@ import mindustry.type.Weapon;
 
 public class MuchLoadUnit {
   public static ObjectMap<MagicUnitType, ObjectMap<XiuWei, MagicUnitType>> magicUnitTypes = new ObjectMap<>();
+
+  public static @Nullable MagicUnitType getUnitByXiuWei(MagicUnitType source, XiuWei xiuWei) {
+    if (source == null || xiuWei == null)
+      return source;
+    if (!magicUnitTypes.containsKey(source)) {
+      DLog.warn("单位[" + source.name + "]未找到修为克隆映射，返回原始单位");
+      return source;
+    }
+    var unitMap = magicUnitTypes.get(source);
+    MagicUnitType target = unitMap.get(xiuWei);
+    if (target == null) {
+      DLog.warn("单位[" + source.name + "]未找到修为[" + xiuWei.str + "]的克隆体，返回原始单位");
+      return source;
+    }
+    return target;
+  }
+
+  public static MagicUnitType getPlayerCurrentXiuWeiUnit(MagicUnitType source) {
+    return getUnitByXiuWei(source, CVars.playerXiuWei);
+  }
 
   public static void load() throws IllegalAccessException {
     Seq<MagicUnitType> units = new Seq<>();
@@ -126,7 +148,7 @@ public class MuchLoadUnit {
         newUnit.abilities.add(copiedAbility);
       }
 
-     // Vars.content.units().add(newUnit);
+      // Vars.content.units().add(newUnit);
       unitMap.put(newUnit.xiuWei, newUnit);
     }
   }

@@ -6,6 +6,7 @@ import ent.anno.Annotations.SyncLocal;
 import mindustry.Vars;
 import mindustry.content.Fx;
 import mindustry.entities.units.BuildPlan;
+import mindustry.entities.units.StatusEntry;
 import mindustry.game.Team;
 import mindustry.gen.Bullet;
 import mindustry.gen.Groups;
@@ -22,6 +23,7 @@ import arc.graphics.g2d.Lines;
 import arc.math.Angles;
 import arc.math.Mathf;
 import arc.math.geom.Vec2;
+import arc.struct.Seq;
 import arc.util.Time;
 import arc.util.Tmp;
 import crystal.game.WaitTime;
@@ -48,12 +50,17 @@ abstract class ShieldBuilderComp implements Unitc {
   transient float widthScale = 0.8f, alpha, angle = 365f;
   @SyncLocal
   transient boolean open = true;
-
+  @Import
+  Seq<StatusEntry> statuses = new Seq<>(4);
   protected transient BuildPlan last;
   transient BuildPlan currentPlan;
   public boolean drawArc = true;
   protected static Vec2 paramPos = new Vec2();
   protected static transient Cons<Bullet> bulletc;
+
+  public Seq<StatusEntry> statuses() {
+    return statuses;
+  }
 
   @Override
   public void setType(UnitType type) {

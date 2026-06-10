@@ -40,10 +40,12 @@ public class CEventType {
   }
 
   public static class SectorChangeEvent {
-    public Sector sector;
+    public Sector from;
+    public Sector to;
 
-    public SectorChangeEvent(Sector sector) {
-      this.sector = sector;
+    public SectorChangeEvent(Sector from, Sector to) {
+      this.from = from;
+      this.to = to;
     }
   }
 
@@ -133,6 +135,14 @@ public class CEventType {
       this.characterName = characterName;
       this.dialogText = dialogText;
       this.onDismiss = onDismiss;
+    }
+  }
+
+  public static class SectorEnterEvent {
+    public Sector sector;
+
+    public SectorEnterEvent(Sector sector) {
+      this.sector = sector;
     }
   }
 }

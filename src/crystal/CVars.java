@@ -18,13 +18,13 @@ import mindustry.game.EventType.StateChangeEvent;
 import mindustry.type.SectorPreset;
 
 public class CVars {
-  public static boolean debug = true;
+  public static boolean debug = false;
   public static boolean chooseNewRoad = false;
   public static UI cui = new UI();
   public static String modName = "crystal";
   public static String[] threats = new String[] { "low", "medium", "high", "extreme", "eradication", "lianyu", "diyu",
       "school", "daoshu" };
-
+  public static String playerName;
   public static ObjectSet<GongFa> gongfaHave = new ObjectSet<>();
   /**
    * 【Seq1】历史到达过的所有境界

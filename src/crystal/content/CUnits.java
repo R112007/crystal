@@ -59,8 +59,9 @@ public class CUnits {
         this.mineSpeed = 4.0f;
         this.mineTier = 1;
         this.mineRange = 100f;
-        this.engineOffset = 7.5f;
+        this.engineOffset = 6.5f;
         this.engineLayer = 1;
+        this.engineSize=4.5f;
         this.engineColor = Color.valueOf("#79C5C5FF");
         this.trailLength = 6;
         this.trailColor = Color.valueOf("#79C5C5FF");
@@ -100,7 +101,7 @@ public class CUnits {
         this.rotateSpeed = 3.0f;
         this.hitSize = 8.0f;
         this.magicPowerRegen = 10;
-        this.shenTongs.add(new FaTianXiangDi(2f, 2f, 3, 480, 50));
+        this.shenTongs.add(new FaTianXiangDi(3f, 2f, 3, 480, 50));
         this.xiuWeiAmount = 0.5f;
         this.weapons.add(new Weapon("crystal-chujia1-weapon") {
           {
@@ -109,7 +110,7 @@ public class CUnits {
             this.y = 0f;
             this.top = false;
             this.ejectEffect = Fx.casing1;
-            this.bullet = new BasicBulletType(3.0f, 26.0f) {
+            this.bullet = new BasicBulletType(3.0f, 30.0f) {
               {
                 this.width = 7.0f;
                 this.height = 13.0f;
@@ -126,7 +127,7 @@ public class CUnits {
     chujia2 = new MagicUnitType("chujia2") {
       {
         this.controller = UnitTypes.dagger.controller;
-        this.speed = 0.35f;
+        this.speed = 0.30f;
         this.ammoType = new ItemAmmoType(CItems.cuguijing);
         this.health = 1260.0f;
         this.itemCapacity = 0;
@@ -136,7 +137,8 @@ public class CUnits {
         this.magicPowerRegenTime = 90;
         this.magicPowerRegen = 20;
         this.magicPower = 400;
-        this.shenTongs.add(new FaTianXiangDi(3f, 2f, 3, 480, 100));
+        this.shenTongs.add(new FaTianXiangDi(3.5f, 2f, 3, 480, 100));
+        this.xiuWeiAmount = 1f;
         this.weapons.add(new Weapon("crystal-chujia2-weapon") {
           {
             this.reload = 7.0f;
@@ -144,13 +146,13 @@ public class CUnits {
             this.x = -6.75f;
             this.y = 0.0f;
             this.ejectEffect = Fx.casing1;
-            this.bullet = new MissileBulletType(7.0f, 25.0f) {
+            this.bullet = new MissileBulletType(7.0f, 32.0f) {
               {
                 this.width = 4.0f;
                 this.height = 12.0f;
                 this.lifetime = 30.0f;
-                this.splashDamage = 32.0f;
-                this.splashDamageRadius = 16.0f;
+                this.splashDamage = 35.0f;
+                this.splashDamageRadius = 25.0f;
                 this.status = StatusEffects.blasted;
                 this.hitEffect = Fx.flakExplosion;
                 this.homingPower = 2.0f;
@@ -181,6 +183,10 @@ public class CUnits {
         this.engineOffset = 4f;
         this.armor = 3;
         this.targetFlags = new BlockFlag[] { BlockFlag.generator, null };
+        this.magicPowerRegenTime = 60;
+        this.magicPowerRegen = 10;
+        this.magicPower = 200;
+        this.xiuWeiAmount = 0.5f;
         this.weapons.add(new Weapon("crystal-liekong1-weapon") {
           {
             this.mirror = true;
@@ -188,7 +194,7 @@ public class CUnits {
             this.x = -2.6f;
             this.y = 0;
             this.shootSound = Sounds.shootMissileShort;
-            this.reload = 20f;
+            this.reload = 15f;
             this.recoil = 0f;
             this.top = false;
             this.bullet = new MissileBulletType(5f, 12f) {

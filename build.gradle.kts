@@ -87,6 +87,7 @@ allprojects {
     dependencies {
         // Downgrade Java 9+ syntax into being available in Java 8.
         annotationProcessor(files("res/downgrader.jar"))
+	implementation("org.luaj:luaj-jse:3.0.1")
     }
     repositories {
         // Necessary Maven repositories to pull dependencies from.
@@ -176,14 +177,15 @@ project(":") {
         annotationProcessor(mindustry(":core"))
         compileOnly(mindustry(":core"))
         compileOnly(arc(":arc-core"))
+	implementation("org.luaj:luaj-jse:3.0.1")
     }
 val jar = tasks.named<Jar>("jar") {
     archiveFileName = "${modArtifact}Desktop.jar"
     val meta = layout.projectDirectory.file("$temporaryDir/mod.json")
 
-    // ########### 核心修改 ###########
-    // 1. 只加入必要的内容：编译后的类、资源、图标、mod.json
-    // 移除了 configurations.runtimeClassmap，防止把自己（CrystalDesktop.jar）打包进去
+    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) }) {
+         include("org/luaj/**")
+     }
     from(
         files(sourceSets["main"].output.classesDirs), // 编译后的class
         files(sourceSets["main"].output.resourcesDir), // 资源

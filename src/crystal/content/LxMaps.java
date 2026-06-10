@@ -1,5 +1,6 @@
 package crystal.content;
 
+import arc.util.Log;
 import mindustry.type.SectorPreset;
 
 public class LxMaps {
@@ -13,6 +14,7 @@ public class LxMaps {
         this.captureWave = 30;
         this.overrideLaunchDefaults = true;
         this.startWaveTimeMultiplier = 3f;
+        Log.info("sector-" + name);
       }
     };
   }

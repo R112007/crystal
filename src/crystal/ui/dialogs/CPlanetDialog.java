@@ -49,6 +49,7 @@ import static mindustry.Vars.*;
 import static mindustry.graphics.g3d.PlanetRenderer.*;
 
 public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer {
+    public static boolean lockPlanetReplace = false;
     // if true, enables launching anywhere for testing
     public static boolean debugSelect = false, debugSectorAttackEdit, debugShowNumbers = false;
     public static float sectorShowDuration = 60f * 2.4f;
@@ -187,47 +188,6 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
         });
 
         shown(this::setup);
-
-        // show selection of Erekir/Serpulo campaign if the user has no bases, and
-        // hasn't selected yet (essentially a "have they played campaign before" check)
-        shown(() -> {
-            if (!settings.getBool("campaignselect")
-                    && !content.planets().contains(p -> p.sectors.contains(Sector::hasBase))) {
-                var diag = new BaseDialog("@campaign.select");
-
-                Planet[] selected = { null };
-                var group = new ButtonGroup<>();
-                group.setMinCheckCount(0);
-                state.planet = Planets.sun;
-                Planet[] choices = { Planets.serpulo, Planets.erekir };
-                int i = 0;
-                for (var planet : choices) {
-                    TextureRegion tex = new TextureRegion(planetTextures[i]);
-
-                    diag.cont.button(b -> {
-                        b.top();
-                        b.add(planet.localizedName).color(Pal.accent).style(Styles.outlineLabel);
-                        b.row();
-                        b.image(new TextureRegionDrawable(tex)).grow().scaling(Scaling.fit);
-                    }, Styles.togglet, () -> selected[0] = planet).size(mobile ? 220f : 320f).group(group);
-                    i++;
-                }
-
-                diag.cont.row();
-                diag.cont.label(() -> selected[0] == null ? "@campaign.none" : "@campaign." + selected[0].name)
-                        .labelAlign(Align.center).style(Styles.outlineLabel).width(440f).wrap().colspan(2);
-
-                diag.buttons.button("@ok", Icon.ok, () -> {
-                    state.planet = selected[0];
-                    lookAt(state.planet.getStartSector());
-                    selectSector(state.planet.getStartSector());
-                    settings.put("campaignselect", true);
-                    diag.hide();
-                }).size(300f, 64f).disabled(b -> selected[0] == null);
-
-                app.post(diag::show);
-            }
-        });
 
         planetTextures = new Texture[2];
         String[] names = { "sprites/planets/serpulo.png", "sprites/planets/erekir.png" };
@@ -1279,8 +1239,10 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
 
     @Override
     public void hide() {
-        ui.planet.hide();
         super.hide();
+        Core.app.post(() -> {
+        if (hasParent()) parent.removeChild(this);
+    });
     }
 
     public void selectSector(Sector sector) {
@@ -1489,7 +1451,9 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
     void playSelected() {
         if (selected == null)
             return;
-
+        lockPlanetReplace = true;
+        arc.util.Time.runTask(120f, () -> lockPlanetReplace = false);
+        hide();
         Sector sector = selected;
 
         if (sector.isBeingPlayed()) {
