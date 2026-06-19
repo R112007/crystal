@@ -1,0 +1,5 @@
+./gradlew compileJava
+rm -rf ~/sd/gen
+cp -r ~/crystal/build/generated/source/kapt/main/crystal/gen/ ~/sd
+cp -r ~/crystal/src ~/sd/crystal
+

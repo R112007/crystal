@@ -2,7 +2,6 @@ package crystal.core;
 
 import arc.Core;
 import arc.Events;
-import crystal.ui.dialogs.GongFaDialog.GongFaUnlockEvent;
 import crystal.ui.gal.Branch;
 import crystal.ui.gal.Character;
 import crystal.ui.gal.CharacterActions;
@@ -20,7 +19,6 @@ import crystal.ui.gal.DialogueLine.DialogueOption;
 import crystal.util.DLog;
 import mindustry.game.EventType.SectorCaptureEvent;
 import mindustry.game.EventType.SectorLaunchEvent;
-import mindustry.game.EventType.SectorLaunchLoadoutEvent;
 import mindustry.gen.Icon;
 import arc.struct.Seq;
 import arc.util.Time;

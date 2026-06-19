@@ -157,11 +157,6 @@ public class MagicUnitType extends UnitType {
           s.setBar(magic, bars);
         }
       }
-      if (state.rules.unitAmmo) {
-        bars.add(new Bar(ammoType.icon() + " " + Core.bundle.get("stat.ammo"), ammoType.barColor(),
-            () -> unit.ammo / ammoCapacity));
-        bars.row();
-      }
       for (Ability ability : unit.abilities) {
         ability.displayBars(unit, bars);
       }

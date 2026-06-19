@@ -92,6 +92,22 @@ public class DialogueLine {
     return this;
   }
 
+  public DialogueLine enter(Runnable action) {
+    return withEnterAction(action);
+  }
+
+  public DialogueLine exit(Runnable action) {
+    return withExitAction(action);
+  }
+
+  public DialogueLine action(Runnable action) {
+    return withSpriteAction(action);
+  }
+
+  public DialogueLine complete(Runnable callback) {
+    return onComplete(callback);
+  }
+
   public static class DialogueOption {
     public String optionText;
     public Cons<DialogueOption> onSelect;

@@ -1,19 +1,13 @@
 package crystal.ui.gal;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
-
 import arc.Core;
 import arc.Events;
 import arc.scene.ui.layout.Table;
 import arc.struct.Seq;
-import arc.struct.ObjectSet;
 import arc.util.Time;
 import arc.util.Timer;
 import crystal.CVars;
 import crystal.Crystal;
-import crystal.core.CSettings;
 import crystal.game.CEventType.SectorChangeEvent;
 import crystal.game.CEventType.SectorEnterEvent;
 import crystal.util.DLog;
@@ -22,7 +16,6 @@ import mindustry.core.GameState.State;
 import mindustry.game.EventType;
 import mindustry.game.EventType.StateChangeEvent;
 import mindustry.gen.Tex;
-import mindustry.io.SaveVersion;
 import mindustry.ui.Styles;
 import mindustry.io.JsonIO;
 

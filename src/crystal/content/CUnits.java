@@ -27,8 +27,6 @@ import mindustry.gen.Unitc;
 import mindustry.gen.WaterMovec;
 import mindustry.type.UnitType;
 import mindustry.type.Weapon;
-import mindustry.type.ammo.ItemAmmoType;
-import mindustry.type.ammo.PowerAmmoType;
 import mindustry.world.meta.BlockFlag;
 
 public class CUnits {
@@ -46,7 +44,6 @@ public class CUnits {
         this.constructor = ShieldBuilderUnit::create;
         this.controller = UnitTypes.alpha.controller;
         this.flying = true;
-        this.ammoType = new PowerAmmoType(800);
         this.speed = 3.0f;
         this.drag = 0.1f;
         this.accel = 0.3f;
@@ -61,7 +58,7 @@ public class CUnits {
         this.mineRange = 100f;
         this.engineOffset = 6.5f;
         this.engineLayer = 1;
-        this.engineSize=4.5f;
+        this.engineSize = 4.5f;
         this.engineColor = Color.valueOf("#79C5C5FF");
         this.trailLength = 6;
         this.trailColor = Color.valueOf("#79C5C5FF");
@@ -94,7 +91,6 @@ public class CUnits {
       {
         this.controller = UnitTypes.dagger.controller;
         this.speed = 0.3f;
-        this.ammoType = new ItemAmmoType(CItems.lv);
         this.health = 480.0f;
         this.itemCapacity = 0;
         this.armor = 1.0f;
@@ -128,7 +124,6 @@ public class CUnits {
       {
         this.controller = UnitTypes.dagger.controller;
         this.speed = 0.30f;
-        this.ammoType = new ItemAmmoType(CItems.cuguijing);
         this.health = 1260.0f;
         this.itemCapacity = 0;
         this.armor = 4.0f;
@@ -175,7 +170,6 @@ public class CUnits {
         this.circleTarget = true;
         this.forceMultiTarget = true;
         this.buildSpeed = 0f;
-        this.ammoType = new ItemAmmoType(CItems.cuguijing);
         this.flying = true;
         this.speed = 1.8f;
         this.health = 350;

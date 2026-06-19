@@ -13,6 +13,7 @@ import crystal.entities.abilities.ReduceBoostAbility;
 import crystal.entities.bullet.GravityBullet;
 import crystal.entities.bullet.ReduceBoostBullet;
 import crystal.entities.shentong.FaTianXiangDi;
+import crystal.entities.shentong.ThunderSkyBlade;
 import crystal.entities.units.MultiStageMechUnit;
 import crystal.entities.units.UnitEnum.Mode;
 import crystal.entities.units.UnitEnum.XiuWei;
@@ -40,6 +41,7 @@ import crystal.world.blocks.environment.SpawnBossFloor;
 import crystal.world.blocks.liquid.LiquidRangeBridge;
 import crystal.world.blocks.payloads.UnitLaunchPad;
 import crystal.world.blocks.payloads.UnitReceivePad;
+import crystal.world.blocks.stroage.MoveBlock;
 import ent.anno.Annotations.EntityDef;
 import mindustry.content.Blocks;
 import mindustry.content.Fx;
@@ -68,8 +70,6 @@ import mindustry.type.Category;
 import mindustry.type.ItemStack;
 import mindustry.type.UnitType;
 import mindustry.type.Weapon;
-import mindustry.type.ammo.ItemAmmoType;
-import mindustry.type.ammo.PowerAmmoType;
 import mindustry.world.Block;
 import mindustry.world.blocks.defense.Wall;
 import mindustry.world.blocks.defense.turrets.PowerTurret;
@@ -109,8 +109,16 @@ public class Test {
     public static @EntityDef({ Unitc.class, Magicc.class, Mechc.class }) MagicUnitType magic, magic3, magic4;
     public static @EntityDef({ Unitc.class, Magicc.class }) MagicUnitType magic2;
     public static ScrambleUnitLanding scrambleUnitLanding;
+    public static MoveBlock moveBlock;
 
     public static void load() {
+        moveBlock = new MoveBlock("movee") {
+            {
+                size = 2;
+                this.requirements(Category.effect, ItemStack.with(new Object[] { Items.copper, 1 }));
+                this.alwaysUnlocked = true;
+            }
+        };
         scrambleUnitLanding = new ScrambleUnitLanding("scrambleUnitLanding") {
             {
                 size = 2;
@@ -131,7 +139,6 @@ public class Test {
                 drownTimeMultiplier = 1.6f;
                 mechFrontSway = 1.9f;
                 mechSideSway = 0.6f;
-                ammoType = new ItemAmmoType(Items.thorium);
                 stepSound = Sounds.mechStepHeavy;
                 stepSoundPitch = 0.9f;
                 stepSoundVolume = 0.45f;
@@ -188,11 +195,11 @@ public class Test {
                         }
 
                 );
-                this.xiuWei = XiuWei.fan;
+                this.xiuWei = XiuWei.sheng;
                 this.magicPowerRegenTime = 60;
                 this.magicPowerRegenTime = 60;
                 this.magicPower = 1000;
-                this.shenTongs.add(new FaTianXiangDi(3f, 3f, 3, 480));
+                this.shenTongs.add(new FaTianXiangDi(3f, 3f, 3, 480), new ThunderSkyBlade(100, 600, 50, 30, 5));
             }
         };
         magic3 = new MagicUnitType("magic3") {
@@ -207,7 +214,6 @@ public class Test {
                 drownTimeMultiplier = 1.6f;
                 mechFrontSway = 1.9f;
                 mechSideSway = 0.6f;
-                ammoType = new ItemAmmoType(Items.thorium);
                 stepSound = Sounds.mechStepHeavy;
                 stepSoundPitch = 0.9f;
                 stepSoundVolume = 0.45f;
@@ -286,7 +292,6 @@ public class Test {
                 engineSize = 5.3f;
                 hitSize = 46f;
                 targetFlags = new BlockFlag[] { BlockFlag.generator, BlockFlag.core, null };
-                ammoType = new ItemAmmoType(Items.thorium);
 
                 loopSound = Sounds.loopHover;
 
@@ -370,7 +375,6 @@ public class Test {
                 this.shenTongs.add(new FaTianXiangDi(5f, 5f, 1, 600));
                 this.health = 400.0f;
                 this.controller = UnitTypes.dagger.controller;
-                this.ammoType = new PowerAmmoType(800);
                 this.speed = 3.0f;
                 this.drag = 0.1f;
                 this.accel = 0.3f;

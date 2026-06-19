@@ -1,24 +1,16 @@
 package crystal;
 
-import arc.Events;
-import arc.struct.ObjectMap;
 import arc.struct.ObjectSet;
 import arc.struct.Seq;
 import arc.util.Nullable;
-import arc.util.Timer;
 import crystal.core.UI;
 import crystal.entities.units.UnitEnum.JingJie;
 import crystal.entities.units.UnitEnum.XiuWei;
-import crystal.game.CEventType.GenerateBuild;
-import crystal.game.CEventType.MagicPowerChange;
-import crystal.game.CEventType.XiuWeiChange;
 import crystal.type.GongFa;
-import mindustry.core.GameState;
-import mindustry.game.EventType.StateChangeEvent;
 import mindustry.type.SectorPreset;
 
 public class CVars {
-  public static boolean debug = false;
+  public static boolean debug = true;
   public static boolean chooseNewRoad = false;
   public static UI cui = new UI();
   public static String modName = "crystal";

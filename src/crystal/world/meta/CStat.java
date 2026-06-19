@@ -25,6 +25,7 @@ public class CStat {
   public static final Stat magicPower;
   public static final Stat magicPowerRegenTime;
   public static final Stat magicPowerRegen;
+  public static final Stat storageCapacity;
 
   static {
     armorMultiplier = new Stat("armorMultiplier");
@@ -48,6 +49,7 @@ public class CStat {
     magicPower = new Stat("magicPower", CStatCat.magic);
     magicPowerRegen = new Stat("magicPowerRegen", CStatCat.magic);
     magicPowerRegenTime = new Stat("magicPowerRegenTime", CStatCat.magic);
+    storageCapacity = new Stat("storageCapacity", StatCat.items);
   }
 
 }

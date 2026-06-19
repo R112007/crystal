@@ -16,7 +16,12 @@ public class Character {
     this.name = name;
   }
 
+  // Character.java
   public String getName() {
+    return this.name;
+  }
+
+  public String getPlayerName() {
     return CVars.playerName;
   }
 

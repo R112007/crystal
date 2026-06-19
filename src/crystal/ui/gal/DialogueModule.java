@@ -23,7 +23,7 @@ public class DialogueModule {
   // 分支id序列
   public Seq<String> branchIds = new Seq<>();
   // 新增：原始主线备份，构造时初始化，永远不会被运行时修改
-  private Seq<DialogueLine> originalMainNodes;
+  public Seq<DialogueLine> originalMainNodes;
   // 模块对话历史
   public final Seq<DialogueHistory> history = new Seq<>();
   public ObjectSet<String> playedNodeSet = new ObjectSet<>();

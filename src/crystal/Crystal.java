@@ -3,7 +3,6 @@ package crystal;
 import arc.Core;
 import arc.Events;
 import arc.graphics.Color;
-import arc.math.Mathf;
 import arc.scene.ui.layout.Scl;
 import arc.struct.Seq;
 import arc.util.Log;
@@ -14,11 +13,13 @@ import crystal.content.CIcons;
 import crystal.content.CItems;
 import crystal.content.CLoadouts;
 import crystal.content.CPlanets;
+import crystal.content.CUnitCommands;
 import crystal.content.CUnits;
 import crystal.content.CrystalTechTree;
 import crystal.content.GongFas;
 import crystal.content.LxMaps;
 import crystal.content.MuchLoadUnit;
+import crystal.content.SpecialUnits;
 import crystal.content.hzr.HZRBlocks;
 import crystal.core.Affection;
 import crystal.core.CSettings;
@@ -30,7 +31,6 @@ import crystal.entities.shentong.ShenTong;
 import crystal.entities.units.MultiStageMechUnit;
 import crystal.entities.units.SummonUnit;
 import crystal.game.MultiSectorWaveTrigger;
-import crystal.game.UnitInfo;
 import crystal.game.CEventType.MapChangeEvent;
 import crystal.game.CEventType.SectorChangeEvent;
 import crystal.gen.EntityRegistry;
@@ -40,23 +40,22 @@ import crystal.ui.dialogs.CPlanetDialog;
 import crystal.util.DLog;
 import crystal.world.blocks.environment.DamageFloor;
 import crystal.world.blocks.payloads.UnitLaunchPayload;
+import crystal.world.blocks.stroage.MoveBlockSystem;
+import crystal.world.blocks.stroage.MoveCoreSystem;
 import mindustry.Vars;
-import mindustry.content.Items;
-import mindustry.content.SectorPresets;
-import mindustry.game.Objectives;
+import mindustry.entities.Units;
 import mindustry.game.EventType.ClientLoadEvent;
+import mindustry.game.EventType.TapEvent;
 import mindustry.game.EventType.Trigger;
+import mindustry.gen.Building;
 import mindustry.gen.EntityMapping;
 import mindustry.maps.Map;
 import mindustry.mod.Mod;
-import mindustry.type.ItemStack;
 import mindustry.type.Sector;
 import mindustry.ui.dialogs.BaseDialog;
 import mindustry.ui.dialogs.PlanetDialog;
 
 import static mindustry.Vars.*;
-
-import java.util.Objects;
 
 public class Crystal extends Mod {
   public static BaseDialog welcomeDialog;
@@ -83,7 +82,9 @@ public class Crystal extends Mod {
     CStyles.load();
     CItems.load();
     CEnvironment.load();
+    CUnitCommands.load();
     CUnits.load();
+    SpecialUnits.load();
     CBlocks.load();
     HZRBlocks.load();
     if (CVars.debug)
@@ -97,6 +98,8 @@ public class Crystal extends Mod {
     }
     LxMaps.load();
     CrystalTechTree.load();
+    MoveBlockSystem.init();
+    MoveCoreSystem.init();
     Log.info("Have Loaded All Contents!");
   }
 
@@ -149,7 +152,6 @@ public class Crystal extends Mod {
     UnitInfoSystem.loadUnitInfo();
     jsonRegister();
     MultiSectorWaveTrigger.get().init();
-    task();
     UnitInfoSystem.checkAllSector();
     UnitInfoSystem.saveUnitInfo();
     PlayerXiuWeiSystem.init();
@@ -163,9 +165,6 @@ public class Crystal extends Mod {
       update();
     });
     SummonUnit.init();
-  }
-
-  public void task() {
   }
 
   public void update() {
@@ -313,4 +312,5 @@ public class Crystal extends Mod {
         Vars.mods.removeMod(Vars.mods.getMod(name));
     });
   }
+
 }

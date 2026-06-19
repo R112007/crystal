@@ -6,14 +6,23 @@ import arc.util.io.Reads;
 import arc.util.io.Writes;
 import crystal.entities.shentong.ShenTong;
 import crystal.entities.units.UnitEnum.XiuWei;
-import crystal.gen.Magicc;
 import crystal.type.UnitStack;
-import crystal.util.DLog;
 import ent.anno.Annotations.TypeIOHandler;
 import mindustry.Vars;
+import mindustry.world.modules.ItemModule;
 
 @TypeIOHandler
 public class CTypeIO {
+  public static void writeItemModule(Writes writes, ItemModule item) {
+    item.write(writes);
+  }
+
+  public static ItemModule readItemModule(Reads reads) {
+    ItemModule item = new ItemModule();
+    item.read(reads);
+    return item;
+  }
+
   public static void writeUnitStack(Writes write, UnitStack stack) {
     write.i(stack.unit.id);
     write.i(stack.amount);

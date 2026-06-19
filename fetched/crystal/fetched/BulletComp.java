@@ -361,8 +361,8 @@ abstract class BulletComp implements Timedc, Damagec, Hitboxc, Teamc, Posc, Draw
             case speed -> type.speed * 60f / tilesize;
             case size -> type.hitSize / tilesize;
             case color -> Color.toDoubleBits(team.color.r, team.color.g, team.color.b, 1f);
-            case lifetime -> this.lifetime;
-            case time -> this.time;
+            case bulletLifetime -> this.lifetime;
+            case bulletTime -> this.time;
             default -> Float.NaN;
         };
     }
@@ -378,8 +378,8 @@ abstract class BulletComp implements Timedc, Damagec, Hitboxc, Teamc, Posc, Draw
             case rotation -> rotation = (float)value;
             case team -> this.team = Team.get((int)value);
             case speed -> vel.setLength((float)value * 8f);
-            case lifetime -> this.lifetime = (float)value;
-            case time -> this.time = (float)value;
+            case bulletLifetime -> this.lifetime = (float)value;
+            case bulletTime -> this.time = (float)value;
         }
     }
 
