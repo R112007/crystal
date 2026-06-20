@@ -2,28 +2,16 @@ package crystal.entities.comp;
 
 import arc.Core;
 import arc.Events;
-import arc.Graphics.Cursor;
 import arc.graphics.Color;
 import arc.graphics.g2d.Draw;
 import arc.graphics.g2d.Fill;
-import arc.input.KeyCode;
 import arc.math.Mathf;
-import arc.math.geom.Vec2;
-import arc.scene.Element;
-import arc.scene.Group;
-import arc.scene.event.InputEvent;
-import arc.scene.event.InputListener;
-import arc.scene.event.Touchable;
-import arc.scene.ui.Image;
-import arc.scene.ui.ScrollPane;
-import arc.scene.ui.TextButton;
 import arc.scene.ui.layout.Table;
-import arc.struct.Bits;
 import arc.util.Nullable;
-import arc.util.Scaling;
 import arc.util.Strings;
 import arc.util.Time;
 import crystal.Crystal;
+import crystal.content.CUnitCommands;
 import crystal.gen.Corec;
 import crystal.type.CoreUnit;
 import crystal.util.DLog;
@@ -33,13 +21,14 @@ import ent.anno.Annotations.EntityComponent;
 import ent.anno.Annotations.Import;
 import ent.anno.Annotations.Replace;
 import mindustry.Vars;
+import mindustry.ai.UnitCommand;
+import mindustry.ai.types.CommandAI;
 import mindustry.content.Fx;
 import mindustry.core.UI;
 import mindustry.entities.Units;
 import mindustry.game.Team;
 import mindustry.game.EventType.CoreChangeEvent;
 import mindustry.gen.Building;
-import mindustry.gen.Groups;
 import mindustry.gen.Player;
 import mindustry.gen.Unit;
 import mindustry.gen.Unitc;
@@ -49,13 +38,11 @@ import mindustry.type.ItemStack;
 import mindustry.type.UnitType;
 import mindustry.ui.Bar;
 import mindustry.ui.Styles;
-import mindustry.ui.dialogs.BaseDialog;
 import mindustry.world.Tile;
 import mindustry.world.blocks.storage.CoreBlock;
 import mindustry.world.blocks.storage.CoreBlock.CoreBuild;
 import mindustry.world.meta.StatUnit;
 import mindustry.world.modules.ItemModule;
-import static arc.Core.*;
 import static mindustry.Vars.*;
 
 @EntityComponent
@@ -79,6 +66,8 @@ public abstract class CoreComp implements Unitc, Corec {
   UnitType type;
   @Import
   float mineTimer;
+  public float idleTimer = 0f;
+  public boolean autoSwitched = false;
 
   @Override
   public void setType(UnitType type) {
@@ -86,8 +75,24 @@ public abstract class CoreComp implements Unitc, Corec {
       this.storageCapacity = c.storageCapacity();
       this.suckRange = c.suckRange();
       this.unitCapBonus = c.unitCapBonus();
+      this.auxiliaryRange = c.auxiliaryRange();
     } else
       throw new IllegalArgumentException("CoreUnit must use CoreUnitType");
+  }
+
+  public @Nullable Item getOreItem(Tile tile) {
+    if (type.mineFloor) {
+      if (tile.floor() != null && tile.floor().itemDrop != null) {
+        return tile.floor().itemDrop;
+      }
+      if (tile.overlay() != null && tile.overlay().itemDrop != null) {
+        return tile.overlay().itemDrop;
+      }
+    }
+    if (type.mineWalls && tile.block() != null && tile.block().itemDrop != null) {
+      return tile.block().itemDrop;
+    }
+    return null;
   }
 
   public ItemModule flowItems() {
@@ -132,32 +137,13 @@ public abstract class CoreComp implements Unitc, Corec {
       if (stack.amount <= 0)
         stack.amount = 0;
     }
-    if (mineTile != null) {
-      Item mineItem = getMineResult(mineTile);
-      if (mineItem != null && validMine(mineTile)) {
-        // 挖矿计时器
-        mineTimer += Time.delta * type.mineSpeed * state.rules.unitMineSpeed(team());
-        int tickThreshold = 50 + (type.mineHardnessScaling ? mineItem.hardness * 15 : 15);
-        if (mineTimer >= tickThreshold) {
-          mineTimer = 0;
-          // 直接存入核心items，不进stack
-          if (items.total() < proxy.storageCapacity) {
-            items.add(mineItem, 1);
-            Fx.pulverizeSmall.at(mineTile.worldx(), mineTile.worldy(), 0, mineItem.color);
-            // 战役产出统计
-            if (state.rules.sector != null && team() == state.rules.defaultTeam) {
-              state.rules.sector.info.handleProduction(mineItem, 1);
-            }
-          }
-        }
-      }
-    }
     if (Crystal.timer % 200 == 0) {
       for (var c : player.team().data().cores) {
         DLog.info("核心" + c.id + "单位容量" + ((CoreBlock) c.block).unitCapModifier);
       }
       DLog.info("当前团队单位上限：" + Units.getCap(team()));
     }
+    updateAutoCommand();
     // 每2秒自动吸取范围内物品
     /*
      * if (Crystal.timer % 120 == 0) {
@@ -295,11 +281,32 @@ public abstract class CoreComp implements Unitc, Corec {
     }
   }
 
+  public void updateAutoCommand() {
+    // 检查是否在移动（速度小于阈值算静止）
+    if (vel().len() < 0.1f) {
+      idleTimer += Math.min(Time.delta, 10f); // 最多一帧加 10，防止跳帧
+
+      // 5秒 = 300 tick
+      if (idleTimer >= 300f && !autoSwitched) {
+        // 切换到核心辅助命令
+        if (controller() instanceof CommandAI ai) {
+          // 只有当前不是核心辅助命令时才切换
+          if (ai.command != CUnitCommands.coreAuxiliaryCommand) {
+            ai.command = CUnitCommands.coreAuxiliaryCommand;
+            autoSwitched = true;
+          }
+        }
+      }
+    } else {
+      idleTimer = 0f;
+      if (autoSwitched && controller() instanceof CommandAI ai) {
+        ai.command = UnitCommand.moveCommand;
+        autoSwitched = false;
+      }
+    }
+  }
+
   @Override
   public void draw() {
-    Draw.color(team().color);
-    Draw.alpha(0.3f + Mathf.absin(30f, 0.1f));
-    Fill.circle(x(), y(), hitSize() * 1.2f);
-    Draw.reset();
   }
 }

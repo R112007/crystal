@@ -1,7 +1,9 @@
 package crystal.ai.type;
 
-import arc.math.Mathf;
+import arc.math.geom.Geometry;
 import arc.math.geom.Vec2;
+import arc.struct.ObjectSet;
+import arc.struct.Seq;
 import arc.util.Nullable;
 import crystal.gen.Corec;
 import mindustry.ai.types.CommandAI;
@@ -17,19 +19,20 @@ import static mindustry.Vars.*;
 
 public class CoreAuxiliaryAI extends AIController {
   protected static final Vec2 vec = new Vec2();
-  /** 目标矿石 */
-  public @Nullable Tile ore;
-  /** 目标矿石对应的物品 */
-  public @Nullable Item targetItem;
-  /** 正在协助建造的单位 */
+  // ===== 建造相关 =====
   public @Nullable Unit assistUnit;
-  /** 协助建造的目标位置 */
   public @Nullable BuildPlan assistPlan;
+  // ===== 挖矿相关（仿照DrillTurret） =====
+  public @Nullable Tile mineTile;
+  public @Nullable Tile ore;
+  public @Nullable Item targetItem;
+  protected Seq<Tile> proxOres;
+  protected Seq<Item> proxItems;
+  protected int targetID = -1;
+  public float mineTimer = 0f;
 
   public static boolean canUse(Unit unit) {
-    if (!(unit instanceof Corec))
-      return false;
-    return unit.canMine() || unit.canBuild();
+    return unit instanceof Corec && unit.canMine() && unit.canBuild();
   }
 
   @Override
@@ -46,11 +49,7 @@ public class CoreAuxiliaryAI extends AIController {
     // 不移动 - 只通过lookAt转向
   }
 
-  /**
-   * 更新建造协助逻辑
-   * 
-   * @return 是否正在协助建造
-   */
+  // ==================== 建造协助 ====================
   protected boolean updateBuildAssist(Corec core, float auxRange) {
     // 自己不能建造就直接跳过
     if (!unit.canBuild())
@@ -70,7 +69,6 @@ public class CoreAuxiliaryAI extends AIController {
         if (u.canBuild() && u != unit && u.activelyBuilding()) {
           BuildPlan plan = u.buildPlan();
           if (plan != null) {
-            // 检查建造位置是否在辅助范围内
             float planX = plan.x * tilesize + tilesize / 2f;
             float planY = plan.y * tilesize + tilesize / 2f;
             if (unit.within(planX, planY, auxRange)) {
@@ -81,24 +79,23 @@ public class CoreAuxiliaryAI extends AIController {
         }
       });
     }
-    // 如果有协助目标
     if (assistUnit != null && assistPlan != null) {
       float planX = assistPlan.x * tilesize + tilesize / 2f;
       float planY = assistPlan.y * tilesize + tilesize / 2f;
-      // 转向建造目标
       unit.lookAt(planX, planY);
-      // 检查是否在建造范围内
       if (unit.within(planX, planY, unit.type.buildRange)) {
-        // 开始协助建造 - 添加相同的建造计划
         if (unit.buildPlan() == null || !unit.buildPlan().samePos(assistPlan)) {
           unit.plans.clear();
-          unit.addBuild(
-              new BuildPlan(assistPlan.x, assistPlan.y, assistPlan.rotation, assistPlan.block, assistPlan.config));
+          BuildPlan newPlan = new BuildPlan(assistPlan.x, assistPlan.y, assistPlan.rotation, assistPlan.block,
+              assistPlan.config);
+          newPlan.breaking = assistPlan.breaking; // 保留拆除状态
+          newPlan.progress = assistPlan.progress; // 同步进度
+          unit.addBuild(newPlan);
         }
         unit.updateBuilding = true;
         return true;
       } else {
-        // 不在建造范围内，只转向，不建造
+        // 不在范围内，只转向
         unit.clearBuilding();
         return false;
       }
@@ -107,160 +104,166 @@ public class CoreAuxiliaryAI extends AIController {
     return false;
   }
 
-  /**
-   * 更新挖矿逻辑
-   */
+  // ==================== 挖矿逻辑（仿照DrillTurret） ====================
   protected void updateMining(Corec core, float auxRange) {
     if (!unit.canMine()) {
-      unit.mineTile(null);
+      mineTile = null;
       return;
     }
-    // 验证当前挖矿目标
-    if (ore != null && !unit.validMine(ore)) {
-      unit.mineTile(null);
-      ore = null;
+    // 第一次或者缓存失效时重新扫描
+    if (proxOres == null) {
+      reMap(core, auxRange);
     }
-    // 定时重新选择目标物品和矿石
-    if (timer.get(timerTarget3, 60f) || targetItem == null || ore == null) {
-      selectTargetItem(core, auxRange);
-      findOre(core, auxRange);
-    }
-    // 如果有目标矿石
-    if (ore != null && targetItem != null) {
-      float oreX = ore.worldx();
-      float oreY = ore.worldy();
-      // 转向矿石
-      unit.lookAt(oreX, oreY);
-      // 检查是否在挖矿范围内
-      if (unit.within(oreX, oreY, unit.type.mineRange) && unit.validMine(ore)) {
-        unit.mineTile = ore;
-      } else {
-        // 不在挖矿范围内，只转向不挖矿
-        unit.mineTile = null;
-      }
-    } else {
-      unit.mineTile = null;
+    // 选择目标矿石
+    targetMine(core, auxRange);
+    if (mineTile == null) {
+      mineTimer = 0f;
     }
   }
 
   /**
-   * 选择目标物品 - 找自身库存中最少的可挖矿物品
+   * 扫描范围内所有矿石，建立缓存（仿照DrillTurret.reMap）
    */
-  protected void selectTargetItem(Corec core, float auxRange) {
-    ItemModule items = core.items();
-    if (items == null)
-      return;
-    // 遍历所有物品，找可挖且库存最少的
-    targetItem = null;
-    int minCount = Integer.MAX_VALUE;
-    for (int i = 0; i < content.items().size; i++) {
-      Item item = content.item(i);
-      // 检查单位是否能挖这个物品
-      if (!unit.canMine(item))
-        continue;
-      // 检查是否有这种矿石
-      boolean hasOreType = false;
-      if (unit.type.mineFloor && indexer.hasOre(item))
-        hasOreType = true;
-      if (unit.type.mineWalls && indexer.hasWallOre(item))
-        hasOreType = true;
-      if (!hasOreType)
-        continue;
-      // 检查辅助范围内是否真的有这种矿石（快速检查）
-      if (!hasOreInRange(item, auxRange))
-        continue;
-      int count = items.get(item);
-      if (count < minCount) {
-        minCount = count;
-        targetItem = item;
-      }
-    }
-  }
-
-  /**
-   * 快速检查辅助范围内是否有指定物品的矿石
-   * 用于过滤掉范围内完全没有的矿石类型
-   */
-  protected boolean hasOreInRange(Item item, float auxRange) {
-    int tileRadius = (int) (auxRange / tilesize) + 1;
-    int centerX = unit.tileX();
-    int centerY = unit.tileY();
-    // 只检查几个采样点，快速判断
-    int step = Math.max(1, tileRadius / 4);
-    for (int dx = -tileRadius; dx <= tileRadius; dx += step) {
-      for (int dy = -tileRadius; dy <= tileRadius; dy += step) {
-        Tile tile = world.tile(centerX + dx, centerY + dy);
-        if (tile == null)
-          continue;
-        float dst = Mathf.dst(dx * tilesize, dy * tilesize);
-        if (dst > auxRange)
-          continue;
-        if (isOreTile(tile, item)) {
-          return true;
+  public void reMap(Corec core, float auxRange) {
+    proxOres = new Seq<>();
+    proxItems = new Seq<>();
+    ObjectSet<Item> tempItems = new ObjectSet<>();
+    int tileRadius = (int) (auxRange / tilesize + 0.5f);
+    Geometry.circle(unit.tileX(), unit.tileY(), tileRadius, (x, y) -> {
+      Tile other = world.tile(x, y);
+      if (other != null) {
+        Item drop = getOreDrop(other);
+        if (drop != null && unit.canMine(drop) && !tempItems.contains(drop)) {
+          tempItems.add(drop);
+          proxItems.add(drop);
+          proxOres.add(other);
         }
       }
-    }
-    return false;
+    });
   }
 
   /**
-   * 在辅助范围内找最近的目标矿石
+   * 重新找某类矿石的位置（仿照DrillTurret.reFind）
    */
-  protected void findOre(Corec core, float auxRange) {
-    if (targetItem == null) {
-      ore = null;
-      return;
+  public void reFind(Corec core, float auxRange, int i) {
+    Item item = proxItems.get(i);
+    int tileRadius = (int) (auxRange / tilesize + 0.5f);
+    Geometry.circle(unit.tileX(), unit.tileY(), tileRadius, (x, y) -> {
+      Tile other = world.tile(x, y);
+      if (other != null) {
+        Item drop = getOreDrop(other);
+        if (drop == item && isValidMineTile(other)) {
+          proxOres.set(i, other);
+        }
+      }
+    });
+  }
+
+  /**
+   * 获取瓦片的矿石掉落物
+   */
+  protected @Nullable Item getOreDrop(Tile tile) {
+    // 地板矿石
+    if (unit.type.mineFloor && tile.floor() != null && tile.floor().itemDrop != null) {
+      return tile.floor().itemDrop;
     }
-    Tile best = null;
-    float bestDst = Float.MAX_VALUE;
-    // 计算辅助范围对应的瓦片半径
-    int tileRadius = (int) (auxRange / tilesize) + 1;
-    int centerX = unit.tileX();
-    int centerY = unit.tileY();
-    // 遍历范围内的瓦片
-    for (int dx = -tileRadius; dx <= tileRadius; dx++) {
-      for (int dy = -tileRadius; dy <= tileRadius; dy++) {
-        Tile tile = world.tile(centerX + dx, centerY + dy);
-        if (tile == null)
-          continue;
-        // 检查距离
-        float dst = Mathf.dst(dx * tilesize, dy * tilesize);
-        if (dst > auxRange)
-          continue;
-        // 检查是否是目标矿石
-        if (isOreTile(tile, targetItem)) {
-          if (dst < bestDst) {
-            bestDst = dst;
-            best = tile;
+    // 墙壁矿石
+    if (unit.type.mineWalls && tile.block() != null && tile.block().itemDrop != null) {
+      return tile.block().itemDrop;
+    }
+    // overlay矿石
+    if (unit.type.mineFloor && tile.overlay() != null && tile.overlay().itemDrop != null) {
+      return tile.overlay().itemDrop;
+    }
+    return null;
+  }
+
+  /**
+   * 检查瓦片是否是有效的可挖矿瓦片
+   */
+  protected boolean isValidMineTile(Tile tile) {
+    return unit.validMine(tile);
+  }
+
+  /**
+   * 遍历所有矿石类型，选库存最少的（仿照DrillTurret.iterateMap）
+   */
+  public @Nullable Item iterateMap(Corec core) {
+    if (proxOres == null || !proxOres.any())
+      return null;
+    Item target = null;
+    int minStock = Integer.MAX_VALUE;
+    ItemModule items = core.items();
+    for (int i = 0; i < proxItems.size; i++) {
+      Item item = proxItems.get(i);
+      if (!unit.canMine(item))
+        continue;
+      if (items.get(item) >= core.storageCapacity())
+        continue;
+      int stock = items.get(item);
+      if (stock < minStock) {
+        Tile oreTile = proxOres.get(i);
+        if (isValidMineTile(oreTile)) {
+          minStock = stock;
+          target = item;
+          targetID = i;
+        } else {
+          // 矿石被挖没了，重新找
+          reFind(core, core.auxiliaryRange(), i);
+          oreTile = proxOres.get(i);
+          if (isValidMineTile(oreTile)) {
+            minStock = stock;
+            target = item;
+            targetID = i;
           }
         }
       }
     }
-    ore = best;
+    return target;
   }
 
   /**
-   * 检查瓦片是否是指定物品的矿石
+   * 更新挖矿目标（仿照DrillTurret.targetMine）
    */
-  protected boolean isOreTile(Tile tile, Item item) {
-    // 检查地板矿石
-    if (unit.type.mineFloor && tile.floor() != null && tile.floor().itemDrop == item) {
-      return true;
+  public void targetMine(Corec core, float auxRange) {
+    targetItem = iterateMap(core);
+    if (targetItem == null || core.items().get(targetItem) >= core.storageCapacity()) {
+      mineTile = null;
+      ore = null;
+    } else {
+      if (timer.get(timerTarget3, 600) && targetID > -1) {
+        ore = proxOres.get(targetID);
+      }
+      if (ore != null) {
+        float oreX = ore.worldx();
+        float oreY = ore.worldy();
+        // 转向矿石
+        unit.lookAt(oreX, oreY);
+        // 在挖矿范围内就开始挖
+        if (unit.within(oreX, oreY, unit.type.mineRange) && isValidMineTile(ore)) {
+          mineTile = ore;
+          unit.mineTile = ore;
+        } else {
+          mineTile = null;
+          unit.mineTile = null;
+        }
+        // 矿石被挖没了，重置
+        if (!isValidMineTile(ore)) {
+          if (targetID > -1) {
+            reFind(core, auxRange, targetID);
+          }
+          targetItem = null;
+          targetID = -1;
+          mineTile = null;
+          ore = null;
+        }
+      }
     }
-    // 检查墙壁矿石
-    if (unit.type.mineWalls && tile.block() != null && tile.block().itemDrop == item) {
-      return true;
-    }
-    // 检查overlay矿石
-    if (unit.type.mineFloor && tile.overlay() != null && tile.overlay().itemDrop == item) {
-      return true;
-    }
-    return false;
   }
 
   @Override
   public boolean shouldShoot() {
-    return !unit.isBuilding() && !unit.mining() && unit.type.canAttack;
+    return !unit.isBuilding() && mineTile == null && unit.type.canAttack;
   }
 
   @Override

@@ -7,7 +7,10 @@ public interface CoreUnit {
 
   float suckRange();
 
+  float auxiliaryRange();
+
   int unitCapBonus();
 
   CoreBlock core();
+
 }

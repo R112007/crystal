@@ -17,7 +17,7 @@ import static mindustry.Vars.*;
 public class MoveCoreSystem {
   public static final ObjectMap<Team, Seq<Corec>> mobileCores = new ObjectMap<>();
   public static final CoreInventoryFragment coreInventory = new CoreInventoryFragment();
-  private static final float tapRange = 6f;
+  private static final float tapRange = 2.5f;
 
   public static void init() {
     Events.on(ClientLoadEvent.class, e -> {

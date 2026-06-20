@@ -16,6 +16,7 @@ import arc.scene.event.ClickListener;
 import arc.scene.event.HandCursorListener;
 import arc.scene.event.InputEvent;
 import arc.scene.event.Touchable;
+import arc.scene.ui.Button;
 import arc.scene.ui.Image;
 import arc.scene.ui.layout.Stack;
 import arc.scene.ui.layout.Table;
@@ -27,6 +28,7 @@ import mindustry.core.UI;
 import mindustry.game.EventType.WorldLoadEvent;
 import mindustry.gen.Tex;
 import mindustry.type.Item;
+import mindustry.ui.Styles;
 import mindustry.world.modules.ItemModule;
 
 import static mindustry.Vars.*;
@@ -116,7 +118,7 @@ public class CoreInventoryFragment {
 
     table.clearChildren();
     table.clearActions();
-    table.background(Tex.inventory);
+    table.background(null);
     table.touchable = Touchable.enabled;
 
     updateTargetPos();
@@ -163,12 +165,29 @@ public class CoreInventoryFragment {
         }
       }
     });
+    // ===== 顶部控制栏 =====
+    Table topBar = new Table();
+    topBar.marginBottom(4f);
+
+    Button acceptBtn = new Button(Styles.flatToggleMenut);
+    acceptBtn.margin(6f, 10f, 6f, 10f);
+    acceptBtn.label(() -> core != null && core.accept() ? "[green]接收中[]" : "[scarlet]已关闭[]");
+    acceptBtn.clicked(() -> {
+      if (core != null) {
+        core.accept(!core.accept());
+      }
+    });
+    acceptBtn.update(() -> acceptBtn.setChecked(core != null && core.accept()));
+    topBar.add(acceptBtn).right().growX();
+
+    table.add(topBar).growX().padBottom(4f).row();
 
     int cols = 4;
     int row = 0;
     table.margin(6f);
     table.defaults().size(8 * 5).pad(4f);
-
+    Table itemsTable = new Table();
+    itemsTable.defaults().size(8 * 5).pad(4f);
     ItemModule items = core.items();
     if (items != null) {
       for (int i = 0; i < content.items().size; i++) {
@@ -220,13 +239,12 @@ public class CoreInventoryFragment {
             lastItem = null;
           }
         });
-
-        table.add(image);
+        itemsTable.add(image);
         if (row++ % cols == cols - 1)
-          table.row();
+          itemsTable.row();
       }
     }
-
+    table.add(itemsTable).growX();
     if (row == 0) {
       table.setSize(0f, 0f);
     }

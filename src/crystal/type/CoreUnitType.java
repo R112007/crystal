@@ -2,6 +2,7 @@ package crystal.type;
 
 import arc.Core;
 import arc.graphics.Color;
+import arc.util.Log;
 import arc.util.Scaling;
 import crystal.content.CUnitCommands;
 import crystal.world.meta.CStat;
@@ -16,7 +17,7 @@ import static mindustry.Vars.*;
 
 public class CoreUnitType extends UnitType implements CoreUnit {
   public int storageCapacity = 3000; // 存储容量
-  public float suckRange = 160f; // 自动吸取范围
+  public float suckRange = 160f, auxiliaryRange = 200f; // 自动吸取范围
   public int unitCapBonus = 10; // 单位容量加成
   public CoreBlock core;
   public UnitType unit = UnitTypes.alpha;
@@ -25,7 +26,6 @@ public class CoreUnitType extends UnitType implements CoreUnit {
     super(name);
     useUnitCap = false;
     targetPriority = TargetPriority.core;
-    commands.add(CUnitCommands.coreAuxiliaryCommand);
     core = new CoreBlock(this.name + "Core") {
       {
         health = (int) CoreUnitType.this.health;
@@ -42,6 +42,8 @@ public class CoreUnitType extends UnitType implements CoreUnit {
     core.itemCapacity = this.storageCapacity;
     core.unitCapModifier = this.unitCapBonus;
     core.unitType = this.unit;
+    commands.add(CUnitCommands.coreAuxiliaryCommand);
+    Log.info("Commands for " + name + ": " + commands);
   }
 
   @Override
@@ -68,6 +70,10 @@ public class CoreUnitType extends UnitType implements CoreUnit {
 
   public CoreBlock core() {
     return core;
+  }
+
+  public float auxiliaryRange() {
+    return auxiliaryRange;
   }
 
   public int storageCapacity() {
