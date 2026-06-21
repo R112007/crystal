@@ -222,9 +222,6 @@ public class CoreAuxiliaryAI extends AIController {
     return target;
   }
 
-  /**
-   * 更新挖矿目标（仿照DrillTurret.targetMine）
-   */
   public void targetMine(Corec core, float auxRange) {
     targetItem = iterateMap(core);
     if (targetItem == null || core.items().get(targetItem) >= core.storageCapacity()) {

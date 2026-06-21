@@ -10,7 +10,7 @@ import crystal.type.GongFa;
 import mindustry.type.SectorPreset;
 
 public class CVars {
-  public static boolean debug = false;
+  public static boolean debug = true;
   public static boolean chooseNewRoad = false;
   public static UI cui = new UI();
   public static String modName = "crystal";

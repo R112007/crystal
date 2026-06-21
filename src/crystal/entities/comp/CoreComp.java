@@ -3,9 +3,7 @@ package crystal.entities.comp;
 import arc.Core;
 import arc.Events;
 import arc.graphics.Color;
-import arc.graphics.g2d.Draw;
-import arc.graphics.g2d.Fill;
-import arc.math.Mathf;
+import arc.math.geom.Vec2;
 import arc.scene.ui.layout.Table;
 import arc.util.Nullable;
 import arc.util.Strings;
@@ -19,6 +17,7 @@ import crystal.world.blocks.stroage.CoreInjector;
 import crystal.world.blocks.stroage.MoveCoreSystem;
 import ent.anno.Annotations.EntityComponent;
 import ent.anno.Annotations.Import;
+import ent.anno.Annotations.MethodPriority;
 import ent.anno.Annotations.Replace;
 import mindustry.Vars;
 import mindustry.ai.UnitCommand;
@@ -49,7 +48,7 @@ import static mindustry.Vars.*;
 public abstract class CoreComp implements Unitc, Corec {
   public ItemModule items = new ItemModule();
   public int storageCapacity;
-  public boolean deployed = true;
+  public boolean deployed = false;
   public transient CoreBuild proxy;
   public float suckRange, auxiliaryRange;
   public int unitCapBonus;
@@ -118,8 +117,15 @@ public abstract class CoreComp implements Unitc, Corec {
     DLog.info("[读取]" + "单位编号" + id() + " " + "核心数量" + Vars.player.team().data().cores.size);
   }
 
+  @MethodPriority(-999)
   @Override
   public void update() {
+    if (self() instanceof Corec core && core.deployed()) {
+      speedMultiplier(0f);
+      vel().setZero();
+      deltaX(0);
+      deltaY(0);
+    }
     if (proxy != null) {
       proxy.team = team();
       if (proxy.items != null) {
@@ -144,31 +150,10 @@ public abstract class CoreComp implements Unitc, Corec {
       DLog.info("当前团队单位上限：" + Units.getCap(team()));
     }
     updateAutoCommand();
-    // 每2秒自动吸取范围内物品
-    /*
-     * if (Crystal.timer % 120 == 0) {
-     * indexer.eachBlock(team(), x(), y(), suckRange,
-     * b -> b.block.hasItems && b.items.total() > 0,
-     * build -> {
-     * build.items.each((item, amount) -> {
-     * if (acceptItem(build, item)) {
-     * int transfer = Math.min(amount, 10);
-     * build.items.remove(item, transfer);
-     * items.add(item, transfer);
-     * Fx.itemTransfer.at(build.x(), build.y(), 0, item.color, this);
-     * }
-     * });
-     * });
-     * }
-     */
-
-    // 部署状态：禁止移动
-    speedMultiplier(deployed ? 0f : 1f);
   }
 
   @Override
   public void killed() {
-    // 从团队核心列表注销
     CoreInjector.removeCore(team().data(), this);
     Fx.explosion.at(self());
   }

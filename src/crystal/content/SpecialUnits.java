@@ -13,7 +13,7 @@ import mindustry.type.Weapon;
 public class SpecialUnits {
 
   public static @EntityDef({ Unitc.class, Corec.class, Crawlc.class }) CoreUnitType moveCore1;
-  public static @EntityDef({ Unitc.class, Corec.class, Legsc.class }) CoreUnitType moveCore2;
+  public static @EntityDef({ Unitc.class, Corec.class, RetractableLegsc.class }) CoreUnitType moveCore2;
 
   public static void load() {
     moveCore1 = new CoreUnitType("moveCore1") {
@@ -24,7 +24,7 @@ public class SpecialUnits {
         buildSpeed = 1;
         storageCapacity = 1000;
         controller = UnitTypes.poly.controller;
-        constructor = LegsCoreUnit::create;
+        constructor = RetractableLegsCoreUnit::create;
         speed = 0.5f;
         rotateSpeed = 0.7f;
         legCount = 6;

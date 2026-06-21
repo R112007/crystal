@@ -34,6 +34,7 @@ import crystal.game.MultiSectorWaveTrigger;
 import crystal.game.CEventType.MapChangeEvent;
 import crystal.game.CEventType.SectorChangeEvent;
 import crystal.gen.EntityRegistry;
+import crystal.net.CCall;
 import crystal.ui.CStyles;
 import crystal.ui.Hints;
 import crystal.ui.dialogs.CPlanetDialog;
@@ -75,6 +76,7 @@ public class Crystal extends Mod {
   @Override
   public void loadContent() {
     Log.info("Start to Load Contents");
+    CCall.load();
     Affection.affection.load();
     GongFas.load();
     registerShenTongs();
