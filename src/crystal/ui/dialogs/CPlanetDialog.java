@@ -17,8 +17,9 @@ import arc.scene.ui.*;
 import arc.scene.ui.layout.*;
 import arc.struct.*;
 import arc.util.*;
-import crystal.core.UnitInfoSystem;
 import crystal.game.UnitInfo;
+import crystal.gen.Corec;
+import crystal.world.blocks.stroage.MoveCoreSystem;
 import mindustry.*;
 import mindustry.content.*;
 import mindustry.content.TechTree.*;
@@ -42,6 +43,7 @@ import mindustry.ui.dialogs.*;
 import mindustry.world.blocks.storage.*;
 import mindustry.world.blocks.storage.CoreBlock.*;
 import mindustry.world.meta.StatValues;
+import mindustry.world.modules.ItemModule;
 
 import static arc.Core.*;
 import static crystal.ui.dialogs.CPlanetDialog.Mode.*;
@@ -55,7 +57,7 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
     public static float sectorShowDuration = 60f * 2.4f;
 
     public final FrameBuffer buffer = new FrameBuffer(2, 2, true);
-    public final LaunchLoadoutDialog loadouts = new LaunchLoadoutDialog();
+    public final MobileLaunchLoadoutDialog loadouts = new MobileLaunchLoadoutDialog();
     public final PlanetRenderer planets = renderer.planets;
 
     public PlanetParams state = new PlanetParams();
@@ -1215,7 +1217,18 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
                 hide();
                 // after dialog is hidden
                 Time.runTask(7f, () -> {
-                    // force game over in a more dramatic fashion
+                    for (crystal.gen.Corec mc : crystal.world.blocks.stroage.MoveCoreSystem.getCores(player.team())) {
+                        if (mc instanceof Unit u && !u.dead()) {
+                            // 手动把共享 items 拷贝成本地，防止 destroy 时空指针
+                            if (mc.items() != null) {
+                                ItemModule localItems = new ItemModule();
+                                localItems.set(mc.items());
+                                mc.items(localItems);
+                            }
+                            u.kill();
+                        }
+                    }
+                    MoveCoreSystem.getCores(player.team()).clear();
                     for (var core : player.team().cores().copy()) {
                         core.kill();
                     }
@@ -1241,8 +1254,9 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
     public void hide() {
         super.hide();
         Core.app.post(() -> {
-        if (hasParent()) parent.removeChild(this);
-    });
+            if (hasParent())
+                parent.removeChild(this);
+        });
     }
 
     public void selectSector(Sector sector) {

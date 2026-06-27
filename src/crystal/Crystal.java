@@ -34,10 +34,12 @@ import crystal.game.MultiSectorWaveTrigger;
 import crystal.game.CEventType.MapChangeEvent;
 import crystal.game.CEventType.SectorChangeEvent;
 import crystal.gen.EntityRegistry;
+import crystal.mod.ClassMapLoader;
 import crystal.net.CCall;
 import crystal.ui.CStyles;
 import crystal.ui.Hints;
 import crystal.ui.dialogs.CPlanetDialog;
+import crystal.ui.dialogs.MobileLaunchLoadoutDialog;
 import crystal.util.DLog;
 import crystal.world.blocks.environment.DamageFloor;
 import crystal.world.blocks.payloads.UnitLaunchPayload;
@@ -149,6 +151,7 @@ public class Crystal extends Mod {
 
   @Override
   public void init() {
+    ClassMapLoader.load();
     CVars.cui.init();
     UnitInfoSystem.init();
     UnitInfoSystem.loadUnitInfo();
@@ -160,6 +163,7 @@ public class Crystal extends Mod {
     Events.on(ClientLoadEvent.class, e -> {
       constructor();
     });
+    MobileLaunchLoadoutDialog.init();
     CIcons.load();
     CSettings.load();
     replaceUI();

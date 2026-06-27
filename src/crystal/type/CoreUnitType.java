@@ -2,13 +2,17 @@ package crystal.type;
 
 import arc.Core;
 import arc.graphics.Color;
+import arc.graphics.g2d.TextureRegion;
 import arc.util.Log;
 import arc.util.Scaling;
 import crystal.content.CUnitCommands;
+import crystal.gen.Corec;
 import crystal.world.meta.CStat;
 import mindustry.content.UnitTypes;
 import mindustry.entities.TargetPriority;
+import mindustry.gen.Unit;
 import mindustry.type.UnitType;
+import mindustry.type.weapons.MineWeapon;
 import mindustry.ui.Styles;
 import mindustry.world.blocks.storage.CoreBlock;
 import mindustry.world.meta.Stat;
@@ -20,7 +24,10 @@ public class CoreUnitType extends UnitType implements CoreUnit {
   public float suckRange = 160f, auxiliaryRange = 200f; // 自动吸取范围
   public int unitCapBonus = 10; // 单位容量加成
   public CoreBlock core;
-  public UnitType unit = UnitTypes.alpha;
+  public UnitType unit = UnitTypes.gamma;
+  public boolean deployDrawWeapon = true;
+  public int deployBlockSize;
+  public TextureRegion rightTopBase, rightUnderBase, leftTopBase, leftUnderBase;
 
   public CoreUnitType(String name) {
     super(name);
@@ -43,6 +50,9 @@ public class CoreUnitType extends UnitType implements CoreUnit {
     core.unitCapModifier = this.unitCapBonus;
     core.unitType = this.unit;
     commands.add(CUnitCommands.coreAuxiliaryCommand);
+    if (weapons.contains(w -> w instanceof MineWeapon)) {
+      drawMineBeam = false;
+    }
     Log.info("Commands for " + name + ": " + commands);
   }
 
@@ -86,5 +96,21 @@ public class CoreUnitType extends UnitType implements CoreUnit {
 
   public int unitCapBonus() {
     return unitCapBonus;
+  }
+
+  @Override
+  public void drawWeapons(Unit unit) {
+    Corec corec = (Corec) unit;
+    if (corec.deployed() && deployDrawWeapon == false)
+      return;
+    super.drawWeapons(unit);
+  }
+
+  @Override
+  public void drawWeaponOutlines(Unit unit) {
+    Corec corec = (Corec) unit;
+    if (corec.deployed() && deployDrawWeapon == false)
+      return;
+    super.drawWeapons(unit);
   }
 }

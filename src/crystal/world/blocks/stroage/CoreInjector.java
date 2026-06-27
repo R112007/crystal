@@ -87,6 +87,10 @@ public class CoreInjector {
         }
 
         @Override
+        public void updateLaunch() {
+        }
+
+        @Override
         public boolean isValid() {
           return !coreUnit.dead() && coreUnit.isAdded();
         }
@@ -151,6 +155,7 @@ public class CoreInjector {
       };
 
       proxy.create(ourCoreBlock, coreUnit.team());
+      proxy.tile = Vars.world.tileWorld(coreUnit.x(), coreUnit.y());
       if (cores.any()) {
         ItemModule sharedItems = cores.first().items;
         proxy.items = sharedItems;
