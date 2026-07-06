@@ -14,6 +14,8 @@ import mindustry.Vars;
 import mindustry.gen.Icon;
 import mindustry.io.JsonIO;
 import mindustry.ui.Styles;
+import mindustry.ui.dialogs.SettingsMenuDialog;
+import mindustry.ui.dialogs.SettingsMenuDialog.SettingsTable;
 
 import static mindustry.Vars.*;
 
@@ -66,43 +68,64 @@ public class CSettings {
       table.row();
       table.checkPref("showgongfabuquan", true);
       table.row();
-      table.button(Core.bundle.get("clearallhistory"), Icon.trash, Styles.flatt, () -> {
-        ui.showConfirm(Core.bundle.get("confirm"), Core.bundle.get("clearallhistory.confirm"), () -> {
-          instance.clearAllDialogueHistory();
-          ui.showInfo(Core.bundle.get("clearallhistory.done"));
-        });
-      }).size(300f, 60f).left().marginLeft(4f).padTop(8f);
-      table.row();
-      table.button(Core.bundle.get("changeplayername"), Icon.edit, Styles.flatt, () -> {
-        Vars.ui.showTextInput(
-            Core.bundle.get("changeplayername.title"),
-            Core.bundle.get("changeplayername.content"),
-            16,
-            CSettings.instance.getPlayerName(),
-            false,
-            newName -> {
-              String trimName = newName == null ? "" : newName.trim();
-              if (CSettings.instance.isBlank(trimName)) {
-                Vars.ui.showErrorMessage(Core.bundle.get("changeplayername.nonull"));
-                return;
-              }
-              CSettings.instance.setPlayerName(trimName);
-              CVars.playerName = trimName;
-              Storys.inst.player.name = trimName;
-              Vars.ui.showInfo(Core.bundle.format("changeplayername.done", trimName));
-              Core.app.exit();
-            },
-            () -> {
+
+      // --- 清空所有历史 ---
+      table.pref(new SettingsMenuDialog.SettingsTable.Setting("crystal.clearallhistory") {
+        @Override
+        public void add(SettingsTable t) {
+          t.button(Core.bundle.get("clearallhistory"), Icon.trash, Styles.flatt, () -> {
+            ui.showConfirm(Core.bundle.get("confirm"), Core.bundle.get("clearallhistory.confirm"), () -> {
+              instance.clearAllDialogueHistory();
+              ui.showInfo(Core.bundle.get("clearallhistory.done"));
             });
-      }).size(300f, 60f).left().marginLeft(4f).padTop(8f);
-      table.row();
-      table.button(Core.bundle.get("clearallmodel"), Icon.trash, Styles.flatt, () -> {
-        ui.showConfirm(Core.bundle.get("confirm"), Core.bundle.get("clearallmodel.confirm"), () -> {
-          GalgameDialogueManager.instance.resetAllProgress();
-          ui.showInfo(Core.bundle.get("clearallmodel.done"));
-        });
-      }).size(300f, 60f).left().marginLeft(4f).padTop(8f);
-      table.row();
+          }).size(300f, 60f).left().marginLeft(4f).padTop(8f);
+          t.row();
+        }
+      });
+
+      // --- 修改玩家名字 ---
+      table.pref(new SettingsMenuDialog.SettingsTable.Setting("crystal.changeplayername") {
+        @Override
+        public void add(SettingsTable t) {
+          t.button(Core.bundle.get("changeplayername"), Icon.edit, Styles.flatt, () -> {
+            Vars.ui.showTextInput(
+                Core.bundle.get("changeplayername.title"),
+                Core.bundle.get("changeplayername.content"),
+                16,
+                CSettings.instance.getPlayerName(),
+                false,
+                newName -> {
+                  String trimName = newName == null ? "" : newName.trim();
+                  if (CSettings.instance.isBlank(trimName)) {
+                    Vars.ui.showErrorMessage(Core.bundle.get("changeplayername.nonull"));
+                    return;
+                  }
+                  CSettings.instance.setPlayerName(trimName);
+                  CVars.playerName = trimName;
+                  Storys.inst.player.name = trimName;
+                  Vars.ui.showInfo(Core.bundle.format("changeplayername.done", trimName));
+                  Core.app.exit();
+                },
+                () -> {
+                });
+          }).size(300f, 60f).left().marginLeft(4f).padTop(8f);
+          t.row();
+        }
+      });
+
+      // --- 清空所有模块进度 ---
+      table.pref(new SettingsMenuDialog.SettingsTable.Setting("crystal.clearallmodel") {
+        @Override
+        public void add(SettingsTable t) {
+          t.button(Core.bundle.get("clearallmodel"), Icon.trash, Styles.flatt, () -> {
+            ui.showConfirm(Core.bundle.get("confirm"), Core.bundle.get("clearallmodel.confirm"), () -> {
+              GalgameDialogueManager.instance.resetAllProgress();
+              ui.showInfo(Core.bundle.get("clearallmodel.done"));
+            });
+          }).size(300f, 60f).left().marginLeft(4f).padTop(8f);
+          t.row();
+        }
+      });
     });
   }
 

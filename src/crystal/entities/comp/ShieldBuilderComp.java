@@ -27,6 +27,7 @@ import arc.struct.Seq;
 import arc.util.Time;
 import arc.util.Tmp;
 import crystal.game.WaitTime;
+import crystal.type.BuildShieldUnit;
 import crystal.type.BuildShieldUnitType;
 
 @EntityComponent
@@ -64,12 +65,16 @@ abstract class ShieldBuilderComp implements Unitc {
 
   @Override
   public void setType(UnitType type) {
-    if (!(type instanceof BuildShieldUnitType)) {
-      throw new IllegalArgumentException("ShieldBuilderUnit must use ShieldBuilderUnitType");
+    // 改为判断 BuildShieldUnit 接口，不再强转具体 BuildShieldUnitType
+    if (!(type instanceof BuildShieldUnit)) {
+      throw new IllegalArgumentException("ShieldBuilderUnit must implement BuildShieldUnit interface");
     }
-    this.shieldHealth = this.shieldMaxHealth = ((BuildShieldUnitType) type).shieldHealth;
-    this.cooldown = ((BuildShieldUnitType) type).cooldown;
-    this.regenRate = ((BuildShieldUnitType) type).regenRate;
+    BuildShieldUnit shieldUnit = (BuildShieldUnit) type;
+    // 从接口getter读取配置
+    this.shieldHealth = this.shieldMaxHealth = shieldUnit.shieldHealth();
+    this.cooldown = shieldUnit.cooldown();
+    this.regenRate = shieldUnit.regenRate();
+
     bulletc = b -> {
       if (b.team != this.team &&
           b.type.absorbable &&
@@ -86,11 +91,9 @@ abstract class ShieldBuilderComp implements Unitc {
         Fx.absorb.at(b);
         if (shieldHealth <= b.damage()) {
           shieldHealth -= cooldown * regenRate;
-
           Fx.arcShieldBreak.at(paramPos.x, paramPos.y, 0,
               Color.valueOf("ff0000").shiftHue((Time.time * 0.2f) + (1f * (360 / 16))));
         }
-
         shieldHealth -= b.damage();
         alpha = 1f;
       }

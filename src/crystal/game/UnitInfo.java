@@ -117,6 +117,8 @@ public class UnitInfo {
   }
 
   public static UnitInfo get(Sector targetSector) {
+    if (targetSector == null)
+      return null;
     for (UnitInfo info : all) {
       if (info == null) {
         continue;

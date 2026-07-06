@@ -18,7 +18,6 @@ import arc.scene.ui.layout.*;
 import arc.struct.*;
 import arc.util.*;
 import crystal.game.UnitInfo;
-import crystal.gen.Corec;
 import crystal.world.blocks.stroage.MoveCoreSystem;
 import mindustry.*;
 import mindustry.content.*;
@@ -57,7 +56,7 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
     public static float sectorShowDuration = 60f * 2.4f;
 
     public final FrameBuffer buffer = new FrameBuffer(2, 2, true);
-    public final MobileLaunchLoadoutDialog loadouts = new MobileLaunchLoadoutDialog();
+    public final LaunchLoadoutDialog loadouts = new LaunchLoadoutDialog();
     public final PlanetRenderer planets = renderer.planets;
 
     public PlanetParams state = new PlanetParams();
@@ -82,6 +81,7 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
     private Element mainView;
     private CampaignRulesDialog campaignRules = new CampaignRulesDialog();
     private SectorSelectDialog selectDialog = new SectorSelectDialog();
+    public static final float zoomFarMulti = 1.8f;
 
     public CPlanetDialog() {
         super("", Styles.fullDialog);
@@ -154,7 +154,8 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
             @Override
             public boolean scrolled(InputEvent event, float x, float y, float amountX, float amountY) {
                 if (event.targetActor == CPlanetDialog.this) {
-                    zoom = Mathf.clamp(zoom + amountY / 10f, state.planet.minZoom, state.planet.maxZoom);
+                    float rawZoom = zoom + amountY / 10f;
+                    zoom = Mathf.clamp(rawZoom, state.planet.minZoom * zoomFarMulti, state.planet.maxZoom);
                 }
                 return true;
             }
@@ -168,8 +169,9 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
                 if (lastZoom < 0) {
                     lastZoom = zoom;
                 }
+                float rawZoom = initialDistance / distance * lastZoom;
+                zoom = Mathf.clamp(rawZoom, state.planet.minZoom * zoomFarMulti, state.planet.maxZoom);
 
-                zoom = (Mathf.clamp(initialDistance / distance * lastZoom, state.planet.minZoom, state.planet.maxZoom));
             }
 
             @Override
@@ -391,7 +393,7 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
     }
 
     void clampZoom() {
-        zoom = Mathf.clamp(zoom, state.planet.minZoom, state.planet.maxZoom);
+        zoom = Mathf.clamp(zoom, state.planet.minZoom * zoomFarMulti, state.planet.maxZoom);
     }
 
     boolean canSelect(Sector sector) {
@@ -1050,8 +1052,8 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
         } else {
             hovered = selected = null;
         }
+        state.zoom = Mathf.lerpDelta(state.zoom, zoom * zoomFarMulti, 0.4f);
 
-        state.zoom = Mathf.lerpDelta(state.zoom, zoom, 0.4f);
         state.uiAlpha = Mathf.lerpDelta(state.uiAlpha, Mathf.num(state.zoom < 1.9f), 0.1f);
     }
 
@@ -1217,18 +1219,7 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
                 hide();
                 // after dialog is hidden
                 Time.runTask(7f, () -> {
-                    for (crystal.gen.Corec mc : crystal.world.blocks.stroage.MoveCoreSystem.getCores(player.team())) {
-                        if (mc instanceof Unit u && !u.dead()) {
-                            // 手动把共享 items 拷贝成本地，防止 destroy 时空指针
-                            if (mc.items() != null) {
-                                ItemModule localItems = new ItemModule();
-                                localItems.set(mc.items());
-                                mc.items(localItems);
-                            }
-                            u.kill();
-                        }
-                    }
-                    MoveCoreSystem.getCores(player.team()).clear();
+                    MoveCoreSystem.removeAllCorecs(player.team());
                     for (var core : player.team().cores().copy()) {
                         core.kill();
                     }

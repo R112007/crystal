@@ -9,10 +9,13 @@ import arc.math.Mathf;
 import arc.math.Rand;
 import arc.math.geom.Position;
 import arc.util.Tmp;
+import crystal.entities.effect.MultiEffect;
 import crystal.graphics.CPal;
 import crystal.util.CTmp;
 import mindustry.entities.Effect;
 import mindustry.entities.effect.ExplosionEffect;
+import mindustry.entities.effect.ParticleEffect;
+import mindustry.entities.effect.WaveEffect;
 import mindustry.graphics.Drawf;
 import mindustry.graphics.Layer;
 import mindustry.graphics.Pal;
@@ -116,4 +119,28 @@ public class CFx {
       this.sparkColor = CPal.blue1;
     }
   }.layer(Layer.bullet);
+  public static Effect airmisslemiddle = new MultiEffect(airmisslesmall, new ParticleEffect() {
+    {
+      this.particles = 5;
+      this.lifetime = 20;
+      this.length = 20;
+      this.baseLength = -20;
+      this.sizeFrom = 5;
+      this.sizeTo = 0;
+      this.colorFrom = CPal.light_blue1;
+      this.colorTo = Color.white;
+    }
+  });
+  public static Effect airpiercedown = new MultiEffect(airmisslemiddle, new WaveEffect() {
+    {
+      this.sizeFrom = 0;
+      this.sizeTo = 20;
+      this.lifetime = 30;
+      this.sides = 1;
+      this.colorFrom = CPal.light_blue1;
+      this.colorTo = CPal.blue1;
+      this.strokeFrom = 2.5f;
+      this.strokeTo = 0;
+    }
+  });
 }

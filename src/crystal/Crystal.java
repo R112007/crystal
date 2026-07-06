@@ -41,7 +41,6 @@ import crystal.ui.Hints;
 import crystal.ui.dialogs.CPlanetDialog;
 import crystal.ui.dialogs.MobileLaunchLoadoutDialog;
 import crystal.util.DLog;
-import crystal.world.blocks.environment.DamageFloor;
 import crystal.world.blocks.payloads.UnitLaunchPayload;
 import crystal.world.blocks.stroage.MoveBlockSystem;
 import crystal.world.blocks.stroage.MoveCoreSystem;
@@ -176,7 +175,6 @@ public class Crystal extends Mod {
   public void update() {
     timer += Time.delta;
     UnitInfoSystem.update();
-    DamageFloor.update();
     updateSector();
     updateMap();
     FaTianXiangDi.faShens.update();

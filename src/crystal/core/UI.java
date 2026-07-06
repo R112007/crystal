@@ -5,6 +5,7 @@ import crystal.content.WorldStuffs;
 import crystal.ui.dialogs.CPlanetDialog;
 import crystal.ui.dialogs.CResearchDialog;
 import crystal.ui.dialogs.GongFaDialog;
+import crystal.ui.dialogs.MagicWaveDialog;
 import crystal.ui.dialogs.WorldStuffDialog;
 import crystal.ui.gal.GalgameDialogueManager;
 import mindustry.Vars;
@@ -52,6 +53,16 @@ public class UI {
         });
       });
 
+    Vars.ui.hudGroup.fill(null, table -> {
+      table.table(null, t -> {
+        t.button("修为调试面板", Styles.flatt, () -> {
+          new MagicWaveDialog().show();
+        }).size(100, 70);
+      }).size(100, 70);
+      table.center().left().update(() -> {
+        table.translation.set(0, height + 260);
+      });
+    });
     if (debug)
       Vars.ui.hudGroup.fill(null, table -> {
         table.table(null, t -> {

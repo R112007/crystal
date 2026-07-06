@@ -314,6 +314,61 @@ public class GalgameDialogueManager {
     }
   }
 
+  public void playModule(DialogueModule module) {
+    if (module == null) {
+      Vars.ui.showErrorMessage("存在无效模块");
+      return;
+    }
+    // ====================== 核心修复：三重过滤，禁止重叠播放 ======================
+    // 1. 正在播放 → 不加入
+    if (isPlayingModule) {
+      if (module.isCompleted) {
+        return;
+      }
+      if (waitingModuleIds.contains(module.moduleId)) {
+        return;
+      }
+      waitingModuleIds.add(module.moduleId);
+      saveWaitingQueue();
+      return;
+    }
+    // 2. 模块已完成 → 不加入
+    // 3. 队列已存在 → 不加入（去重）
+    // ==========================================================================
+    try {
+      hide();
+      isPlayingModule = true;
+      // ========== 核心BUG修复：删除module.resetProgress()，不再强制重置进度 ==========
+      // 新增：加载模块本地存档进度，确保重启后进度不丢失
+      module.loadModuleData();
+      currentLine = null;
+      lastPlayedCharacterId = null;
+      isAutoPlay = false;
+      isTyping = false;
+      ui.reset();
+      dialogueQueue.clear();
+      currentModuleId = module.moduleId;
+      // ========== 修复：从当前进度progressIndex开始加载队列，而非从头开始 ==========
+      for (int i = module.progressIndex; i < module.dialogueNodes.size; i++) {
+        dialogueQueue.add(module.dialogueNodes.get(i));
+      }
+      show();
+      if (!dialogueQueue.isEmpty()) {
+        nextLine();
+      } else {
+        module.progressIndex = module.dialogueNodes.size;
+        module.isCompleted = true;
+        module.saveModuleData();
+        isPlayingModule = false;
+        hide();
+      }
+      if (continuePlayTable != null)
+        continuePlayTable.visible = false;
+    } finally {
+      processWaitingQueue();
+    }
+  }
+
   // ==================== 核心播放逻辑 ====================
   public void play(DialogueLine line) {
     dialogueQueue.clear();

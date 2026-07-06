@@ -7,6 +7,7 @@ import mindustry.entities.Effect;
 import mindustry.game.Team;
 import mindustry.maps.Map;
 import mindustry.type.Sector;
+import mindustry.type.SectorPreset;
 import mindustry.type.UnitType;
 import mindustry.world.Block;
 import mindustry.world.Tile;
@@ -90,7 +91,7 @@ public class CEventType {
   public static class JingJieChange {
     public float amount;
 
-    public JingJieChange(Float amount) {
+    public JingJieChange(float amount) {
       this.amount = amount;
     }
   }
@@ -135,6 +136,24 @@ public class CEventType {
       this.characterName = characterName;
       this.dialogText = dialogText;
       this.onDismiss = onDismiss;
+    }
+  }
+
+  public static class DuJieStartEvent {
+    public final JingJie targetJingJie;
+
+    public DuJieStartEvent(JingJie targetJingJie) {
+      this.targetJingJie = targetJingJie;
+    }
+  }
+
+  public static class DuJieEndEvent {
+    public final JingJie targetJingJie;
+    public final boolean success;
+
+    public DuJieEndEvent(JingJie targetJingJie, boolean success) {
+      this.targetJingJie = targetJingJie;
+      this.success = success;
     }
   }
 

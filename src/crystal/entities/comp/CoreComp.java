@@ -251,8 +251,11 @@ public abstract class CoreComp implements Unitc, Corec, Posc {
       }
       DLog.info("当前团队单位上限：" + Units.getCap(team()));
       DLog.info("单种容量: " + proxy.storageCapacity + ", 铜: " + items.get(Items.copper) + ", 总物品: " + items.total());
+      DLog.info("高度:" + corec.elevation());
     }
-
+    if (corec.elevation() > 0 && onSolid() == false) {
+      corec.elevation(0f);
+    }
     if (deployed) {
       Seq<Building> builds = nearbyBuilds();
       for (Building b : builds) {
@@ -309,7 +312,7 @@ public abstract class CoreComp implements Unitc, Corec, Posc {
   }
 
   @Override
-  public void killed() {
+  public void remove() {
     if (items != null && proxy != null && proxy.items != null) {
       ItemModule tmp = new ItemModule();
       tmp.set(proxy.items);

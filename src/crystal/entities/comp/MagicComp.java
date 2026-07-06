@@ -1,34 +1,23 @@
 package crystal.entities.comp;
 
-import arc.Core;
-import arc.Events;
-import arc.graphics.Color;
 import arc.math.Mathf;
-import arc.scene.ui.layout.Table;
 import arc.struct.Seq;
 import arc.util.Time;
 import crystal.Crystal;
 import crystal.entities.shentong.FaTianXiangDi;
 import crystal.entities.shentong.ShenTong;
 import crystal.entities.units.UnitEnum.XiuWei;
-import crystal.game.CEventType.MagicPowerChange;
 import crystal.gen.FaShen;
 import crystal.gen.Magicc;
-import crystal.graphics.CPal;
+import crystal.type.MagicUnitInterface;
 import crystal.type.MagicUnitType;
-import crystal.util.DLog;
 import ent.anno.Annotations.EntityComponent;
-import ent.anno.Annotations.EntityDef;
 import ent.anno.Annotations.Import;
 import ent.anno.Annotations.Replace;
-import mindustry.Vars;
 import mindustry.content.Fx;
 import mindustry.game.Team;
-import mindustry.gen.Mechc;
-import mindustry.gen.Unit;
 import mindustry.gen.Unitc;
 import mindustry.type.UnitType;
-import mindustry.ui.Bar;
 
 @EntityComponent
 abstract class MagicComp implements Unitc, Magicc {
@@ -141,23 +130,23 @@ abstract class MagicComp implements Unitc, Magicc {
 
   @Override
   public void setType(UnitType type) {
-    if (type instanceof MagicUnitType magicUnitType) {
+    if (type instanceof MagicUnitInterface magic) {
       if (!inited) {
-        this.magicPower = magicUnitType.magicPower;
+        this.magicPower = magic.magicPower();
         inited = true;
       }
-      this.xiuWei = magicUnitType.xiuWei;
-      this.maxMagicPower = magicUnitType.magicPower;
-      this.magicPowerRegen = magicUnitType.magicPowerRegen;
-      this.magicPowerRegenTime = magicUnitType.magicPowerRegen;
-      if (!this.shenTongs.equals(magicUnitType.shenTongs)) {
+      this.xiuWei = magic.xiuWei();
+      this.maxMagicPower = magic.magicPower();
+      this.magicPowerRegen = magic.magicPowerRegen();
+      this.magicPowerRegenTime = magic.magicPowerRegen();
+      if (!this.shenTongs.equals(magic.shenTongs())) {
         this.shenTongs = new Seq<>();
-        for (var s : magicUnitType.shenTongs) {
+        for (var s : magic.shenTongs()) {
           this.shenTongs.add(s.create());
         }
       }
     } else
-      throw new IllegalArgumentException("MagicUnit must use MagicUnitType");
+      throw new IllegalArgumentException("MagicUnit must implement MagicUnit interface");
   }
 
   @Override

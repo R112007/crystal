@@ -9,8 +9,6 @@ import arc.scene.ui.layout.Table;
 import arc.struct.Seq;
 import arc.util.Scaling;
 import arc.util.Strings;
-import arc.util.Timer;
-import arc.util.Timer.Task;
 import crystal.entities.shentong.ShenTong;
 import crystal.entities.units.UnitEnum.XiuWei;
 import crystal.game.CEventType.MagicPowerChange;
@@ -27,9 +25,7 @@ import mindustry.entities.abilities.Ability;
 import mindustry.gen.Iconc;
 import mindustry.gen.Payloadc;
 import mindustry.gen.Unit;
-import mindustry.graphics.MultiPacker;
 import mindustry.graphics.Pal;
-import mindustry.graphics.MultiPacker.PageType;
 import mindustry.type.UnitType;
 import mindustry.ui.Bar;
 import mindustry.world.blocks.environment.Floor;
@@ -39,7 +35,7 @@ import mindustry.world.meta.StatValues;
 
 import static mindustry.Vars.*;
 
-public class MagicUnitType extends UnitType {
+public class MagicUnitType extends UnitType implements MagicUnitInterface {
   public float magicPower = 200f;
   public float magicPowerRegen = 1f;
   public float magicPowerRegenTime = 120f;
@@ -62,6 +58,41 @@ public class MagicUnitType extends UnitType {
   @Override
   public void load() {
     super.load();
+  }
+
+  @Override
+  public float magicPower() {
+    return magicPower;
+  }
+
+  @Override
+  public float magicPowerRegen() {
+    return magicPowerRegen;
+  }
+
+  @Override
+  public float magicPowerRegenTime() {
+    return magicPowerRegenTime;
+  }
+
+  @Override
+  public XiuWei xiuWei() {
+    return xiuWei;
+  }
+
+  @Override
+  public Seq<ShenTong> shenTongs() {
+    return shenTongs;
+  }
+
+  @Override
+  public float xiuWeiAmount() {
+    return xiuWeiAmount;
+  }
+
+  @Override
+  public boolean useCircleCoat() {
+    return useCircleCoat;
   }
 
   @Override

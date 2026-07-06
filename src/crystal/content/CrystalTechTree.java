@@ -3,10 +3,8 @@ package crystal.content;
 import arc.struct.Seq;
 import crystal.content.blocks.*;
 import crystal.entities.units.UnitEnum.JingJie;
-import crystal.entities.units.UnitEnum.XiuWei;
 import crystal.game.CObjectives.ArchieveJingJie;
 import mindustry.content.Liquids;
-import mindustry.content.SectorPresets;
 import mindustry.game.Objectives;
 import mindustry.game.Objectives.Objective;
 import mindustry.game.Objectives.Research;
@@ -18,6 +16,20 @@ public class CrystalTechTree {
   public static void load() {
     CPlanets.lx.techTree = nodeRoot("lx", CStroage.core1, () -> {
       node(LxMaps.jianglindian, () -> {
+        node(LxMaps.jingliuduanxia, Seq.with(new Objectives.SectorComplete(LxMaps.jianglindian)), () -> {
+        });
+      });
+      node(CUnitBlocks.unitfactory1, Seq.with(new ArchieveJingJie(JingJie.dijun)), () -> {
+        node(CUnits.chujia1, () -> {
+          node(CUnits.chujia2, () -> {
+          });
+        });
+        node(CUnitBlocks.unitfactory2, () -> {
+          node(CUnits.liekong1, () -> {
+            node(CUnits.liekong2, () -> {
+            });
+          });
+        });
       });
       node(CTurrets.duoguanpao, ItemStack.with(CItems.lv, 25, CItems.li, 25), () -> {
         node(CWalls.lvwall1, () -> {
@@ -96,6 +108,8 @@ public class CrystalTechTree {
           });
         });
         node(CFactories.guicuzhiji, () -> {
+          node(CFactories.youjiboliji, () -> {
+          });
           node(CFactories.cuzhiganguo, () -> {
           });
           node(CFactories.guitichunji, () -> {

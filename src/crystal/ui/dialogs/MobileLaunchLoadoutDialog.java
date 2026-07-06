@@ -12,6 +12,7 @@ import arc.scene.ui.layout.Table;
 import arc.struct.Seq;
 import arc.util.Align;
 import arc.util.Time;
+import arc.util.Timer;
 import crystal.type.CoreUnit;
 import crystal.world.blocks.stroage.CoreInjector;
 import crystal.world.blocks.stroage.MobileCoreLaunch;
@@ -376,7 +377,9 @@ public class MobileLaunchLoadoutDialog extends BaseDialog {
         } catch (Exception ex) {
           ex.printStackTrace();
         }
-
+        Timer.schedule(() -> {
+          Vars.renderer.minimap.updateAll();
+        }, 1f);
         Core.settings.put("mobile_core_type", "");
       });
     });

@@ -14,9 +14,11 @@ import mindustry.Vars;
 import mindustry.content.Fx;
 import mindustry.entities.Units;
 import mindustry.game.Team;
+import mindustry.gen.Groups;
 import mindustry.gen.Legsc;
 import mindustry.gen.Unit;
 import mindustry.world.Tile;
+import mindustry.world.blocks.storage.CoreBlock;
 import mindustry.game.EventType.*;
 import static mindustry.Vars.*;
 
@@ -79,7 +81,6 @@ public class MoveCoreSystem {
       });
     });
 
-    // 短按仅处理物品栏，触发过长按则不打开
     Events.on(TapEvent.class, e -> {
       if (longPressTriggered)
         return;
@@ -121,6 +122,88 @@ public class MoveCoreSystem {
 
   public static void hideCoreInventory() {
     coreInventory.hide();
+  }
+
+  // MoveCoreSystem.java - 修改 removeAllCorecs 方法
+  public static void removeAllCorecs(Team team) {
+    // 收集所有移动核心单位
+    Seq<Unit> toRemove = new Seq<>();
+    for (Unit unit : Groups.unit) {
+      if (unit instanceof Corec && unit.team == team) {
+        toRemove.add(unit);
+      }
+    }
+
+    // 第一阶段：从 CoreInjector 中移除（幂等操作）
+    for (Unit unit : toRemove) {
+      Corec core = (Corec) unit;
+      try {
+        if (core.proxy() != null) {
+          CoreInjector.removeCore(team.data(), core);
+        }
+      } catch (Exception e) {
+        DLog.err("移除核心注入失败: " + e.getMessage());
+      }
+      // 从 mobileCores map 中移除
+      getCores(team).remove(core);
+    }
+
+    // 第二阶段：从 Groups 中移除（直接 remove，不走 kill 的异步流程）
+    for (Unit unit : toRemove) {
+      // 标记为死亡，防止后续逻辑问题
+      unit.dead = true;
+      // 直接移除，触发 remove() 中的清理
+      unit.remove();
+    }
+
+    // 第三阶段：清理 team.cores 中残留的虚拟核心
+    // 使用反射访问 TeamData 的 cores 字段
+    try {
+      java.lang.reflect.Field coresField = team.data().getClass().getDeclaredField("cores");
+      coresField.setAccessible(true);
+      Seq<CoreBlock.CoreBuild> cores = (Seq<CoreBlock.CoreBuild>) coresField.get(team.data());
+
+      Seq<CoreBlock.CoreBuild> orphaned = new Seq<>();
+      for (CoreBlock.CoreBuild core : cores) {
+        // 检查是否还有对应的存活单位
+        boolean hasLivingUnit = false;
+        for (Unit unit : Groups.unit) {
+          if (unit instanceof Corec c && c.proxy() == core && !unit.dead) {
+            hasLivingUnit = true;
+            break;
+          }
+        }
+        // 如果是 CoreUnitType 创建的虚拟核心，且没有对应单位，标记为孤儿
+        if (!hasLivingUnit && core.block instanceof CoreBlock) {
+          orphaned.add(core);
+        }
+      }
+
+      // 移除孤儿核心
+      for (CoreBlock.CoreBuild core : orphaned) {
+        cores.remove(core);
+        // 清理 tile 引用
+        if (core.tile != null) {
+          // 安全清理 tile.build
+          if (core.tile.build == core) {
+            try {
+              java.lang.reflect.Field buildField = Tile.class.getDeclaredField("build");
+              buildField.setAccessible(true);
+              buildField.set(core.tile, null);
+            } catch (Exception ex) {
+              DLog.err("清理 tile.build 失败: " + ex.getMessage());
+            }
+          }
+          core.tile = null;
+        }
+      }
+    } catch (Exception e) {
+      DLog.err("清理孤儿核心失败: " + e.getMessage());
+      e.printStackTrace();
+    }
+
+    // 清空 mobileCores map
+    mobileCores.remove(team);
   }
 
   public static Seq<Corec> getCores(Team team) {

@@ -14,6 +14,7 @@ public class CFactories {
   public static Block guicuzhiji;
   public static Block cuzhiganguo;
   public static Block guitichunji;
+  public static Block youjiboliji;
 
   public static void load() {
     CFactories.guicuzhiji = new GenericCrafter("guicuzhiji") {
@@ -63,6 +64,23 @@ public class CFactories {
         this.consumeItems(ItemStack.with(cuguijing, 2, tandanzhi, 1));
         this.drawer = new DrawMulti(new DrawDefault(), new DrawFlame());
         this.consumePower(2.0f);
+      }
+    };
+    youjiboliji = new GenericCrafter("youjiboliji") {
+      {
+        this.health = 150;
+        this.size = 2;
+        this.craftTime = 70.0f;
+        this.itemCapacity = 10;
+        this.hasItems = true;
+        this.hasPower = true;
+        this.hasLiquids = false;
+        this.requirements(Category.crafting,
+            ItemStack.with(new Object[] { lv, 50, li, 60, cuguijing, 45 }));
+        this.outputItem = new ItemStack(boli, 1);
+        this.consumeItems(ItemStack.with(li, 2));
+        this.drawer = new DrawMulti(new DrawDefault(), new DrawFlame());
+        this.consumePower(1.5f);
       }
     };
   }

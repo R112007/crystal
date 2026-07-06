@@ -36,7 +36,6 @@ import crystal.world.blocks.effect.GuideCandle;
 import crystal.world.blocks.effect.ReplaceFloor;
 import crystal.world.blocks.effect.ScrambleUnitLanding;
 import crystal.world.blocks.effect.SummonUnitBlock;
-import crystal.world.blocks.environment.DamageFloor;
 import crystal.world.blocks.environment.SpawnBossFloor;
 import crystal.world.blocks.liquid.LiquidRangeBridge;
 import crystal.world.blocks.payloads.UnitLaunchPad;

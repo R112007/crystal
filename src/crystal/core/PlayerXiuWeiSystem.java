@@ -3,13 +3,13 @@ package crystal.core;
 import arc.Core;
 import arc.Events;
 import arc.graphics.Color;
-import arc.struct.ObjectSet;
 import arc.struct.Seq;
 import arc.util.Time;
 import crystal.CVars;
-import crystal.content.GongFas;
 import crystal.entities.units.UnitEnum.JingJie;
 import crystal.entities.units.UnitEnum.XiuWei;
+import crystal.game.CEventType.DuJieEndEvent;
+import crystal.game.CEventType.DuJieStartEvent;
 import crystal.game.CEventType.GongFaBuQuanEvent;
 import crystal.game.CEventType.JingJieChange;
 import crystal.game.CEventType.MagicPowerChange;
@@ -18,110 +18,91 @@ import crystal.type.GongFa;
 import crystal.util.DLog;
 import mindustry.Vars;
 import mindustry.core.GameState.State;
-import mindustry.ctype.ContentType;
 import mindustry.game.EventType.ClientLoadEvent;
-import mindustry.game.EventType.GameOverEvent;
-import mindustry.game.EventType.SectorCaptureEvent;
 import mindustry.game.EventType.StateChangeEvent;
+import mindustry.game.EventType.Trigger;
 import mindustry.gen.Icon;
-import mindustry.type.Sector;
-import mindustry.type.SectorPreset;
 import mindustry.ui.Styles;
 import mindustry.ui.dialogs.BaseDialog;
 
 import static crystal.CVars.debug;
-import static crystal.content.GongFas.*;
 import static mindustry.Vars.*;
 
 public class PlayerXiuWeiSystem {
   public static float height = 0;
-  private static final ObjectSet<GongFa> NEW_ROAD_GONGFAS = ObjectSet.with(guHuang, guZun);
-  private static final ObjectSet<GongFa> OLD_ROAD_MIRROR_GONGFAS = ObjectSet.with(xinHuang, xinZun);
+
   private static final long TOAST_COOLDOWN_MS = 3000;
   private static long lastToastTimestamp = 0;
-
-  private static final long DUJIE_CONFIRM_COOLDOWN_MS = 60 * 1000; // 1分钟冷却
+  private static final long DUJIE_CONFIRM_COOLDOWN_MS = 60 * 1000;
   private static long lastDuJieConfirmTimestamp = 0;
-
+  private static boolean initialized = false;
   private static final String SAVE_KEY_REACHED_JINGJIE = "crystal.reachedJingJie_ordinal";
   private static final String SAVE_KEY_AVAILABLE_JINGJIE = "crystal.availableJingJie_ordinal";
   private static final String OLD_SAVE_KEY_REACHED_JINGJIE = "crystal.reachedJingJie";
-  private static final String SAVE_KEY_COMPLETED_DUJIE = "crystal.completedDuJieSectors";
   private static final String SAVE_KEY_PENDING_DUJIE = "crystal.pendingDuJieJingJieOrdinal";
+  private static final String SAVE_KEY_COMPLETED_DUJIE = "crystal.completedDuJieJingJies";
 
-  private static void duJieFail() {
-    // 仅重置核心惩罚项
-    CVars.playerMagicPower = 0f; // 灵力清空
-    CVars.playerJingJie = JingJie.fan; // 当前境界跌回凡境
-    CVars.playerXiuWei = XiuWei.yong; // 修为等级同步重置
-    // 当前可用境界重置为仅凡境（不影响历史到达记录）
+  /**
+   * 检查境界是否可通过渡劫门槛
+   * 修复：已完成渡劫的境界直接放行，未完成的拦截
+   */
+  private static boolean canPassDuJie(JingJie jingJie) {
+    if (!jingJie.needDuJie || jingJie.duJieCondition == null)
+      return true;
+    return CVars.completedDuJieJingJies.contains(jingJie);
+  }
+
+  /** 执行渡劫失败惩罚 */
+  public static void duJieFail() {
+    JingJie target = CVars.pendingDuJieJingJie;
+
+    CVars.playerMagicPower = 0f;
+    CVars.playerJingJie = JingJie.fan;
+    CVars.playerXiuWei = XiuWei.yong;
     CVars.currentAvailableJingJie.clear();
     CVars.currentAvailableJingJie.add(JingJie.fan);
-    CVars.completedDuJiePresets.clear();
     CVars.pendingDuJieJingJie = null;
-    for (var s : JingJie.shenNewRoad) {
-      if (s.duJiePreset != null)
-        if (s.duJiePreset.sector.save != null && s.duJiePreset.sector.hasBase() && s.duJiePreset.sector.isCaptured()) {
-          abandonSectorConfirm(s.duJiePreset.sector, null);
-        }
-    }
     CVars.isInDuJie = false;
+
     savePower();
-    // 存档同步与状态更新
     saveCurrentAvailableJingJie();
-    // 触发事件同步UI与全局状态
+    saveDuJieState();
     Events.fire(new JingJieChange(0f));
     Events.fire(new XiuWeiChange(CVars.playerJingJie));
 
-    DLog.info("渡劫失败执行：已重置当前境界与灵力，功法、历史境界记录全部保留");
-  }
-
-  public static void abandonSectorConfirm(Sector sector, Runnable listener) {
-    if (listener != null)
-      listener.run();
-
-    if (sector.isBeingPlayed()) {
-      Time.runTask(7f, () -> {
-        // force game over in a more dramatic fashion
-        for (var core : player.team().cores().copy()) {
-          core.kill();
-        }
-      });
-    } else {
-      sector.info.items.clear();
-      sector.info.hasCore = false;
-      sector.info.production.clear();
-      sector.saveInfo();
+    if (target != null) {
+      Events.fire(new DuJieEndEvent(target, false));
     }
-    CVars.cui.cplanet.updateSelected();
-    CVars.cui.cplanet.rebuildList();
+
+    Vars.ui.hudfrag.showToast(Icon.cancel, Core.bundle.get("dujie.fail"));
+    DLog.info("渡劫失败执行：已重置当前境界与灵力");
   }
 
-  public static void addbutton(float amount, float h) {
+  public static void addButton(float amount, float h) {
     if (CVars.debug)
       Vars.ui.hudGroup.fill(null, table -> {
         table.table(null, t -> {
-          t.button("加" + Core.bundle.get("stat.xiuwei") + amount, () -> Events.fire(new MagicPowerChange(amount)))
-              .size(100, 70);
+          t.button("加" + Core.bundle.get("stat.xiuwei") + amount,
+              () -> Events.fire(new MagicPowerChange(amount))).size(100, 70);
         }).size(100, 70);
         table.center().left().update(() -> {
-          if (Core.settings.getBool("showXiuWei")) {
-            height = h;
-          } else
-            height = 10000;
+          height = Core.settings.getBool("showXiuWei") ? h : 10000;
           table.translation.set(0, height);
         });
       });
   }
 
   public static void init() {
+    if (initialized)
+      return;
+    initialized = true;
     Events.on(ClientLoadEvent.class, e -> {
       CVars.chooseNewRoad = Core.settings.getBool("crystal.chooseNewRoad", false);
       loadReachedJingJie();
       loadDuJieState();
-      CVars.playerMagicPower = Core.settings.getFloat("crystal.magicpower", 0f);
-      CVars.playerMagicPower = Math.max(0, CVars.playerMagicPower);
+      CVars.playerMagicPower = Math.max(0, Core.settings.getFloat("crystal.magicpower", 0f));
       DLog.info("playerMagicPower" + CVars.playerMagicPower);
+
       if (CVars.reachedJingJie.isEmpty()) {
         CVars.reachedJingJie.add(JingJie.fan);
         saveReachedJingJie();
@@ -134,8 +115,12 @@ public class PlayerXiuWeiSystem {
         CVars.playerJingJie = JingJie.fan;
       if (CVars.playerXiuWei == null)
         CVars.playerXiuWei = XiuWei.yong;
+
+      Events.run(Trigger.update, PlayerXiuWeiSystem::tickDuJieCheck);
+
       Events.fire(new JingJieChange(CVars.playerMagicPower));
       DLog.info("新路: " + CVars.chooseNewRoad);
+
       Vars.ui.hudGroup.fill(null, table -> {
         table.table(null, t -> {
           t.button(Core.bundle.get("stat.xiuwei"), () -> showMagic()).size(100, 80);
@@ -146,67 +131,82 @@ public class PlayerXiuWeiSystem {
             Vars.control.input.uiGroup.getChildren().each(element -> {
               height += element.visible ? element.getPrefHeight() : 0;
             });
-          } else
+          } else {
             height = 10000;
+          }
           table.translation.set(0, height);
         });
       });
-      addbutton(-100, -60);
-      addbutton(-10, 0);
-      addbutton(-1, 60);
-      addbutton(1, 120);
-      addbutton(10, 180);
-      addbutton(100, 240);
+
+      addButton(-100, -60);
+      addButton(-10, 0);
+      addButton(-1, 60);
+      addButton(1, 120);
+      addButton(10, 180);
+      addButton(100, 240);
+
       if (debug)
         Vars.ui.hudGroup.fill(null, table -> {
           table.table(null, t -> {
             t.button("重置" + Core.bundle.get("stat.xiuwei"), () -> clear()).size(100, 80);
           }).size(100, 100);
           table.center().left().update(() -> {
-            if (Core.settings.getBool("showXiuWei")) {
-              height = -120;
-            } else
-              height = 10000;
+            height = Core.settings.getBool("showXiuWei") ? -120 : 10000;
             table.translation.set(0, height);
           });
         });
+
       Events.fire(new JingJieChange(CVars.playerMagicPower));
     });
+
+    // 监听渡劫开始事件
+    Events.on(DuJieStartEvent.class, e -> {
+      if (CVars.isInDuJie || e.targetJingJie == null)
+        return;
+      if (!e.targetJingJie.needDuJie || e.targetJingJie.duJieCondition == null)
+        return;
+      // 已渡劫成功的直接跳过
+      if (CVars.completedDuJieJingJies.contains(e.targetJingJie))
+        return;
+
+      CVars.pendingDuJieJingJie = e.targetJingJie;
+      CVars.isInDuJie = true;
+      saveDuJieState();
+
+      Vars.ui.hudfrag.showToast(Icon.defense, Core.bundle.format("dujie.start", e.targetJingJie.str));
+      DLog.info("进入渡劫状态：" + e.targetJingJie.str + "，目标：" + e.targetJingJie.duJieCondition.str);
+    });
+
     Events.on(JingJieChange.class, e -> {
       float currentMagic = e.amount;
       JingJie currentJingJie = CVars.playerJingJie;
       JingJie finalTargetJingJie = JingJie.getMin();
       boolean isNewRoad = CVars.chooseNewRoad;
       JingJie blockJingJie = null;
-      // 新增：待渡劫的境界标记
       JingJie needDuJieJingJie = null;
 
       for (JingJie jingJie : JingJie.all) {
-        // 原有路线过滤逻辑不变
-        if (jingJie.hasMirror && jingJie.newRoad != isNewRoad) {
+        if (jingJie.hasMirror && jingJie.newRoad != isNewRoad)
           continue;
-        }
-        if (currentMagic < jingJie.amount) {
+        if (currentMagic < jingJie.amount)
           break;
-        }
-        // 原有功法检查逻辑不变
+
         if (!CVars.gongfaHave.contains(jingJie.gongFa)) {
           blockJingJie = jingJie;
           break;
         }
-        // ========== 新增：渡劫检查核心逻辑 ==========
-        // 如果该境界需要渡劫，且未完成渡劫，拦截升级
-        // 所有条件满足，更新目标境界
-        if (jingJie.needDuJie && !CVars.completedDuJiePresets.contains(jingJie.duJiePreset)) {
+
+        if (!canPassDuJie(jingJie)) {
           needDuJieJingJie = jingJie;
           break;
         }
+
         finalTargetJingJie = jingJie;
       }
 
-      // 原有功法不足的拦截逻辑不变
+      // 功法不足拦截
       if (blockJingJie != null && blockJingJie != JingJie.getMin()) {
-        float targetPower = Math.max(0, blockJingJie.amount - 1);
+        float targetPower = Math.max(0, blockJingJie.amount - 0.1f);
         if (currentMagic > targetPower) {
           CVars.playerMagicPower = targetPower;
           savePower();
@@ -220,42 +220,42 @@ public class PlayerXiuWeiSystem {
         }
       }
 
-      // ========== 新增：渡劫拦截处理 ==========
-      if (needDuJieJingJie != null) {
-        // 锁定灵力，不让玩家超过渡劫境界的阈值
-        float targetPower = Math.max(0, needDuJieJingJie.amount - 1);
+      // 渡劫拦截：锁定灵力 + 弹出确认
+      if (needDuJieJingJie != null && !CVars.isInDuJie) {
+        float targetPower = Math.max(0, needDuJieJingJie.amount - 0.1f);
         if (currentMagic > targetPower) {
           CVars.playerMagicPower = targetPower;
           savePower();
         }
-        // 弹出渡劫提示，仅触发一次
+
         long currentTime = Time.millis();
         if (currentTime - lastToastTimestamp >= TOAST_COOLDOWN_MS) {
-          // 提示玩家需要渡劫
           Vars.ui.hudfrag.showToast(Icon.warning, Core.bundle.format("dujie.need", needDuJieJingJie.str));
           lastToastTimestamp = currentTime;
-          // 触发渡劫确认弹窗
           showDuJieConfirm(needDuJieJingJie);
         }
-        // 不更新境界，直接返回
+
         Events.fire(new XiuWeiChange(CVars.playerJingJie));
         return;
       }
 
-      // 原有境界升级逻辑不变
+      // 境界更新
       boolean isLevelUp = finalTargetJingJie.amount > currentJingJie.amount;
       boolean isLevelDown = finalTargetJingJie.amount < currentJingJie.amount;
       CVars.playerJingJie = finalTargetJingJie;
       updateCurrentAvailableJingJie();
+
       if (isLevelUp) {
         updateReachedJingJie(finalTargetJingJie);
         Vars.ui.hudfrag.showToast(Icon.up, Core.bundle.get("xiuweitupo") + finalTargetJingJie.str);
       } else if (isLevelDown) {
         Vars.ui.hudfrag.showToast(Icon.down, Core.bundle.get("xiuweidieluo") + finalTargetJingJie.str);
       }
+
       Events.fire(new XiuWeiChange(CVars.playerJingJie));
       DLog.info("当前境界更新为：" + finalTargetJingJie.str + "，当前灵力：" + CVars.playerMagicPower);
     });
+
     Events.on(XiuWeiChange.class, e -> {
       if (JingJie.fajing.contains(e.jingJie)) {
         CVars.playerXiuWei = XiuWei.fan;
@@ -267,138 +267,126 @@ public class PlayerXiuWeiSystem {
         CVars.playerXiuWei = XiuWei.xian;
       } else if (JingJie.dijing.contains(e.jingJie)) {
         CVars.playerXiuWei = XiuWei.dijun;
-      } else
+      } else {
         CVars.playerXiuWei = XiuWei.yong;
+      }
     });
+
     Events.on(MagicPowerChange.class, e -> {
       CVars.playerMagicPower = Math.max(0, CVars.playerMagicPower += e.amount);
       Events.fire(new JingJieChange(CVars.playerMagicPower));
       savePower();
     });
+
     Events.on(GongFaBuQuanEvent.class, e -> {
-      String message = Core.bundle.get("gongfabuquan") + e.gongFa.localizedName + "," + Core.bundle.get("fail-upgrade")
-          + e.jingJie.str;
-      if (Core.settings.getBool("showgongfabuquan", true))
+      String message = Core.bundle.get("gongfabuquan") + e.gongFa.localizedName + ","
+          + Core.bundle.get("fail-upgrade") + e.jingJie.str;
+      if (Core.settings.getBool("showgongfabuquan", true)) {
         Vars.ui.hudfrag.showToast(Icon.cancel, message);
+      }
     });
+
     Events.on(StateChangeEvent.class, event -> {
       if (event.to == State.menu) {
         savePower();
         saveReachedJingJie();
         saveCurrentAvailableJingJie();
+        saveDuJieState();
       }
-    });
-    Events.on(SectorCaptureEvent.class, e -> {
-      if (!Vars.state.isCampaign())
-        return;
-      // 非渡劫中状态直接跳过
-      if (!CVars.isInDuJie || CVars.pendingDuJieJingJie == null)
-        return;
-
-      JingJie duJieTarget = CVars.pendingDuJieJingJie;
-      Sector duJieSector = duJieTarget.duJiePreset.sector;
-
-      // 【严格校验】必须是绑定的渡劫区块，且已被捕获（complete）
-      if (Vars.state.rules.sector == null
-          || Vars.state.rules.sector.preset != duJieTarget.duJiePreset
-          || e.sector != duJieSector
-          || !e.sector.isCaptured()) {
-        return;
-      }
-
-      // 渡劫成功：记录完成状态
-      CVars.completedDuJiePresets.add(duJieTarget.duJiePreset);
-      Vars.ui.hudfrag.showToast(Icon.ok, Core.bundle.format("dujie.success", duJieTarget.str));
-      DLog.info("渡劫成功：区块已完成，解锁" + duJieTarget.str + "境界突破权限");
-
-      // 重置渡劫状态
-      CVars.pendingDuJieJingJie = null;
-      CVars.isInDuJie = false;
-      saveDuJieState();
-
-      // 触发境界自动突破
-      Time.run(2f, () -> Events.fire(new JingJieChange(CVars.playerMagicPower)));
-    });
-    Events.on(GameOverEvent.class, e -> {
-      if (!Vars.state.isCampaign())
-        return;
-      if (!CVars.isInDuJie || CVars.pendingDuJieJingJie == null)
-        return;
-      JingJie duJieTarget = CVars.pendingDuJieJingJie;
-      SectorPreset bindPreset = duJieTarget.duJiePreset;
-
-      // 2. 【严格校验】必须是在渡劫绑定的区块里失败，避免其他场景误触发
-      if (bindPreset == null || Vars.state.rules.sector == null || Vars.state.rules.sector.preset != bindPreset)
-        return;
-      // 执行渡劫失败惩罚
-      duJieFail();
-      Vars.ui.hudfrag.showToast(Icon.cancel, Core.bundle.get("dujie.fail"));
-      DLog.info("渡劫失败：我方核心全毁，已执行全量重置");
-
-      // 重置渡劫状态
-      CVars.pendingDuJieJingJie = null;
-      CVars.isInDuJie = false;
-      saveDuJieState();
     });
   }
 
+  /** 每帧检查渡劫条件，失败优先 */
+  private static void tickDuJieCheck() {
+    if (!CVars.isInDuJie || CVars.pendingDuJieJingJie == null)
+      return;
+    var cond = CVars.pendingDuJieJingJie.duJieCondition;
+    if (cond == null)
+      return;
+
+    // 先检查失败条件
+    if (cond.fail.get()) {
+      duJieFail();
+      return;
+    }
+
+    // 再检查成功条件
+    if (cond.success.get()) {
+      JingJie target = CVars.pendingDuJieJingJie;
+      // 标记该境界渡劫永久完成
+      CVars.completedDuJieJingJies.add(target);
+      CVars.isInDuJie = false;
+      CVars.pendingDuJieJingJie = null;
+      saveDuJieState();
+
+      Events.fire(new DuJieEndEvent(target, true));
+      Vars.ui.hudfrag.showToast(Icon.ok, Core.bundle.format("dujie.success", target.str));
+      DLog.info("渡劫成功：" + target.str);
+
+      // 触发境界突破
+      Events.fire(new JingJieChange(CVars.playerMagicPower));
+    }
+  }
+
+  // ========== 渡劫状态持久化（含已完成记录） ==========
   private static void saveDuJieState() {
     try {
-      // 保存已完成的渡劫记录，用name序列化
-      if (CVars.completedDuJiePresets.isEmpty()) {
+      // 保存已完成渡劫的境界
+      if (CVars.completedDuJieJingJies.isEmpty()) {
         Core.settings.remove(SAVE_KEY_COMPLETED_DUJIE);
       } else {
         StringBuilder sb = new StringBuilder();
-        int index = 0;
-        for (SectorPreset preset : CVars.completedDuJiePresets) {
-          if (index > 0)
+        int i = 0;
+        for (JingJie j : CVars.completedDuJieJingJies) {
+          if (i > 0)
             sb.append(",");
-          sb.append(preset.name);
-          index++;
+          sb.append(j.ordinal());
+          i++;
         }
         Core.settings.put(SAVE_KEY_COMPLETED_DUJIE, sb.toString());
       }
+
       // 保存待渡劫境界
       if (CVars.pendingDuJieJingJie != null) {
         Core.settings.put(SAVE_KEY_PENDING_DUJIE, CVars.pendingDuJieJingJie.ordinal());
       } else {
         Core.settings.remove(SAVE_KEY_PENDING_DUJIE);
       }
+
       Core.settings.manualSave();
-      DLog.info("渡劫状态已保存，已完成渡劫：" + CVars.completedDuJiePresets + "，待渡劫境界：" + CVars.pendingDuJieJingJie);
+      DLog.info("渡劫状态已保存，已完成：" + CVars.completedDuJieJingJies.size + "个，待渡劫：" + CVars.pendingDuJieJingJie);
     } catch (Exception e) {
       DLog.err("渡劫状态保存失败", e);
     }
   }
 
-  /**
-   * 从本地存档加载渡劫状态
-   */
   private static void loadDuJieState() {
     try {
-      // 加载已完成的渡劫记录
-      CVars.completedDuJiePresets.clear();
-      String savedSectors = Core.settings.getString(SAVE_KEY_COMPLETED_DUJIE, "");
-      if (!isBlank(savedSectors)) {
-        String[] presetNames = savedSectors.split(",");
-        for (String name : presetNames) {
-          String trimName = name.trim();
-          if (!isBlank(trimName)) {
-            SectorPreset preset = (SectorPreset) Vars.content.getByName(ContentType.sector, trimName);
-            if (preset != null) {
-              CVars.completedDuJiePresets.add(preset);
+      // 加载已完成渡劫的境界
+      CVars.completedDuJieJingJies.clear();
+      String savedCompleted = Core.settings.getString(SAVE_KEY_COMPLETED_DUJIE, "");
+      if (!isBlank(savedCompleted)) {
+        for (String s : savedCompleted.split(",")) {
+          try {
+            int ord = Integer.parseInt(s.trim());
+            JingJie j = JingJie.getByOrdinal(ord);
+            if (j != null && j.needDuJie) {
+              CVars.completedDuJieJingJies.add(j);
             }
+          } catch (NumberFormatException ignored) {
           }
         }
       }
+
       // 加载待渡劫境界
       int pendingOrdinal = Core.settings.getInt(SAVE_KEY_PENDING_DUJIE, -1);
       if (pendingOrdinal != -1) {
         JingJie pendingJingJie = JingJie.getByOrdinal(pendingOrdinal);
-        if (pendingJingJie != null && pendingJingJie.needDuJie) {
+        if (pendingJingJie != null && pendingJingJie.needDuJie && pendingJingJie.duJieCondition != null
+            && !CVars.completedDuJieJingJies.contains(pendingJingJie)) {
           CVars.pendingDuJieJingJie = pendingJingJie;
           CVars.isInDuJie = true;
-          DLog.info("已恢复待渡劫境界：" + pendingJingJie.str);
+          DLog.info("已恢复渡劫状态：" + pendingJingJie.str);
         } else {
           Core.settings.remove(SAVE_KEY_PENDING_DUJIE);
           CVars.pendingDuJieJingJie = null;
@@ -408,10 +396,11 @@ public class PlayerXiuWeiSystem {
         CVars.pendingDuJieJingJie = null;
         CVars.isInDuJie = false;
       }
-      DLog.info("渡劫状态加载完成，已完成渡劫：" + CVars.completedDuJiePresets);
+
+      DLog.info("渡劫状态加载完成，已完成渡劫：" + CVars.completedDuJieJingJies.size + "个");
     } catch (Exception e) {
       DLog.err("渡劫状态加载失败，已重置", e);
-      CVars.completedDuJiePresets.clear();
+      CVars.completedDuJieJingJies.clear();
       CVars.pendingDuJieJingJie = null;
       CVars.isInDuJie = false;
       Core.settings.remove(SAVE_KEY_COMPLETED_DUJIE);
@@ -426,54 +415,36 @@ public class PlayerXiuWeiSystem {
 
   private static void showDuJieConfirm(JingJie targetJingJie) {
     long currentTime = Time.millis();
-    // 【新增】冷却时间、重复弹窗、渡劫中状态校验
     if (CVars.isInDuJie
         || targetJingJie == CVars.pendingDuJieJingJie
         || currentTime - lastDuJieConfirmTimestamp < DUJIE_CONFIRM_COOLDOWN_MS) {
       return;
     }
-    // 更新最后一次弹窗时间
     lastDuJieConfirmTimestamp = currentTime;
 
-    // 原有弹窗逻辑保持不变
-    BaseDialog dujieDialog = new BaseDialog(Core.bundle.format("dujie.title", targetJingJie.str), Styles.fullDialog);
-    dujieDialog.cont.add(Core.bundle.format("dujie.desc", targetJingJie.str)).wrap().width(400f).pad(20f);
-    dujieDialog.cont.row();
-    dujieDialog.cont.add(Core.bundle.get("dujie.warn")).color(Color.scarlet).wrap().width(400f).pad(10f);
+    BaseDialog dujieDialog = new BaseDialog(
+        Core.bundle.format("dujie.title", targetJingJie.str), Styles.fullDialog);
+    dujieDialog.cont.add(Core.bundle.format("dujie.desc", targetJingJie.str))
+        .wrap().width(400f).pad(20f);
     dujieDialog.cont.row();
 
+    // 显示渡劫目标
+    if (targetJingJie.duJieCondition != null) {
+      dujieDialog.cont.add("渡劫目标：" + targetJingJie.duJieCondition.str)
+          .color(Color.gold).wrap().width(400f).pad(10f);
+      dujieDialog.cont.row();
+    }
+
+    dujieDialog.cont.add(Core.bundle.get("dujie.warn"))
+        .color(Color.scarlet).wrap().width(400f).pad(10f);
+    dujieDialog.cont.row();
     dujieDialog.cont.button(Core.bundle.get("dujie.confirm"), Styles.flatTogglet, () -> {
-      startDuJie(targetJingJie);
+      Events.fire(new DuJieStartEvent(targetJingJie));
       dujieDialog.hide();
     }).size(200f, 60f).pad(10f);
-
-    dujieDialog.cont.button(Core.bundle.get("cancel"), Styles.flatTogglet, dujieDialog::hide).size(200f, 60f).pad(10f);
+    dujieDialog.cont.button(Core.bundle.get("cancel"), Styles.flatTogglet, dujieDialog::hide)
+        .size(200f, 60f).pad(10f);
     dujieDialog.show();
-  }
-
-  private static void startDuJie(JingJie targetJingJie) {
-    // 空值保护，直接判断绑定的SectorPreset
-    if (targetJingJie == null || !targetJingJie.needDuJie || targetJingJie.duJiePreset == null) {
-      Vars.ui.hudfrag.showToast(Icon.cancel, Core.bundle.get("dujie.sector.notfound"));
-      return;
-    }
-    // 无需运行时查找，直接使用枚举绑定的实例
-    SectorPreset dujiePreset = targetJingJie.duJiePreset;
-
-    // 后续原有逻辑保持不变
-    CVars.pendingDuJieJingJie = targetJingJie;
-    CVars.isInDuJie = true;
-    saveDuJieState();
-
-    if (Vars.state.isGame()) {
-      Vars.control.exit();
-    }
-    CVars.cui.cplanet.show();
-    CVars.cui.cplanet.viewPlanet(dujiePreset.sector.planet, false);
-    CVars.cui.cplanet.selectSector(dujiePreset.sector);
-    Vars.ui.hudfrag.showToast(Icon.defense, Core.bundle.format("dujie.start", targetJingJie.str));
-    DLog.info(
-        "开始渡劫：" + targetJingJie.str + "，对应Sector：" + dujiePreset.name + "，所属星球：" + dujiePreset.sector.planet.name);
   }
 
   public static void setChooseNewRoad(boolean enable) {
@@ -482,7 +453,12 @@ public class PlayerXiuWeiSystem {
     CVars.chooseNewRoad = enable;
     Core.settings.put("crystal.chooseNewRoad", enable);
     Core.settings.manualSave();
-    // 切换路线后，强制重新匹配境界
+
+    // 切换路线重置进行中的渡劫状态，已完成记录保留
+    CVars.isInDuJie = false;
+    CVars.pendingDuJieJingJie = null;
+    saveDuJieState();
+
     Events.fire(new JingJieChange(CVars.playerMagicPower));
   }
 
@@ -494,19 +470,13 @@ public class PlayerXiuWeiSystem {
     CVars.isInDuJie = false;
     CVars.reachedJingJie.add(JingJie.fan);
     CVars.currentAvailableJingJie.clear();
-    CVars.completedDuJiePresets.clear();
+    CVars.completedDuJieJingJies.clear();
     CVars.pendingDuJieJingJie = null;
-    for (var s : JingJie.shenNewRoad) {
-      if (s.duJiePreset != null)
-        if (s.duJiePreset.sector.save != null && s.duJiePreset.sector.hasBase() && s.duJiePreset.sector.isCaptured()) {
-          abandonSectorConfirm(s.duJiePreset.sector, null);
-        }
-    }
-    CVars.completedDuJiePresets.clear(); // 同步修改
+
     saveReachedJingJie();
     saveCurrentAvailableJingJie();
     savePower();
-    saveDuJieState(); // 同步保存渡劫状态
+    saveDuJieState();
     Events.fire(new JingJieChange(0f));
   }
 
@@ -529,8 +499,7 @@ public class PlayerXiuWeiSystem {
       result.add(JingJie.getMin());
       return result;
     }
-    String[] ordinalStrs = str.split(",");
-    for (String ordinalStr : ordinalStrs) {
+    for (String ordinalStr : str.split(",")) {
       try {
         int ordinal = Integer.parseInt(ordinalStr.trim());
         JingJie jingJie = JingJie.getByOrdinal(ordinal);
@@ -540,9 +509,8 @@ public class PlayerXiuWeiSystem {
       } catch (NumberFormatException ignored) {
       }
     }
-    if (result.isEmpty()) {
+    if (result.isEmpty())
       result.add(JingJie.getMin());
-    }
     result.sort(j -> j.amount);
     return result;
   }
@@ -553,7 +521,8 @@ public class PlayerXiuWeiSystem {
       String savedOrdinalStr = Core.settings.getString(SAVE_KEY_REACHED_JINGJIE, "");
       if (!isBlank(savedOrdinalStr)) {
         CVars.reachedJingJie = deserializeJingJieList(savedOrdinalStr);
-        DLog.info("历史境界加载完成（序号格式）：" + CVars.reachedJingJie.toString(",", j -> j.str));
+        DLog.info("历史境界加载完成（序号格式）："
+            + CVars.reachedJingJie.toString(",", j -> j.str));
         return;
       }
       String savedNameStr = Core.settings.getString(OLD_SAVE_KEY_REACHED_JINGJIE, "");
@@ -573,7 +542,8 @@ public class PlayerXiuWeiSystem {
         }
         CVars.reachedJingJie.sort(j -> j.amount);
         saveReachedJingJie();
-        DLog.info("旧存档兼容完成，已转换为序号格式：" + CVars.reachedJingJie.toString(",", j -> j.str));
+        DLog.info("旧存档兼容完成，已转换为序号格式："
+            + CVars.reachedJingJie.toString(",", j -> j.str));
         return;
       }
       CVars.reachedJingJie.add(JingJie.getMin());
@@ -605,7 +575,8 @@ public class PlayerXiuWeiSystem {
     try {
       String savedOrdinalStr = Core.settings.getString(SAVE_KEY_AVAILABLE_JINGJIE, "");
       CVars.currentAvailableJingJie = deserializeJingJieList(savedOrdinalStr);
-      DLog.info("当前可用境界加载完成：" + CVars.currentAvailableJingJie.toString(",", j -> j.str));
+      DLog.info("当前可用境界加载完成："
+          + CVars.currentAvailableJingJie.toString(",", j -> j.str));
     } catch (Exception e) {
       DLog.err("当前可用境界加载失败，已重置为默认值", e);
       CVars.currentAvailableJingJie.clear();
@@ -618,10 +589,12 @@ public class PlayerXiuWeiSystem {
       if (CVars.currentAvailableJingJie.isEmpty()) {
         Core.settings.remove(SAVE_KEY_AVAILABLE_JINGJIE);
       } else {
-        Core.settings.put(SAVE_KEY_AVAILABLE_JINGJIE, serializeJingJieList(CVars.currentAvailableJingJie));
+        Core.settings.put(SAVE_KEY_AVAILABLE_JINGJIE,
+            serializeJingJieList(CVars.currentAvailableJingJie));
       }
       Core.settings.manualSave();
-      DLog.info("当前可用境界已保存：" + CVars.currentAvailableJingJie.toString(",", j -> j.str));
+      DLog.info("当前可用境界已保存："
+          + CVars.currentAvailableJingJie.toString(",", j -> j.str));
     } catch (Exception e) {
       DLog.err("当前可用境界保存失败", e);
     }
@@ -632,9 +605,8 @@ public class PlayerXiuWeiSystem {
     JingJie currentJingJie = CVars.playerJingJie;
     boolean isNewRoad = CVars.chooseNewRoad;
     for (JingJie jingJie : JingJie.all) {
-      if (jingJie.hasMirror && jingJie.newRoad != isNewRoad) {
+      if (jingJie.hasMirror && jingJie.newRoad != isNewRoad)
         continue;
-      }
       if (jingJie.amount <= currentJingJie.amount) {
         CVars.currentAvailableJingJie.add(jingJie);
       }
@@ -653,14 +625,15 @@ public class PlayerXiuWeiSystem {
         hasNew = true;
       }
     }
-
     if (hasNew) {
       CVars.reachedJingJie.sort(j -> j.amount);
       saveReachedJingJie();
-      DLog.info("玩家解锁历史境界，当前已解锁：" + CVars.reachedJingJie.toString(",", j -> j.str));
+      DLog.info("玩家解锁历史境界，当前已解锁："
+          + CVars.reachedJingJie.toString(",", j -> j.str));
     }
   }
 
+  /** 修为面板，修复重复调用 */
   public static void showMagic() {
     BaseDialog xiuweiDialog = new BaseDialog("", Styles.fullDialog);
     xiuweiDialog.cont.pane(t -> {
@@ -682,14 +655,31 @@ public class PlayerXiuWeiSystem {
         }
       }
       t.row();
-      t.add(Core.bundle.get("nextjingjie") + CVars.playerMagicPower + "/" + getNextJngJie().amount + " "
-          + getNextJngJie().str);
+
+      // 渡劫目标显示
+      if (CVars.isInDuJie && CVars.pendingDuJieJingJie != null
+          && CVars.pendingDuJieJingJie.duJieCondition != null) {
+        t.add("[渡] 当前目标：" + CVars.pendingDuJieJingJie.duJieCondition.str)
+            .color(Color.scarlet).wrap().width(400f);
+      } else {
+        JingJie next = getNextJingJie();
+        if (next.needDuJie && next.duJieCondition != null) {
+          t.add("[渡] 下一境界目标：" + next.duJieCondition.str)
+              .color(Color.gold).wrap().width(400f);
+        }
+      }
+      t.row();
+
+      JingJie next = getNextJingJie();
+      t.add(Core.bundle.get("nextjingjie") + CVars.playerMagicPower
+          + "/" + next.amount + " " + next.str);
     });
     xiuweiDialog.addCloseButton();
     xiuweiDialog.show();
   }
 
-  public static JingJie getNextJngJie() {
+  /** 已修复数组越界 */
+  public static JingJie getNextJingJie() {
     JingJie[] t = CVars.chooseNewRoad ? JingJie.xinLu : JingJie.jiuLu;
     int index = 0;
     for (int i = 0; i < t.length; i++) {
@@ -698,6 +688,8 @@ public class PlayerXiuWeiSystem {
         break;
       }
     }
+    if (index >= t.length - 1)
+      return t[t.length - 1];
     return t[index + 1];
   }
 
