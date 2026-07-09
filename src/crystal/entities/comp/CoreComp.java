@@ -8,6 +8,7 @@ import arc.graphics.g2d.Fill;
 import arc.graphics.g2d.Lines;
 import arc.math.Angles;
 import arc.math.Mathf;
+import arc.math.geom.Geometry;
 import arc.scene.ui.layout.Table;
 import arc.struct.ObjectSet;
 import arc.struct.Seq;
@@ -260,21 +261,80 @@ public abstract class CoreComp implements Unitc, Corec, Posc {
       Seq<Building> builds = nearbyBuilds();
       for (Building b : builds) {
         if (b.block.hasItems && b.items != null && b.items.total() > 0 && proxy != null) {
+
+          // ===== 传送带（含装甲传送带）：只吸末端且朝向核心的 =====
+          if (b instanceof mindustry.world.blocks.distribution.Conveyor.ConveyorBuild cb) {
+            if (cb.next instanceof mindustry.world.blocks.distribution.Conveyor.ConveyorBuild
+                && cb.next.team == team) {
+              continue;
+            }
+            if (cb.next != null)
+              continue;
+            float dx = x() - b.x;
+            float dy = y() - b.y;
+            float dot = dx * Geometry.d4x(b.rotation) + dy * Geometry.d4y(b.rotation);
+            if (dot <= 0)
+              continue;
+          }
+
+          // ===== 管道（含装甲管道）：只吸末端且朝向核心的 =====
+          if (b instanceof mindustry.world.blocks.distribution.Duct.DuctBuild db) {
+            if (db.next instanceof mindustry.world.blocks.distribution.Duct.DuctBuild
+                && db.next.team == team) {
+              continue;
+            }
+            if (db.next != null)
+              continue;
+            float dx = x() - b.x;
+            float dy = y() - b.y;
+            float dot = dx * Geometry.d4x(b.rotation) + dy * Geometry.d4y(b.rotation);
+            if (dot <= 0)
+              continue;
+          }
+
+          // ===== 物品桥 (ItemBridge)：只吸输出端 =====
+          // 输出端 = 有有效输出连接（link 有效）
+          // 输入端/中间桥 = 无有效输出 或 有 incoming，不吸
+          if (b instanceof mindustry.world.blocks.distribution.ItemBridge.ItemBridgeBuild ib) {
+            mindustry.world.blocks.distribution.ItemBridge bridgeBlock = (mindustry.world.blocks.distribution.ItemBridge) b.block;
+            ib.checkIncoming();
+            // 检查是否有有效输出连接
+            boolean hasValidOutput = false;
+
+            Tile linkTile = world.tile(ib.link);
+            hasValidOutput = linkTile != null
+                && !bridgeBlock.linkValid(ib.tile, world.tile(ib.link)) && ib.incoming.size > 0;
+            // 无有效输出 → 是输入端或孤立桥，不吸
+            if (!hasValidOutput)
+              continue;
+
+            // 有有效输出 → 是输出端，可以吸
+          }
+
+          // ===== 管道桥 (DuctBridge)：只吸输出端 =====
+          // 输出端 = 有有效输出连接（lastLink 有效）
+          if (b instanceof mindustry.world.blocks.distribution.DuctBridge.DuctBridgeBuild dbb) {
+            // 无有效输出 → 是输入端，不吸
+            if (dbb.lastLink == null || !dbb.lastLink.isValid() || dbb.lastLink.team() != team) {
+              continue;
+            }
+            // 有有效输出 → 是输出端，可以吸
+          }
+
+          // ===== 原有吸取逻辑（容器、工厂等非运输建筑不受影响） =====
           b.items.each((item, amount) -> {
             if (amount <= 0)
               return;
             int max = proxy.storageCapacity;
             int have = items.get(item);
-
             if (have >= max) {
-              int burnAmt = Math.min(amount, 10); // 每帧最多焚烧5个
+              int burnAmt = Math.min(amount, 10);
               if (burnAmt > 0) {
                 b.removeStack(item, burnAmt);
                 Fx.coreBurn.at(b.x, b.y);
               }
               return;
             }
-
             int space = max - have;
             int transfer = Math.min(amount, Math.min(space, 5));
             if (transfer > 0) {
@@ -285,14 +345,13 @@ public abstract class CoreComp implements Unitc, Corec, Posc {
                 int lastParticle = removed - perParticle * (particleCount - 1);
                 for (int j = 0; j < particleCount; j++) {
                   final int carry = (j == particleCount - 1) ? lastParticle : perParticle;
-                  Time.run(j * 3f, () -> {
+                  Time.run(j * 3.0F, () -> {
                     InputHandler.createItemTransfer(item, 1, b.x, b.y, this, () -> {
                       int s = proxy.storageCapacity - items.get(item);
                       int toStore = Math.min(carry, Math.max(s, 0));
                       if (toStore > 0) {
                         items.add(item, toStore);
                       }
-                      // 粒子到达时发现满了，剩余的焚烧
                       int burn = carry - toStore;
                       if (burn > 0) {
                         Fx.coreBurn.at(this);
@@ -306,7 +365,6 @@ public abstract class CoreComp implements Unitc, Corec, Posc {
         }
       }
     }
-
     updateCatchItemFromPlayer();
     updateAutoCommand();
   }

@@ -19,6 +19,7 @@ import mindustry.gen.Legsc;
 import mindustry.gen.Unit;
 import mindustry.world.Tile;
 import mindustry.world.blocks.storage.CoreBlock;
+import mindustry.world.blocks.storage.CoreBlock.CoreBuild;
 import mindustry.game.EventType.*;
 import static mindustry.Vars.*;
 
@@ -110,10 +111,28 @@ public class MoveCoreSystem {
         }
       }
     });
-
     Events.on(WorldLoadEvent.class, e -> {
+      // 阶段 1：清理所有 team 的虚拟核心
+      for (Team team : Team.all) {
+        if (team.data() == null || team.data().cores == null)
+          continue;
+
+        Seq<CoreBlock.CoreBuild> toRemove = new Seq<>();
+        for (CoreBuild core : team.data().cores) {
+          if (core.getClass().getName().contains("CoreInjector$") ||
+              (core.tile != null && core.tile.build != core)) {
+            toRemove.add(core);
+          }
+        }
+        for (CoreBuild core : toRemove) {
+          team.data().cores.remove(core);
+        }
+      }
+
+      // 阶段 2：清空移动核心追踪
       mobileCores.clear();
     });
+
   }
 
   public static void showCoreInventory(Corec core) {

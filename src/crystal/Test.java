@@ -10,6 +10,7 @@ import crystal.content.CBullets;
 import crystal.content.CItems;
 import crystal.content.Tree;
 import crystal.entities.abilities.ReduceBoostAbility;
+import crystal.entities.bullet.ContinuousChainLightningBulletType;
 import crystal.entities.bullet.GravityBullet;
 import crystal.entities.bullet.ReduceBoostBullet;
 import crystal.entities.shentong.FaTianXiangDi;
@@ -22,6 +23,7 @@ import crystal.gen.Magicc;
 import crystal.gen.MagicUnit;
 import crystal.type.MagicUnitType;
 import crystal.type.MultiStageUnitType;
+import crystal.type.weapons.ContinuousLightningWeapon;
 import crystal.type.weapons.StageWeapon;
 import crystal.util.DLog;
 import crystal.world.blocks.crystal.CrystalDrill;
@@ -65,6 +67,7 @@ import mindustry.gen.Sounds;
 import mindustry.gen.Unit;
 import mindustry.gen.UnitEntity;
 import mindustry.gen.Unitc;
+import mindustry.graphics.Pal;
 import mindustry.type.Category;
 import mindustry.type.ItemStack;
 import mindustry.type.UnitType;
@@ -109,8 +112,60 @@ public class Test {
     public static @EntityDef({ Unitc.class, Magicc.class }) MagicUnitType magic2;
     public static ScrambleUnitLanding scrambleUnitLanding;
     public static MoveBlock moveBlock;
+    public static UnitType aaaaaaa;
 
     public static void load() {
+        aaaaaaa = new UnitType("aaaaaaa") {
+            {
+                speed = 4f;
+                hitSize = 30f;
+                rotateSpeed = 1.65f;
+                health = 24000;
+                armor = 18f;
+                mechStepParticles = true;
+                stepShake = 0.75f;
+                drownTimeMultiplier = 1.6f;
+                mechFrontSway = 1.9f;
+                mechSideSway = 0.6f;
+                stepSound = Sounds.mechStepHeavy;
+                stepSoundPitch = 0.9f;
+                stepSoundVolume = 0.45f;
+                weapons.add(new ContinuousLightningWeapon("reign-weapon") {
+                    {
+                        y = 1f;
+                        x = 21.5f;
+                        shootY = 11f;
+                        rotate = false;
+                        top = false;
+                        reload = 5f;
+                        // 高光圆：半径10~16，周期40tick
+                        glowRadius = 7f;
+                        glowRadiusMag = 3f;
+                        glowPulsePeriod = 40f;
+                        glowColor = Color.valueOf("ffaa44");
+                        glowColorInner = Color.valueOf("ffff88");
+                        glowAlpha = 0.7f;
+                        lightningCount = 1;
+                        lightningLength = 20;
+                        lightningLengthRand = 8;
+                        lightningDamage = 15f;
+                        lightningColor = Pal.surge;
+                        lightningInterval = 4f;
+                        lightningRange = 400f;
+
+                        // 定向参数
+                        maxAngleOffset = 40f;
+                        targetPullStrength = 0.5f;
+                        stepLengthMin = 16f;
+                        stepLengthMax = 24f;
+                        maxBends = 8;
+                        aimJitter = 10f;
+                        forceReachThreshold = 3;
+                        useMountAim = true;
+                    }
+                });
+            }
+        };
         moveBlock = new MoveBlock("movee") {
             {
                 size = 2;

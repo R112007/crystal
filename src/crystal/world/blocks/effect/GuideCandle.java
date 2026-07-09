@@ -17,6 +17,7 @@ import mindustry.content.Items;
 import mindustry.entities.effect.WaveEffect;
 import mindustry.game.Team;
 import mindustry.gen.Building;
+import mindustry.gen.WorldLabel;
 import mindustry.maps.Map;
 import mindustry.type.Category;
 import mindustry.type.ItemStack;
@@ -135,7 +136,7 @@ public class GuideCandle extends Block {
     @Override
     public void drawSelect() {
       if (closestFloor() == null) {
-        ui.showLabel("咦，好像没有特殊地板呢", id, 0.05f, x, y);
+        ui.showLabel("咦，好像没有特殊地板呢", id, 0.05f, x, y, WorldLabel.flagBackground | WorldLabel.flagAutoscale);
       }
     }
   }

@@ -76,7 +76,16 @@ public class CoreInjector {
       Seq<CoreBuild> cores = (Seq<CoreBuild>) coresField.get(data);
       DLog.info("当前核心数量：" + cores.size);
       DLog.info("尝试加入虚拟核心");
+      if (coreUnit.proxy() != null && cores.contains(coreUnit.proxy())) {
+        DLog.info("核心已存在，跳过注入");
+        return;
+      }
 
+      // 同时检查 mobileCores
+      if (MoveCoreSystem.getCores(coreUnit.team()).contains(coreUnit)) {
+        DLog.info("移动核心已注册，跳过注入");
+        return;
+      }
       CoreUnitType type = (CoreUnitType) coreUnit.type();
       CoreBlock ourCoreBlock = type.core();
 

@@ -5,9 +5,7 @@ import crystal.content.blocks.*;
 import crystal.entities.units.UnitEnum.JingJie;
 import crystal.game.CObjectives.ArchieveJingJie;
 import mindustry.content.Liquids;
-import mindustry.game.Objectives;
-import mindustry.game.Objectives.Objective;
-import mindustry.game.Objectives.Research;
+import mindustry.game.Objectives.*;
 import mindustry.type.ItemStack;
 
 import static crystal.content.Tree.*;
@@ -15,8 +13,10 @@ import static crystal.content.Tree.*;
 public class CrystalTechTree {
   public static void load() {
     CPlanets.lx.techTree = nodeRoot("lx", CStroage.core1, () -> {
+      node(MagicBlocks.magicgener1, () -> {
+      });
       node(LxMaps.jianglindian, () -> {
-        node(LxMaps.jingliuduanxia, Seq.with(new Objectives.SectorComplete(LxMaps.jianglindian)), () -> {
+        node(LxMaps.jingliuduanxia, Seq.with(new SectorComplete(LxMaps.jianglindian)), () -> {
         });
       });
       node(CUnitBlocks.unitfactory1, Seq.with(new ArchieveJingJie(JingJie.dijun)), () -> {

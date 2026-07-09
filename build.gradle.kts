@@ -27,6 +27,7 @@ val arcVersion: String by project
 val mindustryVersion: String by project
 val mindustryBEVersion: String by project
 val entVersion: String by project
+val javapoetVersion: String by project
 
 val modName: String by project
 val modArtifact: String by project
@@ -51,7 +52,9 @@ fun mindustry(module: String): String{
 fun entity(module: String): String{
     return "com.github.GglLfr.EntityAnno$module:$entVersion"
 }
-
+fun javapoet(): String{
+    return "com.squareup:javapoet:$javapoetVersion"
+}
 allprojects{
     apply(plugin = "java")
     tasks.withType<AbstractArchiveTask>().configureEach {
@@ -75,7 +78,8 @@ sourceSets["main"].java {
 
     dependencies{
         // Downgrade Java 9+ syntax into being available in Java 8.
-        annotationProcessor(entity(":downgrader"))
+        annotationProcessor(files("res/downgrader.jar"))
+        annotationProcessor(arc(":arc-core"))
     }
 
     repositories{
@@ -94,7 +98,7 @@ sourceSets["main"].java {
         // Use Java 17+ syntax, but target Java 8 bytecode version.
         sourceCompatibility = "17"
         options.apply{
-            release = 8
+            release = 17
             compilerArgs.add("-Xlint:-options")
 
             isIncremental = true
@@ -117,8 +121,11 @@ project(":"){
 
     dependencies{
         // Use the entity generation annotation processor.
-        compileOnly(entity(":entity"))
-        add("kapt", entity(":entity"))
+        compileOnly(files("res/entity.jar"))
+        add("kapt", files("res/entity.jar"))
+        add("kapt", arc(":arc-core"))
+        add("kapt", mindustry(":core"))
+        add("kapt", javapoet())
 	//implementation("org.luaj:luaj-jse:3.0.1")
 
         compileOnly(mindustry(":core"))
@@ -265,4 +272,5 @@ val dex = tasks.register<Jar>("dex") {
         }
     }
 }
+
 

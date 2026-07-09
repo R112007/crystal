@@ -85,7 +85,7 @@ public class CPlanets {
         ruleSetter = r -> {
           r.waveTeam = Team.crux;
           r.placeRangeCheck = true;
-          r.showSpawns = true;
+          r.hideSpawns = false;
         };
         showRtsAIRule = true;
         iconColor = Color.valueOf("#D2F0FFFF");
@@ -95,7 +95,7 @@ public class CPlanets {
         startSector = 0;
         alwaysUnlocked = true;
         bloom = true;
-        campaignRuleDefaults.showSpawns = true;
+        campaignRuleDefaults.hideSpawns = false;
         updateLighting = true;
         allowSelfSectorLaunch = true;
         landCloudColor = Color.valueOf("#CB5DA8").cpy().a(0.5f);
