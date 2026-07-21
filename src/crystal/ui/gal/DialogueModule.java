@@ -7,47 +7,71 @@ import crystal.util.DLog;
 import mindustry.io.JsonIO;
 
 /**
- * 对话模块，用于分组管理对话节点
+ * 对话模块，用于分组管理对话节点。
+ * 保存进度、已触发分支、对话历史到本地存档。
  */
 public class DialogueModule {
-  // 模块唯一ID，如"1-1""1-2"
+  // 模块唯一ID，如 "1-1" "1-2"
   public String moduleId;
-  // 模块显示名称，如"第一章 第一节"
+  // 模块显示名称
   public String moduleName;
-  // 该模块下的所有对话节点
+  // 该模块下的所有对话节点（包含已追加的分支）
   public Seq<DialogueLine> dialogueNodes = new Seq<>();
-  // 模块是否已完成
+  // 是否已完成
   public boolean isCompleted = false;
-  // 模块已播放到的节点索引
+  // 已播放到的节点索引
   public int progressIndex = 0;
-  // 分支id序列
+  // 已触发分支 ID
   public Seq<String> branchIds = new Seq<>();
-  // 新增：原始主线备份，构造时初始化，永远不会被运行时修改
+  // 原始主线备份，构造时初始化，运行时不会被直接修改
   public Seq<DialogueLine> originalMainNodes;
   // 模块对话历史
   public final Seq<DialogueHistory> history = new Seq<>();
-  public ObjectSet<String> playedNodeSet = new ObjectSet<>();
+  public final ObjectSet<String> playedNodeSet = new ObjectSet<>();
 
   public DialogueModule(String moduleId, String moduleName) {
     this.moduleId = moduleId;
     this.moduleName = moduleName;
-    this.originalMainNodes = new Seq<>(this.dialogueNodes);
   }
 
   public DialogueModule(String moduleId, String moduleName, Seq<DialogueLine> nodes) {
     this.moduleId = moduleId;
     this.moduleName = moduleName;
-    this.dialogueNodes = nodes;
+    this.dialogueNodes = nodes == null ? new Seq<>() : nodes;
     this.originalMainNodes = new Seq<>(this.dialogueNodes);
     setNodeIds();
   }
 
+  /**
+   * 生成用于剧情回溯的节点副本队列：文本、角色、立绘保留，回调不拷贝。
+   *
+   * @param fromIndex 起始节点索引（含）
+   */
+  public Seq<DialogueLine> createPlaybackCopies(int fromIndex) {
+    Seq<DialogueLine> copies = new Seq<>();
+    for (int i = fromIndex; i < dialogueNodes.size; i++) {
+      DialogueLine original = dialogueNodes.get(i);
+      copies.add(original.copyForHistory());
+    }
+    return copies;
+  }
+
+  /**
+   * 生成用于模块回放副本的完整节点副本队列：
+   * 文本、角色、立绘、表情、选项、回调与动作均保留，
+   * 不影响原模块的进度与完成状态。
+   */
+  public Seq<DialogueLine> createReplayCopies() {
+    Seq<DialogueLine> copies = new Seq<>();
+    for (DialogueLine original : dialogueNodes) {
+      copies.add(original.copyForReplay());
+    }
+    return copies;
+  }
+
   public void appendToHistory(DialogueLine line) {
-    if (line == null || line.nodeId == null)
-      return;
-    // 模块级去重：已经加过的节点不再重复记录
-    if (playedNodeSet.contains(line.nodeId))
-      return;
+    if (line == null || line.nodeId == null) return;
+    if (playedNodeSet.contains(line.nodeId)) return;
     history.add(new DialogueHistory(
         this.moduleId,
         line.nodeId,
@@ -56,51 +80,56 @@ public class DialogueModule {
     playedNodeSet.add(line.nodeId);
   }
 
-  /**
-   * 用Seq.each批量设置节点ID，格式：moduleId-索引
-   * 完全符合需求：无需逐个设置，批量生成
-   */
+  /** 批量设置节点 ID，格式：moduleId-索引 */
   public void setNodeIds() {
     int size = dialogueNodes.size;
     for (int i = 0; i < size; i++) {
       DialogueLine line = dialogueNodes.get(i);
+      if (line == null) continue;
       line.moduleId = this.moduleId;
       line.nodeId = this.moduleId + "-" + (i + 1);
     }
   }
 
-  /** 添加对话节点，自动刷新ID */
+  /** 添加对话节点，自动刷新 ID 与原始备份。 */
   public DialogueModule addNode(DialogueLine... lines) {
     dialogueNodes.addAll(lines);
-    originalMainNodes.set(dialogueNodes);
+    refreshOriginals();
     setNodeIds();
     return this;
   }
 
   public DialogueModule addNode(Seq<DialogueLine> lines) {
-    dialogueNodes.addAll(lines);
-    originalMainNodes.set(dialogueNodes);
+    if (lines != null) {
+      dialogueNodes.addAll(lines);
+    }
+    refreshOriginals();
     setNodeIds();
     return this;
   }
 
-  /** 获取当前进度的对话节点 */
+  private void refreshOriginals() {
+    if (originalMainNodes == null) {
+      originalMainNodes = new Seq<>();
+    }
+    originalMainNodes.set(dialogueNodes);
+  }
+
+  /** 获取当前进度节点。 */
   public DialogueLine getCurrentNode() {
-    if (progressIndex >= dialogueNodes.size)
-      return null;
+    if (progressIndex >= dialogueNodes.size) return null;
     return dialogueNodes.get(progressIndex);
   }
 
-  /** 推进模块进度 */
+  /** 推进模块进度。 */
   public void advanceProgress() {
-    // 只在没播完时+1
     if (progressIndex < dialogueNodes.size) {
       progressIndex++;
     }
     isCompleted = progressIndex >= dialogueNodes.size;
   }
 
-  /** 重置模块进度 */
+  /** 重置模块进度。 */
   public void resetProgress() {
     progressIndex = 0;
     isCompleted = false;
@@ -116,7 +145,6 @@ public class DialogueModule {
 
   public void addBranch(Branch branch) {
     String branchId = branch.id;
-    // 避免重复添加
     if (!branchIds.contains(branchId)) {
       branchIds.add(branchId);
       dialogueNodes.addAll(branch.nodes);
@@ -134,34 +162,31 @@ public class DialogueModule {
 
   public void loadModuleData() {
     history.clear();
+    playedNodeSet.clear();
     String branchIdsJson = Core.settings.getString("gal_module_branch_" + this.moduleId, "[]");
-    Seq<String> savedBranchIds = JsonIO.json.fromJson(Seq.class, branchIdsJson);
-    this.branchIds.set(savedBranchIds);
+    try {
+      Seq<String> savedBranchIds = JsonIO.json.fromJson(Seq.class, branchIdsJson);
+      this.branchIds.set(savedBranchIds);
+    } catch (Exception e) {
+      DLog.err("加载分支失败: " + this.moduleId, e);
+      this.branchIds.clear();
+    }
     rebuildDialogueNodes();
     this.progressIndex = Core.settings.getInt("gal_module_progress_" + this.moduleId, 0);
     this.isCompleted = Core.settings.getBool("gal_module_completed_" + this.moduleId, false);
     this.isCompleted = this.progressIndex >= this.dialogueNodes.size;
+
     if (isCompleted) {
       for (DialogueLine d : dialogueNodes) {
-        if (d.nodeId == null)
-          continue;
-        history.add(new DialogueHistory(
-            moduleId,
-            d.nodeId,
-            d.characterName,
-            d.content));
+        if (d == null || d.nodeId == null) continue;
+        history.add(new DialogueHistory(moduleId, d.nodeId, d.characterName, d.content));
         playedNodeSet.add(d.nodeId);
       }
     } else {
       for (int i = 0; i < progressIndex; i++) {
         DialogueLine d = dialogueNodes.get(i);
-        if (d.nodeId == null)
-          continue;
-        history.add(new DialogueHistory(
-            moduleId,
-            d.nodeId,
-            d.characterName,
-            d.content));
+        if (d == null || d.nodeId == null) continue;
+        history.add(new DialogueHistory(moduleId, d.nodeId, d.characterName, d.content));
         playedNodeSet.add(d.nodeId);
       }
     }
@@ -171,22 +196,13 @@ public class DialogueModule {
     if (originalMainNodes == null) {
       originalMainNodes = new Seq<>(this.dialogueNodes);
     }
-
     this.dialogueNodes.set(originalMainNodes);
-
     for (String branchId : this.branchIds) {
       Branch targetBranch = Branch.branchIds.get(branchId);
       if (targetBranch != null) {
         this.dialogueNodes.addAll(targetBranch.nodes);
       }
     }
-
     setNodeIds();
-  }
-
-  public void addSavedBranch() {
-    for (String id : branchIds) {
-      addNode(Branch.branchIds.get(id).nodes);
-    }
   }
 }

@@ -16,6 +16,7 @@ import mindustry.type.Weapon;
 /**
  * 持续定向闪电武器 - 发射指向目标的定向闪电。
  */
+// TODO stat显示
 public class ContinuousLightningWeapon extends Weapon {
 
     // ========== 高光圆参数 ==========

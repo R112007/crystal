@@ -15,7 +15,7 @@ public class LxMaps {
         this.startWaveTimeMultiplier = 3f;
       }
     };
-    jingliuduanxia = new SectorPreset("jingliuduanxia", CPlanets.lx, 1) {
+    jingliuduanxia = new SectorPreset("jingliuduanxia", CPlanets.lx, 96) {
       {
         this.difficulty = 1;
         this.captureWave = 40;

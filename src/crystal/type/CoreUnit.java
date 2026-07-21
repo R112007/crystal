@@ -1,6 +1,6 @@
 package crystal.type;
 
-import mindustry.world.blocks.storage.CoreBlock;
+import crystal.world.blocks.stroage.MCoreBlock;
 
 public interface CoreUnit {
   int storageCapacity();
@@ -11,6 +11,6 @@ public interface CoreUnit {
 
   int unitCapBonus();
 
-  CoreBlock core();
+  MCoreBlock core();
 
 }

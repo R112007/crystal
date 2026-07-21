@@ -7,8 +7,10 @@ import arc.math.Mathf;
 import arc.util.Log;
 import arc.util.Time;
 import crystal.content.CBullets;
+import crystal.content.CFx;
 import crystal.content.CItems;
 import crystal.content.Tree;
+import crystal.entities.abilities.AddWeaponAbility;
 import crystal.entities.abilities.ReduceBoostAbility;
 import crystal.entities.bullet.ContinuousChainLightningBulletType;
 import crystal.entities.bullet.GravityBullet;
@@ -20,7 +22,9 @@ import crystal.entities.units.UnitEnum.Mode;
 import crystal.entities.units.UnitEnum.XiuWei;
 import crystal.gen.FaShenc;
 import crystal.gen.Magicc;
-import crystal.gen.MagicUnit;
+import crystal.graphics.CPal;
+import crystal.gen.*;
+import crystal.type.CoreUnitType;
 import crystal.type.MagicUnitType;
 import crystal.type.MultiStageUnitType;
 import crystal.type.weapons.ContinuousLightningWeapon;
@@ -112,24 +116,47 @@ public class Test {
     public static @EntityDef({ Unitc.class, Magicc.class }) MagicUnitType magic2;
     public static ScrambleUnitLanding scrambleUnitLanding;
     public static MoveBlock moveBlock;
-    public static UnitType aaaaaaa;
+    public static CoreUnitType aaaaaaa;
 
     public static void load() {
-        aaaaaaa = new UnitType("aaaaaaa") {
+        aaaaaaa = new CoreUnitType("aaaaaaa") {
             {
                 speed = 4f;
                 hitSize = 30f;
                 rotateSpeed = 1.65f;
-                health = 24000;
-                armor = 18f;
+                health = 2000;
                 mechStepParticles = true;
                 stepShake = 0.75f;
                 drownTimeMultiplier = 1.6f;
                 mechFrontSway = 1.9f;
                 mechSideSway = 0.6f;
+                constructor = RetractableLegsCoreUnit::create;
                 stepSound = Sounds.mechStepHeavy;
                 stepSoundPitch = 0.9f;
                 stepSoundVolume = 0.45f;
+                this.abilities.add(new AddWeaponAbility(0.8f, new Weapon() {
+                    {
+                        x = 0;
+                        y = 0;
+                        this.shootSound = Sounds.shootMissileShort;
+                        this.reload = 5f;
+                        this.recoil = 0f;
+                        this.top = false;
+                        this.bullet = new MissileBulletType(5f, 5f) {
+                            {
+                                this.width = 2f;
+                                this.height = 6f;
+                                this.hitEffect = Fx.flakExplosion;
+                                this.lifetime = 30;
+                                this.homingPower = 6f;
+                                this.trailChance = 0.4f;
+                                this.trailColor = CPal.light_blue1;
+                                this.frontColor = CPal.light_blue1;
+                                this.hitEffect = this.despawnEffect = CFx.airmisslesmall;
+                            }
+                        };
+                    }
+                }));
                 weapons.add(new ContinuousLightningWeapon("reign-weapon") {
                     {
                         y = 1f;

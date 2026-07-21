@@ -1,10 +1,12 @@
 package crystal.ui.gal;
 
 import arc.util.serialization.Json;
-import arc.util.serialization.Json.JsonSerializable;
 import arc.util.serialization.JsonValue;
+import arc.util.serialization.Json.JsonSerializable;
 
-// 实现 JsonSerializable，进入官方白名单
+/**
+ * 单条对话历史记录，用于剧情回溯与历史查看。
+ */
 public class DialogueHistory implements JsonSerializable {
     public String moduleId;
     public String nodeId;
@@ -23,7 +25,6 @@ public class DialogueHistory implements JsonSerializable {
         this.timestamp = System.currentTimeMillis();
     }
 
-    // 写入JSON
     @Override
     public void write(Json json) {
         json.writeValue("moduleId", moduleId);
@@ -33,7 +34,6 @@ public class DialogueHistory implements JsonSerializable {
         json.writeValue("timestamp", timestamp);
     }
 
-    // 读取JSON
     @Override
     public void read(Json json, JsonValue jsonData) {
         moduleId = jsonData.getString("moduleId");

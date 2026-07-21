@@ -70,15 +70,16 @@ public class ContinueRepairField extends Ability {
       });
     }
     if (repairBuild == true) {
-      Vars.indexer.eachBlock(unit, range, b -> b.damaged() && !b.isHealSuppressed(), other -> {
-        other.heal(amount);
-        activeEffect.at(unit.x, unit.y);
-        if (t) {
-          this.healEffect.at(other, false);
-          hitEffect.at(other.x(), other.y(), unit.angleTo(other), color);
+      for (var b : Vars.player.team().data().buildings) {
+        if (b != null && b.tile != null && b.tile.build != null && b.damaged() && b.within(unit, range)) {
+          b.heal(amount);
+          activeEffect.at(unit.x, unit.y);
+          if (t) {
+            this.healEffect.at(b, false);
+            hitEffect.at(b.x(), b.y(), unit.angleTo(b), color);
+          }
         }
-      });
-
+      }
     }
   }
 

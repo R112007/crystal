@@ -1219,10 +1219,10 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
                 hide();
                 // after dialog is hidden
                 Time.runTask(7f, () -> {
-                    MoveCoreSystem.removeAllCorecs(player.team());
                     for (var core : player.team().cores().copy()) {
                         core.kill();
                     }
+                    MoveCoreSystem.removeAllCorecs(player.team());
                 });
             } else {
                 sector.info.items.clear();
@@ -1232,6 +1232,7 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
             }
             updateSelected();
             rebuildList();
+            Events.fire(new SectorLoseEvent(sector));
         });
     }
 

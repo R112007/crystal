@@ -1,5 +1,5 @@
-source assets.sh
-sed -i 's/public static boolean true = false;/public static boolean debug = false;/' ~/crystal/src/crystal/CVars.java
+source ~/crystal/assets.sh
+sed -i 's/public static boolean debug = true;/public static boolean debug = false;/' ~/crystal/src/crystal/CVars.java
 ./gradlew dex
 cp build/libs/Crystal.jar /storage/emulated/0/Download
 rm -rf /storage/emulated/0/Download/gen

@@ -5,11 +5,11 @@ import arc.Events;
 import arc.math.geom.Vec2;
 import arc.struct.ObjectMap;
 import arc.struct.Seq;
+import arc.util.Log;
 import arc.util.Time;
 import crystal.gen.Corec;
 import crystal.net.CCall;
 import crystal.ui.fragments.CoreInventoryFragment;
-import crystal.util.DLog;
 import mindustry.Vars;
 import mindustry.content.Fx;
 import mindustry.entities.Units;
@@ -19,7 +19,6 @@ import mindustry.gen.Legsc;
 import mindustry.gen.Unit;
 import mindustry.world.Tile;
 import mindustry.world.blocks.storage.CoreBlock;
-import mindustry.world.blocks.storage.CoreBlock.CoreBuild;
 import mindustry.game.EventType.*;
 import static mindustry.Vars.*;
 
@@ -90,7 +89,7 @@ public class MoveCoreSystem {
           tapRange * tilesize, u -> !u.dead && u instanceof Corec);
 
       if (unit instanceof Corec core) {
-        DLog.info("点击核心单位: " + core.type().name);
+        Log.info("点击核心单位: " + core.type().name);
         coreInventory.showFor(core);
       } else {
         if (coreInventory.isShown()) {
@@ -111,28 +110,21 @@ public class MoveCoreSystem {
         }
       }
     });
-    Events.on(WorldLoadEvent.class, e -> {
-      // 阶段 1：清理所有 team 的虚拟核心
-      for (Team team : Team.all) {
-        if (team.data() == null || team.data().cores == null)
-          continue;
 
-        Seq<CoreBlock.CoreBuild> toRemove = new Seq<>();
-        for (CoreBuild core : team.data().cores) {
-          if (core.getClass().getName().contains("CoreInjector$") ||
-              (core.tile != null && core.tile.build != core)) {
-            toRemove.add(core);
-          }
-        }
-        for (CoreBuild core : toRemove) {
-          team.data().cores.remove(core);
+    Events.on(WorldLoadEvent.class, e -> {
+      mobileCores.clear();
+      Log.info("[MoveCoreSystem] WorldLoadEvent: reindexing mobile cores...");
+      // 世界加载后 BlockIndexer 会重置，重新注册所有移动核心代理
+      int count = 0;
+      for (mindustry.gen.Unit unit : Groups.unit) {
+        if (unit instanceof Corec core && core.proxy() != null) {
+          CoreInjector.reindexCore(core);
+          mobileCores.get(core.team(), Seq::new).add(core);
+          count++;
         }
       }
-
-      // 阶段 2：清空移动核心追踪
-      mobileCores.clear();
+      Log.info("[MoveCoreSystem] WorldLoadEvent: reindexed " + count + " mobile cores");
     });
-
   }
 
   public static void showCoreInventory(Corec core) {
@@ -161,7 +153,7 @@ public class MoveCoreSystem {
           CoreInjector.removeCore(team.data(), core);
         }
       } catch (Exception e) {
-        DLog.err("移除核心注入失败: " + e.getMessage());
+        Log.err("移除核心注入失败: " + e.getMessage());
       }
       // 从 mobileCores map 中移除
       getCores(team).remove(core);
@@ -210,14 +202,14 @@ public class MoveCoreSystem {
               buildField.setAccessible(true);
               buildField.set(core.tile, null);
             } catch (Exception ex) {
-              DLog.err("清理 tile.build 失败: " + ex.getMessage());
+              Log.err("清理 tile.build 失败: " + ex.getMessage());
             }
           }
           core.tile = null;
         }
       }
     } catch (Exception e) {
-      DLog.err("清理孤儿核心失败: " + e.getMessage());
+      Log.err("清理孤儿核心失败: " + e.getMessage());
       e.printStackTrace();
     }
 

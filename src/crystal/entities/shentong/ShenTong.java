@@ -1,6 +1,7 @@
 package crystal.entities.shentong;
 
 import arc.Core;
+import arc.scene.style.TextureRegionDrawable;
 import arc.scene.ui.layout.Table;
 import arc.struct.ObjectMap;
 import arc.util.io.Reads;
@@ -12,6 +13,7 @@ import crystal.type.MagicUnitType;
 public abstract class ShenTong implements Cloneable {
   public static ObjectMap<Integer, ShenTong> shengTongMap = new ObjectMap<>();
   public int id;
+  public TextureRegionDrawable icon;
 
   public void update(Magicc magic) {
   }

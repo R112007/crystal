@@ -103,7 +103,13 @@ public class MuchLoadUnit {
           this.segmentRegions = sourceType.segmentRegions;
           this.segmentCellRegions = sourceType.segmentCellRegions;
           this.segmentOutlineRegions = sourceType.segmentOutlineRegions;
+
           this.treadRegions = sourceType.treadRegions;
+        }
+
+        @Override
+        public void init() {
+          super.init();
         }
       };
 
@@ -150,6 +156,23 @@ public class MuchLoadUnit {
 
       // Vars.content.units().add(newUnit);
       unitMap.put(newUnit.xiuWei, newUnit);
+    }
+  }
+
+  public static void addTab() {
+    Seq<MagicUnitType> units = new Seq<>();
+    for (UnitType unit : Vars.content.units()) {
+      if (unit instanceof MagicUnitType magic) {
+        DLog.info(magic.name);
+        units.add(magic);
+      }
+    }
+    for (MagicUnitType m : units) {
+      for (MagicUnitType m2 : magicUnitTypes.get(m).values()) {
+        m2.databaseTabs.addAll(m.shownPlanets);
+        m2.shownPlanets.addAll(m.shownPlanets);
+        m2.postInit();
+      }
     }
   }
 }

@@ -472,7 +472,9 @@ public class PlayerXiuWeiSystem {
     CVars.currentAvailableJingJie.clear();
     CVars.completedDuJieJingJies.clear();
     CVars.pendingDuJieJingJie = null;
-
+    for (var g : GongFa.gongFas.values()) {
+      g.lock();
+    }
     saveReachedJingJie();
     saveCurrentAvailableJingJie();
     savePower();

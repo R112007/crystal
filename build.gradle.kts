@@ -27,7 +27,6 @@ val arcVersion: String by project
 val mindustryVersion: String by project
 val mindustryBEVersion: String by project
 val entVersion: String by project
-val javapoetVersion: String by project
 
 val modName: String by project
 val modArtifact: String by project
@@ -52,15 +51,13 @@ fun mindustry(module: String): String{
 fun entity(module: String): String{
     return "com.github.GglLfr.EntityAnno$module:$entVersion"
 }
-fun javapoet(): String{
-    return "com.squareup:javapoet:$javapoetVersion"
-}
+
 allprojects{
-    apply(plugin = "java")
-    tasks.withType<AbstractArchiveTask>().configureEach {
+	tasks.withType<AbstractArchiveTask>().configureEach {
         isReproducibleFileOrder = false
         isPreserveFileTimestamps = true
     }
+    apply(plugin = "java")
 sourceSets["main"].java {
         srcDir(layout.projectDirectory.dir("src"))
         srcDir(layout.buildDirectory.dir("generated/source/kapt/main"))
@@ -78,8 +75,7 @@ sourceSets["main"].java {
 
     dependencies{
         // Downgrade Java 9+ syntax into being available in Java 8.
-        annotationProcessor(files("res/downgrader.jar"))
-        annotationProcessor(arc(":arc-core"))
+        annotationProcessor(entity(":downgrader"))
     }
 
     repositories{
@@ -98,7 +94,7 @@ sourceSets["main"].java {
         // Use Java 17+ syntax, but target Java 8 bytecode version.
         sourceCompatibility = "17"
         options.apply{
-            release = 17
+            release = 8
             compilerArgs.add("-Xlint:-options")
 
             isIncremental = true
@@ -121,12 +117,8 @@ project(":"){
 
     dependencies{
         // Use the entity generation annotation processor.
-        compileOnly(files("res/entity.jar"))
-        add("kapt", files("res/entity.jar"))
-        add("kapt", arc(":arc-core"))
-        add("kapt", mindustry(":core"))
-        add("kapt", javapoet())
-	//implementation("org.luaj:luaj-jse:3.0.1")
+        compileOnly(entity(":entity"))
+        add("kapt", entity(":entity"))
 
         compileOnly(mindustry(":core"))
         compileOnly(arc(":arc-core"))
@@ -272,5 +264,4 @@ val dex = tasks.register<Jar>("dex") {
         }
     }
 }
-
 

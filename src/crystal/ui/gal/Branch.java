@@ -3,27 +3,38 @@ package crystal.ui.gal;
 import arc.struct.ObjectMap;
 import arc.struct.Seq;
 
+/**
+ * 剧情分支。分支拥有全局 ID，可被任意模块触发并追加到当前模块的节点队列中。
+ */
 public class Branch {
-  public static ObjectMap<String, Branch> branchIds = new ObjectMap<>();
-  // 分支ID（用于存档/判断是否已触发）
-  public final String id;
-  // 该分支自己的对话节点队列
-  public final Seq<DialogueLine> nodes = new Seq<>();
+    /** 全局分支注册表，用于存档恢复。 */
+    public static final ObjectMap<String, Branch> branchIds = new ObjectMap<>();
 
-  public Branch(String id) {
-    this.id = id;
-    this.branchIds.put(id, this);
-  }
+    /** 分支唯一 ID。 */
+    public final String id;
+    /** 该分支的对话节点队列。 */
+    public final Seq<DialogueLine> nodes = new Seq<>();
 
-  // 链式添加节点，写起来更顺手
-  public Branch addNode(DialogueLine node) {
-    nodes.add(node);
-    return this;
-  }
+    public Branch(String id) {
+        this.id = id;
+        branchIds.put(id, this);
+    }
 
-  // 批量添加节点
-  public Branch addAll(Seq<DialogueLine> nodes) {
-    this.nodes.addAll(nodes);
-    return this;
-  }
+    /** 链式添加单个节点。 */
+    public Branch addNode(DialogueLine node) {
+        nodes.add(node);
+        return this;
+    }
+
+    /** 批量添加节点。 */
+    public Branch addAll(Seq<DialogueLine> nodes) {
+        this.nodes.addAll(nodes);
+        return this;
+    }
+
+    /** 兼容数组的批量添加。 */
+    public Branch addAll(DialogueLine... nodes) {
+        this.nodes.addAll(nodes);
+        return this;
+    }
 }

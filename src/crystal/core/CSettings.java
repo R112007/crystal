@@ -2,13 +2,10 @@ package crystal.core;
 
 import arc.Core;
 import arc.struct.ObjectMap;
-import arc.struct.ObjectSet;
 import arc.struct.Seq;
 import crystal.CVars;
 import crystal.content.CIcons;
 import crystal.ui.gal.DialogueHistory;
-import crystal.ui.gal.DialogueLine;
-import crystal.ui.gal.DialogueModule;
 import crystal.ui.gal.GalgameDialogueManager;
 import mindustry.Vars;
 import mindustry.gen.Icon;
@@ -23,9 +20,10 @@ public class CSettings {
   public static final CSettings instance = new CSettings();
   private static final String KEY_PLAYER_NAME = "crystal_player_name";
   private static final String KEY_DIALOGUE_HISTORY = "crystal_gal_history";
+  private static final String KEY_ALLOW_REPLAY_COMPLETED = "crystal_allow_replay_completed";
 
   static {
-    mindustry.io.JsonIO.json.addClassTag("DialogueHistory", crystal.ui.gal.DialogueHistory.class);
+    JsonIO.json.addClassTag("DialogueHistory", crystal.ui.gal.DialogueHistory.class);
   }
 
   private CSettings() {
@@ -39,16 +37,19 @@ public class CSettings {
     return Core.settings.getString(KEY_PLAYER_NAME, "");
   }
 
-  /** 保存玩家名字，自动同步到剧情角色 */
   public void setPlayerName(String name) {
     String finalName = name == null ? "" : name.trim();
     Core.settings.put(KEY_PLAYER_NAME, finalName);
     Core.settings.autosave();
   }
 
-  /** 判断是否已有名字存档 */
   public boolean hasPlayerName() {
     return !isBlank(getPlayerName());
+  }
+
+  /** 是否允许重复播放已完成的剧情模块。 */
+  public boolean allowReplayCompletedModules() {
+    return Core.settings.getBool(KEY_ALLOW_REPLAY_COMPLETED, true);
   }
 
   public ObjectMap<String, Object> getAllSettings() {
@@ -59,7 +60,6 @@ public class CSettings {
     return result;
   }
 
-  /** 清除模块所有分支（修复并发修改异常） */
   public static void load() {
     ui.settings.addCategory(Core.bundle.get("settings.crystal"), CIcons.crystalCore, table -> {
       table.checkPref("showXiuWei", true);
@@ -68,8 +68,10 @@ public class CSettings {
       table.row();
       table.checkPref("showgongfabuquan", true);
       table.row();
+      table.checkPref(KEY_ALLOW_REPLAY_COMPLETED, true);
+      table.row();
 
-      // --- 清空所有历史 ---
+      // 清空所有历史
       table.pref(new SettingsMenuDialog.SettingsTable.Setting("crystal.clearallhistory") {
         @Override
         public void add(SettingsTable t) {
@@ -83,7 +85,7 @@ public class CSettings {
         }
       });
 
-      // --- 修改玩家名字 ---
+      // 修改玩家名字
       table.pref(new SettingsMenuDialog.SettingsTable.Setting("crystal.changeplayername") {
         @Override
         public void add(SettingsTable t) {
@@ -113,7 +115,7 @@ public class CSettings {
         }
       });
 
-      // --- 清空所有模块进度 ---
+      // 清空所有模块进度
       table.pref(new SettingsMenuDialog.SettingsTable.Setting("crystal.clearallmodel") {
         @Override
         public void add(SettingsTable t) {
@@ -129,7 +131,6 @@ public class CSettings {
     });
   }
 
-  // 清除所有对话历史（含本地存储）
   public void clearAllDialogueHistory() {
     GalgameDialogueManager.instance.clearAllHistory();
     Core.settings.remove(KEY_DIALOGUE_HISTORY);
@@ -137,12 +138,11 @@ public class CSettings {
   }
 
   public void clearModuleHistory(String moduleId) {
-    DialogueModule module = GalgameDialogueManager.instance.getModule(moduleId);
+    crystal.ui.gal.DialogueModule module = GalgameDialogueManager.instance.getModule(moduleId);
     if (module != null) {
       module.history.clear();
       module.playedNodeSet.clear();
     }
     Core.settings.forceSave();
   }
-
 }

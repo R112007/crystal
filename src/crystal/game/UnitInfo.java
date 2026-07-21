@@ -8,6 +8,7 @@ import arc.struct.Seq;
 import arc.util.Log;
 import crystal.CVars;
 import crystal.type.UnitStack;
+import crystal.util.DLog;
 import mindustry.Vars;
 import mindustry.type.Planet;
 import mindustry.type.Sector;
@@ -123,6 +124,11 @@ public class UnitInfo {
       if (info == null) {
         continue;
       }
+      if (info.getBoundSector() == null) {
+        DLog.info("info has not sector " + info);
+        continue;
+      }
+
       if (info.getBoundSector().equals(targetSector)) {
         return info;
       }

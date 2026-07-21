@@ -32,6 +32,7 @@ import mindustry.entities.effect.ParticleEffect;
 import mindustry.entities.effect.WaveEffect;
 import mindustry.entities.units.WeaponMount;
 import mindustry.gen.Groups;
+import mindustry.gen.Icon;
 import mindustry.gen.Sounds;
 import mindustry.gen.Unit;
 import mindustry.graphics.Drawf;
@@ -277,20 +278,22 @@ public class FaTianXiangDi extends ShenTong {
   public FaTianXiangDi(float baseMultiplier, float baseSizeMultiplier, float regenAmount, float restoreTime,
       float createMagicCost) {
     this.baseMultiplier = baseMultiplier;
-    this.baseSizeMultiplier = baseMultiplier;
+    this.baseSizeMultiplier = baseSizeMultiplier;
     this.regenAmount = regenAmount;
     this.restoreTime = restoreTime;
     this.createMagicCost = createMagicCost;
     id = 0;
+    icon = Icon.starSmall;
   }
 
   public FaTianXiangDi(float baseMultiplier, float baseSizeMultiplier, float regenAmount, float restoreTime) {
     this.baseMultiplier = baseMultiplier;
-    this.baseSizeMultiplier = baseMultiplier;
+    this.baseSizeMultiplier = baseSizeMultiplier;
     this.regenAmount = regenAmount;
     this.restoreTime = restoreTime;
     this.createMagicCost = 300;
     id = 0;
+    icon = Icon.starSmall;
   }
 
   @Override
@@ -581,6 +584,7 @@ public class FaTianXiangDi extends ShenTong {
       clone.timer = 0f;
       clone.isCreating = false;
       clone.createTimer = 0f;
+      clone.icon = Icon.starSmall;
       return clone;
     } catch (CloneNotSupportedException e) {
       throw new RuntimeException("java sucks", e);

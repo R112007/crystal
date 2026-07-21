@@ -3,6 +3,7 @@ package crystal.content.blocks;
 import arc.graphics.Color;
 import crystal.content.CBullets;
 import crystal.content.CItems;
+import crystal.entities.bullet.ContinuousLightningBulletType;
 import crystal.graphics.CPal;
 import mindustry.content.Fx;
 import mindustry.content.StatusEffects;
@@ -24,6 +25,7 @@ import mindustry.world.blocks.defense.turrets.ItemTurret;
 import mindustry.world.blocks.defense.turrets.PowerTurret;
 import mindustry.world.draw.DrawTurret;
 
+import static crystal.content.CItems.*;
 import static mindustry.type.ItemStack.*;
 
 public class CTurrets {
@@ -35,6 +37,7 @@ public class CTurrets {
   public static Block tuxi;
   public static Block powerair1;
   public static Block chuantou;
+  public static Block zi;
 
   public static void load() {
     qianfeng = new ItemTurret("qianfeng") {
@@ -454,7 +457,7 @@ public class CTurrets {
     powerair1 = new PowerTurret("powerair1") {
       {
         this.health = 320;
-        this.reload = 15;
+        this.reload = 23;
         this.size = 1;
         this.range = 200;
         this.inaccuracy = 0;
@@ -479,7 +482,7 @@ public class CTurrets {
             this.collidesAir = true;
             this.collidesGround = false;
             this.collidesTeam = false;
-            this.damage = 20;
+            this.damage = 15;
           }
         };
       }
@@ -540,5 +543,61 @@ public class CTurrets {
                 CItems.chunguijing, 45 }));
       }
     };
+    BulletType lightningOrb = new ContinuousLightningBulletType(2.5f, 0f)
+        .lightningDamage(18f)
+        .lightningLength(4)
+        .lightningRange(40f)
+        .lightningInterval(0.12f)
+        .bolts(5)
+        .color(Color.valueOf("#9253E3"))
+        .lifetime(90f);
+    zi = new ItemTurret("zi") {
+      {
+        requirements(Category.turret, with(lv, 200)); // 材料为空，按需补充，如 with(Items.copper, 30)
+
+        health = 100;
+        size = 3;
+        reload = 120f; // 60 = 1 秒，15f ≈ 0.25 秒
+        range = 80f;
+        inaccuracy = 0f;
+
+        this.coolant = consumeCoolant(0.5f);
+        drawer = new DrawTurret("reinforced-") {
+          {
+            heatColor = Color.valueOf("fa2859");
+            parts.addAll(
+                new RegionPart("-blade") {
+                  {
+                    progress = PartProgress.warmup;
+                    mirror = true;
+                    moveRot = -15f;
+                    moveX = 0.5f;
+                    moveY = -0.5f;
+                    under = true;
+                    heatColor = Color.valueOf("fa2859");
+                  }
+                });
+          }
+        };
+        recoil = 0f; // 后坐力
+        shoot = new ShootAlternate() {
+          {
+            barrels = 1; // 炮口数量
+            spread = 0.5f; // 炮口间距
+            shots = 3;
+          }
+        };
+
+        rotateSpeed = 5f; // 炮台转动速度
+        maxAmmo = 20; // 弹药量
+        alwaysUnlocked = false; // 科技树默认不解锁
+
+        // 弹药：铜 → 基础子弹
+        ammo(
+            lv, lightningOrb);
+
+      }
+    };
+
   }
 }

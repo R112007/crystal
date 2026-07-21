@@ -96,7 +96,7 @@ public class CUnits {
         this.armor = 1.0f;
         this.rotateSpeed = 3.0f;
         this.hitSize = 8.0f;
-        this.magicPowerRegen = 10;
+        this.magicPowerRegen = 0.5f;
         this.shenTongs.add(new FaTianXiangDi(3f, 2f, 3, 480, 50));
         this.xiuWeiAmount = 0.1f;
         this.weapons.add(new Weapon("crystal-chujia1-weapon") {
@@ -106,7 +106,7 @@ public class CUnits {
             this.y = 0f;
             this.top = false;
             this.ejectEffect = Fx.casing1;
-            this.bullet = new BasicBulletType(3.0f, 30.0f) {
+            this.bullet = new BasicBulletType(3.0f, 21.0f) {
               {
                 this.width = 7.0f;
                 this.height = 13.0f;
@@ -130,7 +130,7 @@ public class CUnits {
         this.rotateSpeed = 2.0f;
         this.hitSize = 8.0f;
         this.magicPowerRegenTime = 90;
-        this.magicPowerRegen = 20;
+        this.magicPowerRegen = 1;
         this.magicPower = 400;
         this.shenTongs.add(new FaTianXiangDi(3.5f, 2f, 3, 480, 100));
         this.xiuWeiAmount = 0.2f;
@@ -178,7 +178,7 @@ public class CUnits {
         this.armor = 3;
         this.targetFlags = new BlockFlag[] { BlockFlag.generator, null };
         this.magicPowerRegenTime = 60;
-        this.magicPowerRegen = 10;
+        this.magicPowerRegen = 0.5f;
         this.magicPower = 200;
         this.xiuWeiAmount = 0.1f;
         this.weapons.add(new Weapon() {
@@ -222,7 +222,7 @@ public class CUnits {
             this.shootSound = Sounds.shootMissileSmall;
             this.rotate = false;
             this.top = false;
-            this.bullet = new BasicBulletType(6f, 15f) {
+            this.bullet = new BasicBulletType(6f, 25f) {
               {
                 this.width = 8;
                 this.height = 12;
@@ -240,7 +240,7 @@ public class CUnits {
     liekong2 = new MagicUnitType("liekong2") {
       {
         this.magicPowerRegenTime = 60;
-        this.magicPowerRegen = 25;
+        this.magicPowerRegen = 1.25f;
         this.magicPower = 400;
         this.xiuWeiAmount = 0.3f;
         this.hitSize = 11f;
@@ -315,7 +315,7 @@ public class CUnits {
     liekong3 = new MagicUnitType("liekong3") {
       {
         this.magicPowerRegenTime = 60;
-        this.magicPowerRegen = 60;
+        this.magicPowerRegen = 2.5f;
         this.magicPower = 900;
         this.xiuWeiAmount = 0.6f;
         this.hitSize = 30f;
@@ -366,7 +366,7 @@ public class CUnits {
         this.engineSize = 3.5f;
         this.engineOffset = 12f;
         this.lowAltitude = true;
-        this.armor = 10;
+        this.armor = 12;
         this.targetFlags = new BlockFlag[] { BlockFlag.storage, BlockFlag.battery, null };
         this.weapons.add(new Weapon("crystal-liekong3-weapon2") {
           {
@@ -405,7 +405,7 @@ public class CUnits {
         });
         this.weapons.add(new Weapon("crystal-liekong3-weapon1") {
           {
-            this.reload = 20.0f;
+            this.reload = 10.0f;
             this.x = -7.5f;
             this.y = -4.25f;
             this.top = true;
@@ -421,7 +421,7 @@ public class CUnits {
                 this.shootEffect = Fx.shootSmall;
                 this.ammoMultiplier = 1.5f;
                 this.pierce = true;
-                this.pierceCap = 2;
+                this.pierceCap = 4;
                 this.pierceBuilding = true;
                 this.trailLength = 5;
                 this.trailWidth = 0.6f;

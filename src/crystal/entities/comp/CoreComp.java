@@ -9,6 +9,7 @@ import arc.graphics.g2d.Lines;
 import arc.math.Angles;
 import arc.math.Mathf;
 import arc.math.geom.Geometry;
+import arc.math.geom.QuadTree;
 import arc.scene.ui.layout.Table;
 import arc.struct.ObjectSet;
 import arc.struct.Seq;
@@ -31,6 +32,7 @@ import ent.anno.Annotations.MethodPriority;
 import ent.anno.Annotations.Remove;
 import ent.anno.Annotations.Replace;
 import mindustry.Vars;
+import mindustry.ai.Pathfinder;
 import mindustry.ai.UnitCommand;
 import mindustry.ai.types.CommandAI;
 import mindustry.content.Fx;
@@ -67,6 +69,8 @@ import mindustry.world.modules.ItemModule;
 
 import static mindustry.Vars.*;
 
+import java.lang.reflect.Field;
+
 @EntityComponent
 public abstract class CoreComp implements Unitc, Corec, Posc {
   public ItemModule items = new ItemModule();
@@ -84,6 +88,7 @@ public abstract class CoreComp implements Unitc, Corec, Posc {
   public static final float moveThreshold = 2f;
   public static final int maxCacheFrames = 10;
   public ItemModule savedItems = new ItemModule();
+  private static final TileChangeEvent tileChange = new TileChangeEvent();
   @Import
   ItemStack stack;
   @Import
@@ -94,8 +99,9 @@ public abstract class CoreComp implements Unitc, Corec, Posc {
   @Import
   UnitType type;
   @Import
-  float mineTimer;
-
+  float mineTimer, shield, health, shieldAlpha, hitTime;
+  @Import
+  boolean dead;
   public float idleTimer = 0f;
   public boolean autoSwitched = false;
   public Corec corec = self();
@@ -130,18 +136,94 @@ public abstract class CoreComp implements Unitc, Corec, Posc {
     return items;
   }
 
+  private void refreshEnemyCoreFields(Team coreTeam) {
+    if (Vars.pathfinder == null)
+      return;
+
+    try {
+      Field cacheField = Pathfinder.class.getDeclaredField("cache");
+      cacheField.setAccessible(true);
+      Object cacheObj = cacheField.get(Vars.pathfinder);
+      if (!(cacheObj instanceof Pathfinder.Flowfield[][][] cache))
+        return;
+
+      Field dirtyField = Pathfinder.Flowfield.class.getDeclaredField("dirty");
+      dirtyField.setAccessible(true);
+      Field targetsField = Pathfinder.Flowfield.class.getDeclaredField("targets");
+      targetsField.setAccessible(true);
+
+      for (Team enemy : Team.all) {
+        if (enemy == coreTeam || enemy == Team.derelict)
+          continue;
+
+        Pathfinder.Flowfield[][] enemyCache = cache[enemy.id];
+        if (enemyCache == null)
+          continue;
+
+        for (int cost = 0; cost < Pathfinder.costTypes.size && cost < enemyCache.length; cost++) {
+          Pathfinder.Flowfield field = enemyCache[cost][Pathfinder.fieldCore];
+          if (field == null)
+            continue;
+
+          Object targets = targetsField.get(field);
+          synchronized (targets) {
+            field.updateTargetPositions();
+          }
+          dirtyField.setBoolean(field, true);
+        }
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+
+  private void ensureProxyIndexed(Team coreTeam) {
+    if (proxy == null || dead())
+      return;
+    boolean changed = false;
+
+    if (Vars.indexer != null) {
+      Seq<Building> flagged = Vars.indexer.getFlagged(coreTeam, BlockFlag.core);
+      if (flagged != null && !flagged.contains(proxy, true)) {
+        flagged.add(proxy);
+        changed = true;
+      }
+    }
+
+    mindustry.game.Teams.TeamData data = coreTeam.data();
+    if (!data.buildings.contains(proxy, true)) {
+      data.buildings.add(proxy);
+      proxy.indexerBuildIndex = (short) (data.buildings.size - 1);
+      changed = true;
+    }
+    if (data.buildingTree == null) {
+      data.buildingTree = new QuadTree<>(
+          new arc.math.geom.Rect(0, 0, Vars.world.unitWidth(), Vars.world.unitHeight()));
+    }
+    data.buildingTree.insert(proxy);
+
+    Seq<Building> targetTypes = data.buildingTypes.get(proxy.block, () -> new Seq<>(false));
+    if (!targetTypes.contains(proxy, true)) {
+      targetTypes.add(proxy);
+      proxy.indexerBuildTypeIndex = (short) (targetTypes.size - 1);
+      changed = true;
+    }
+
+  }
+
   @Override
   public void add() {
     if (!MoveCoreSystem.getCores(team()).contains(this)) {
       CoreInjector.injectCore(team().data(), this);
       Events.fire(new CoreChangeEvent(this.proxy()));
       Fx.upgradeCore.at(this);
-      Events.on(SaveWriteEvent.class, e -> {
+      // 核心创建/读档后立即刷新敌人寻路目标，否则敌人已创建的 fieldCore 流场可能是空目标
+      refreshEnemyCoreFields(team());
+      Events.on(SaveWriteEvent.class, (e) -> {
         if (proxy != null && proxy.items != null && !dead()) {
           savedItems.set(proxy.items);
         }
       });
-      DLog.info("[创建]" + "单位编号" + id() + " " + "核心数量" + Vars.player.team().data().cores.size);
     }
   }
 
@@ -191,12 +273,12 @@ public abstract class CoreComp implements Unitc, Corec, Posc {
     if (!dead() && !MoveCoreSystem.getCores(team()).contains(this)) {
       CoreInjector.injectCore(team().data(), this);
       Events.fire(new CoreChangeEvent(this.proxy()));
+      refreshEnemyCoreFields(team());
     }
     if (proxy != null && proxy.items != null && savedItems != null && savedItems.total() > 0) {
       proxy.items.set(savedItems);
       this.items = proxy.items;
     }
-    DLog.info("[读取]" + "单位编号" + id() + " " + "核心数量" + Vars.player.team().data().cores.size);
   }
 
   @MethodPriority(-999)
@@ -204,8 +286,27 @@ public abstract class CoreComp implements Unitc, Corec, Posc {
   public void update() {
     if (proxy != null) {
       Tile currentTile = Vars.world.tileWorld(x(), y());
-      if (proxy.tile != currentTile) {
+      Tile oldTile = proxy.tile;
+      boolean moved = oldTile != currentTile;
+      if (moved) {
         proxy.tile = currentTile;
+        refreshEnemyCoreFields(team());
+        if (oldTile != null) {
+          tileChange.set(oldTile);
+          Events.fire(tileChange);
+        }
+        if (currentTile != null) {
+          tileChange.set(currentTile);
+          Events.fire(tileChange);
+        }
+      }
+      // 同步坐标，防止直接访问 Building.x/y 字段的系统拿到旧位置
+      proxy.x = x();
+      proxy.y = y();
+      // 定期补注册，防止 WorldLoadEvent 等清空索引
+      if (Crystal.timer % 90f < Time.delta) {
+        refreshEnemyCoreFields(team);
+        ensureProxyIndexed(team());
       }
     }
     if (self() instanceof Corec core && core.deployed()) {
@@ -222,11 +323,9 @@ public abstract class CoreComp implements Unitc, Corec, Posc {
         proxy.items.updateFlow();
       }
     }
-    // 同步虚拟核心状态
     if (proxy != null) {
       proxy.team = team();
     }
-
     if (stack.amount > 0 && stack.item != null && proxy != null) {
       int max = proxy.storageCapacity;
       int have = items.get(stack.item);
@@ -242,27 +341,16 @@ public abstract class CoreComp implements Unitc, Corec, Posc {
         }
       }
     }
-
     if (Crystal.timer % 60 == 0) {
       updateClosestCore();
     }
-    if (Crystal.timer % 200 == 0) {
-      for (var c : player.team().data().cores) {
-        DLog.info("核心" + c.id + "单位容量" + ((CoreBlock) c.block).unitCapModifier);
-      }
-      DLog.info("当前团队单位上限：" + Units.getCap(team()));
-      DLog.info("单种容量: " + proxy.storageCapacity + ", 铜: " + items.get(Items.copper) + ", 总物品: " + items.total());
-      DLog.info("高度:" + corec.elevation());
-    }
     if (corec.elevation() > 0 && onSolid() == false) {
-      corec.elevation(0f);
+      corec.elevation(0.0F);
     }
     if (deployed) {
       Seq<Building> builds = nearbyBuilds();
       for (Building b : builds) {
         if (b.block.hasItems && b.items != null && b.items.total() > 0 && proxy != null) {
-
-          // ===== 传送带（含装甲传送带）：只吸末端且朝向核心的 =====
           if (b instanceof mindustry.world.blocks.distribution.Conveyor.ConveyorBuild cb) {
             if (cb.next instanceof mindustry.world.blocks.distribution.Conveyor.ConveyorBuild
                 && cb.next.team == team) {
@@ -276,8 +364,6 @@ public abstract class CoreComp implements Unitc, Corec, Posc {
             if (dot <= 0)
               continue;
           }
-
-          // ===== 管道（含装甲管道）：只吸末端且朝向核心的 =====
           if (b instanceof mindustry.world.blocks.distribution.Duct.DuctBuild db) {
             if (db.next instanceof mindustry.world.blocks.distribution.Duct.DuctBuild
                 && db.next.team == team) {
@@ -291,37 +377,21 @@ public abstract class CoreComp implements Unitc, Corec, Posc {
             if (dot <= 0)
               continue;
           }
-
-          // ===== 物品桥 (ItemBridge)：只吸输出端 =====
-          // 输出端 = 有有效输出连接（link 有效）
-          // 输入端/中间桥 = 无有效输出 或 有 incoming，不吸
           if (b instanceof mindustry.world.blocks.distribution.ItemBridge.ItemBridgeBuild ib) {
             mindustry.world.blocks.distribution.ItemBridge bridgeBlock = (mindustry.world.blocks.distribution.ItemBridge) b.block;
             ib.checkIncoming();
-            // 检查是否有有效输出连接
             boolean hasValidOutput = false;
-
             Tile linkTile = world.tile(ib.link);
-            hasValidOutput = linkTile != null
-                && !bridgeBlock.linkValid(ib.tile, world.tile(ib.link)) && ib.incoming.size > 0;
-            // 无有效输出 → 是输入端或孤立桥，不吸
+            hasValidOutput = linkTile != null && !bridgeBlock.linkValid(ib.tile, world.tile(ib.link))
+                && ib.incoming.size > 0;
             if (!hasValidOutput)
               continue;
-
-            // 有有效输出 → 是输出端，可以吸
           }
-
-          // ===== 管道桥 (DuctBridge)：只吸输出端 =====
-          // 输出端 = 有有效输出连接（lastLink 有效）
           if (b instanceof mindustry.world.blocks.distribution.DuctBridge.DuctBridgeBuild dbb) {
-            // 无有效输出 → 是输入端，不吸
             if (dbb.lastLink == null || !dbb.lastLink.isValid() || dbb.lastLink.team() != team) {
               continue;
             }
-            // 有有效输出 → 是输出端，可以吸
           }
-
-          // ===== 原有吸取逻辑（容器、工厂等非运输建筑不受影响） =====
           b.items.each((item, amount) -> {
             if (amount <= 0)
               return;
@@ -377,7 +447,37 @@ public abstract class CoreComp implements Unitc, Corec, Posc {
       this.items = tmp;
     }
     CoreInjector.removeCore(team().data(), this);
-    Fx.explosion.at(self());
+    // 移动核心死亡后立即刷新敌人寻路目标，避免继续前往旧位置
+    refreshEnemyCoreFields(team());
+    // 死亡特效不要太猛烈
+    Fx.smokePuff.at(this);
+  }
+
+  @Replace
+  public void rawDamage(float amount) {
+    boolean hadShields = shield > 1.0E-4F;
+    if (Float.isNaN(health))
+      health = 0.0F;
+    if (hadShields) {
+      shieldAlpha = 1.0F;
+    }
+    float shieldDamage = Math.min(Math.max(shield, 0), amount);
+    shield -= shieldDamage;
+    hitTime = 1.0F;
+    amount -= shieldDamage;
+    if (amount > 0 && type.killable) {
+      if (player != null && team == player.team() && control != null) {
+        Vars.control.lastDamagedCore = this.proxy;
+        Events.fire(Trigger.teamCoreDamage);
+      }
+      health -= amount;
+      if (health <= 0 && !dead) {
+        kill();
+      }
+      if (hadShields && shield <= 1.0E-4F) {
+        Fx.unitShieldBreak.at(x(), y(), 0, type.shieldColor(self()), this);
+      }
+    }
   }
 
   @Replace

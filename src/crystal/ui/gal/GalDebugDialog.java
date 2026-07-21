@@ -6,13 +6,16 @@ import arc.scene.ui.Dialog;
 import arc.scene.ui.Label;
 import arc.scene.ui.ScrollPane;
 import arc.scene.ui.layout.Table;
-import arc.struct.Seq;
 import arc.struct.ObjectSet;
+import arc.struct.Seq;
 import crystal.CVars;
 import mindustry.gen.Tex;
 import mindustry.ui.Styles;
 import mindustry.ui.dialogs.BaseDialog;
 
+/**
+ * 剧情调试面板，显示模块进度、历史、等待队列、已触发分支等信息。
+ */
 public class GalDebugDialog extends BaseDialog {
     private final Table contentTable;
     private boolean autoRefresh = true;
@@ -25,20 +28,17 @@ public class GalDebugDialog extends BaseDialog {
         setMovable(true);
         setModal(false);
 
-        // ===== 核心修复：屏幕自适应尺寸，彻底解决缩放超出问题 =====
         float screenW = Core.graphics.getWidth();
         float screenH = Core.graphics.getHeight();
-        // 限制面板最大为屏幕85%，最小尺寸兜底，适配所有设备
         float dialogW = Math.min(screenW * 0.85f, 900f);
         float dialogH = Math.min(screenH * 0.85f, 1200f);
         dialogW = Math.max(dialogW, 400f);
         dialogH = Math.max(dialogH, 300f);
         setSize(dialogW, dialogH);
-        centerWindow(); // 强制居中，避免贴边超出
+        centerWindow();
 
         addCloseButton();
 
-        // 顶部控制栏
         Table controlTable = new Table();
         controlTable.left().background(Tex.button).margin(8f);
         controlTable.button("手动刷新", Styles.flatt, this::refreshDebugContent).size(120, 40).padRight(8f);
@@ -50,13 +50,11 @@ public class GalDebugDialog extends BaseDialog {
         controlTable.field(String.valueOf(refreshInterval), val -> {
             try {
                 float newInterval = Float.parseFloat(val);
-                if (newInterval > 0.1f)
-                    refreshInterval = newInterval;
+                if (newInterval > 0.1f) refreshInterval = newInterval;
             } catch (Exception ignored) {
             }
         }).width(80f).padRight(12f);
         controlTable.button("清空历史", Styles.flatt, () -> {
-            // ===== 适配分模块：遍历所有模块清空历史 =====
             GalgameDialogueManager.instance.modules.each(module -> {
                 module.history.clear();
                 module.playedNodeSet.clear();
@@ -69,7 +67,6 @@ public class GalDebugDialog extends BaseDialog {
         }).size(140, 40);
         cont.add(controlTable).growX().padBottom(10f).row();
 
-        // 内容容器+滚动面板，彻底解决内容超出屏幕
         contentTable = new Table();
         contentTable.left().top();
         ScrollPane scrollPane = new ScrollPane(contentTable);
@@ -78,10 +75,8 @@ public class GalDebugDialog extends BaseDialog {
         scrollPane.setSmoothScrolling(true);
         cont.add(scrollPane).grow().pad(8f);
 
-        // 自动刷新逻辑
         update(() -> {
-            if (!autoRefresh || !isShown())
-                return;
+            if (!autoRefresh || !isShown()) return;
             refreshTimer += Core.graphics.getDeltaTime();
             if (refreshTimer >= refreshInterval) {
                 refreshDebugContent();
@@ -89,7 +84,6 @@ public class GalDebugDialog extends BaseDialog {
             }
         });
 
-        // 窗口大小自适应
         resized(() -> {
             float w = Math.min(Core.graphics.getWidth() * 0.85f, 900f);
             float h = Math.min(Core.graphics.getHeight() * 0.85f, 1200f);
@@ -109,7 +103,6 @@ public class GalDebugDialog extends BaseDialog {
         contentTable.clear();
         GalgameDialogueManager manager = GalgameDialogueManager.instance;
 
-        // 1. 核心运行状态
         contentTable.add(new Label("=== 核心运行状态 ===", Styles.defaultLabel))
                 .fontScale(1.2f).left().padBottom(8f).row();
         addDebugRow("当前模块ID", manager.currentModuleId == null ? "无" : manager.currentModuleId);
@@ -122,7 +115,6 @@ public class GalDebugDialog extends BaseDialog {
         addDebugRow("打字速度", manager.typingSpeed + " 字符/秒");
         contentTable.add().padTop(12f).row();
 
-        // 2. 模块列表详情
         contentTable.add(new Label("=== 模块列表详情 ===", Styles.defaultLabel))
                 .fontScale(1.2f).left().padBottom(8f).row();
         if (manager.modules.isEmpty()) {
@@ -144,21 +136,17 @@ public class GalDebugDialog extends BaseDialog {
         }
         contentTable.add().padTop(12f).row();
 
-        // 3. 已播放节点ID集合（适配分模块：合并所有模块的已播放节点）
         contentTable.add(new Label("=== 已播放节点ID集合 ===", Styles.defaultLabel))
                 .fontScale(1.2f).left().padBottom(8f).row();
         ObjectSet<String> allPlayedNodes = new ObjectSet<>();
         manager.modules.each(module -> allPlayedNodes.addAll(module.playedNodeSet));
-
         if (allPlayedNodes.isEmpty()) {
             contentTable.add(new Label("暂无已播放节点", Styles.defaultLabel)).left().pad(4f).row();
         } else {
             Seq<String> sortedNodes = allPlayedNodes.toSeq().sort();
             Table nodeTable = new Table();
             nodeTable.left();
-            sortedNodes.each(nodeId -> {
-                nodeTable.add(new Label(nodeId, Styles.defaultLabel)).left().pad(2f).row();
-            });
+            sortedNodes.each(nodeId -> nodeTable.add(new Label(nodeId, Styles.defaultLabel)).left().pad(2f).row());
             ScrollPane nodeScroll = new ScrollPane(nodeTable);
             nodeScroll.setFadeScrollBars(false);
             nodeScroll.setScrollingDisabledX(true);
@@ -166,7 +154,6 @@ public class GalDebugDialog extends BaseDialog {
         }
         contentTable.add().padTop(12f).row();
 
-        // 4. 对话历史记录（倒序，适配分模块：合并所有模块的历史）
         contentTable.add(new Label("=== 对话历史记录（倒序） ===", Styles.defaultLabel))
                 .fontScale(1.2f).left().padBottom(8f).row();
         Seq<DialogueHistory> allHistory = new Seq<>();
@@ -175,13 +162,11 @@ public class GalDebugDialog extends BaseDialog {
                 allHistory.addAll(module.history);
             }
         });
-
         if (allHistory.isEmpty()) {
             contentTable.add(new Label("暂无对话历史", Styles.defaultLabel)).left().pad(4f).row();
         } else {
             Table historyTable = new Table();
             historyTable.left();
-            // 倒序显示
             for (int i = allHistory.size - 1; i >= 0; i--) {
                 DialogueHistory item = allHistory.get(i);
                 String historyInfo = String.format(
@@ -200,8 +185,7 @@ public class GalDebugDialog extends BaseDialog {
             contentTable.add(historyScroll).maxHeight(Core.graphics.getHeight() * 0.35f).growX().left().row();
         }
         contentTable.add().padTop(12f).row();
-        contentTable.add().padTop(12f).row();
-        // 新增：等待队列显示
+
         contentTable.add(new Label("=== 模块等待队列 ===", Styles.defaultLabel))
                 .fontScale(1.2f).left().padBottom(8f).row();
         Seq<String> waitingIds = GalgameDialogueManager.instance.waitingModuleIds;
@@ -222,13 +206,12 @@ public class GalDebugDialog extends BaseDialog {
             queueScroll.setScrollingDisabledX(true);
             contentTable.add(queueScroll).maxHeight(Core.graphics.getHeight() * 0.1f).growX().left().row();
         }
-        // 5. 玩家名字
+
         contentTable.add(new Label("=== 玩家名字 ===", Styles.defaultLabel))
                 .fontScale(1.2f).left().padBottom(8f).row();
         addDebugRow("当前玩家名", CVars.playerName);
         contentTable.add().padTop(12f).row();
 
-        // 6. 所有模块已触发分支（适配分模块：遍历所有模块显示）
         contentTable.add(new Label("=== 模块已触发分支 ===", Styles.defaultLabel))
                 .fontScale(1.2f).left().padBottom(8f).row();
         if (manager.modules.isEmpty()) {
@@ -244,7 +227,6 @@ public class GalDebugDialog extends BaseDialog {
         contentTable.invalidateHierarchy();
     }
 
-    // 调试行辅助方法
     private void addDebugRow(String key, String value) {
         Table rowTable = new Table();
         rowTable.left();

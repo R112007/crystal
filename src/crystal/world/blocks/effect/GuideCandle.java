@@ -136,7 +136,7 @@ public class GuideCandle extends Block {
     @Override
     public void drawSelect() {
       if (closestFloor() == null) {
-        ui.showLabel("咦，好像没有特殊地板呢", id, 0.05f, x, y, WorldLabel.flagBackground | WorldLabel.flagAutoscale);
+        ui.showLabel("咦，好像没有特殊地板呢", id, 0.05f, x, y);
       }
     }
   }

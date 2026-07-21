@@ -6,6 +6,7 @@ import arc.scene.actions.Actions;
 import arc.scene.event.ResizeListener;
 import arc.scene.event.Touchable;
 import arc.scene.style.Drawable;
+import arc.scene.ui.Button;
 import arc.scene.ui.Image;
 import arc.scene.ui.Label;
 import arc.scene.ui.ScrollPane;
@@ -18,29 +19,50 @@ import crystal.ui.gal.DialogueLine.DialogueOption;
 import mindustry.Vars;
 import mindustry.gen.Tex;
 import mindustry.ui.Styles;
-import static crystal.ui.gal.GalgameDialogueManager.*;
 
+/**
+ * Galgame 对话主 UI。
+ * 支持左右双立绘、文本内嵌图片/表情包、实例化动作、历史查看。
+ */
 public class GalgameDialogueUI extends Table {
-    public final Image characterSprite;
+    public final Image leftSprite;
+    public final Image rightSprite;
     public final Label nameLabel;
     public final Label contentLabel;
+    public final Table inlineImageTable;
     public final Table optionTable;
     public final TextButton autoPlayBtn, historyBtn, fastForwardBtn, fastSkipBtn, forceSkipBtn;
+
+    /** 驱动本 UI 的 Manager。不再硬编码单例，可被独立对话框复用。 */
+    public final GalgameDialogueManager manager;
+
     public DialogueLine currentLine;
+    public Side activeSide = Side.left;
     public String fullContent;
     public int typedIndex;
     public float typingTimer;
+    /** 防止一句对话的 onComplete 被重复触发 */
+    public boolean completeCalled;
 
     public GalgameDialogueUI() {
+        this(GalgameDialogueManager.instance);
+    }
+
+    public GalgameDialogueUI(GalgameDialogueManager manager) {
+        this.manager = manager;
         setBackground(Tex.pane);
-        setSize(Core.graphics.getWidth() * 0.85f, Core.graphics.getHeight() * 0.28f);
+        setSize(Core.graphics.getWidth() * 0.9f, Core.graphics.getHeight() * 0.3f);
         setPosition(Core.graphics.getWidth() / 2, scl(20f), Align.bottom);
         touchable = Touchable.childrenOnly;
         setTransform(true);
 
-        characterSprite = new Image();
-        characterSprite.setScaling(Scaling.fit);
-        characterSprite.setOrigin(Align.center);
+        leftSprite = new Image();
+        leftSprite.setScaling(Scaling.fit);
+        leftSprite.setOrigin(Align.center);
+
+        rightSprite = new Image();
+        rightSprite.setScaling(Scaling.fit);
+        rightSprite.setOrigin(Align.center);
 
         nameLabel = new Label("", Styles.defaultLabel);
         nameLabel.setFontScale(1.2f);
@@ -51,27 +73,34 @@ public class GalgameDialogueUI extends Table {
         contentLabel.setAlignment(Align.topLeft);
         contentLabel.setFontScale(1.05f);
 
+        inlineImageTable = new Table();
+        inlineImageTable.left();
+
         optionTable = new Table();
         optionTable.visible = false;
 
         TextButton.TextButtonStyle btnStyle = Styles.flatt;
         autoPlayBtn = new TextButton("自动播放", btnStyle);
-        autoPlayBtn.clicked(() -> instance.toggleAutoPlay());
+        autoPlayBtn.clicked(() -> manager.toggleAutoPlay());
         historyBtn = new TextButton("历史记录", btnStyle);
-        historyBtn.clicked(() -> instance.historyUI.show());
+        if (manager.historyUI != null) {
+            historyBtn.clicked(() -> manager.historyUI.show());
+        } else {
+            historyBtn.visible = false;
+        }
         fastForwardBtn = new TextButton("快进", btnStyle);
-        fastForwardBtn.clicked(() -> instance.fastForward());
+        fastForwardBtn.clicked(() -> manager.fastForward());
 
         fastSkipBtn = new TextButton("快速推进", btnStyle);
         fastSkipBtn.clicked(() -> {
             Vars.ui.showConfirm("快速推进主线", "将自动跳过已读对话，快速推进主线剧情，遇到分支选项会自动停止。是否确认？",
-                    () -> instance.fastSkipMainLine());
+                    () -> manager.fastSkipMainLine());
         });
 
         forceSkipBtn = new TextButton("强制跳过本章", btnStyle);
         forceSkipBtn.clicked(() -> {
             Vars.ui.showConfirm("跳过主线", "将完全跳过本段剧情。是否确认？",
-                    () -> instance.skipAll());
+                    () -> manager.skipAll());
         });
 
         buildLayout();
@@ -79,26 +108,27 @@ public class GalgameDialogueUI extends Table {
         clicked(() -> {
             if (optionTable.visible)
                 return;
-            instance.nextLine();
+            manager.nextLine();
         });
 
         update(() -> {
-            if (!instance.isTyping)
+            if (!manager.isTyping)
                 return;
             typingTimer += Core.graphics.getDeltaTime();
-            float iv = 1f / instance.typingSpeed;
+            float iv = 1f / manager.typingSpeed;
             while (typingTimer >= iv && typedIndex < fullContent.length()) {
                 typedIndex++;
                 contentLabel.setText(fullContent.substring(0, typedIndex));
                 typingTimer -= iv;
             }
             if (typedIndex >= fullContent.length()) {
-                instance.isTyping = false;
+                manager.isTyping = false;
+                triggerComplete();
             }
         });
 
         resized(() -> {
-            setSize(Core.graphics.getWidth() * 0.85f, Core.graphics.getHeight() * 0.28f);
+            setSize(Core.graphics.getWidth() * 0.9f, Core.graphics.getHeight() * 0.3f);
             setPosition(Core.graphics.getWidth() / 2, scl(20f), Align.bottom);
         });
     }
@@ -107,22 +137,23 @@ public class GalgameDialogueUI extends Table {
         defaults().pad(scl(6f));
         margin(scl(8f));
 
-        Table contentContainer = new Table();
-        contentContainer.left();
+        // 左侧立绘
+        add(leftSprite).size(scl(360)).left().padRight(scl(12f));
 
-        contentContainer.add(characterSprite)
-                .size(scl(360))
-                .left()
-                .padRight(scl(12f));
-
+        // 中间文本容器
         Table textContainer = new Table();
         textContainer.left().top();
         textContainer.add(nameLabel).left().padBottom(scl(4f)).row();
         textContainer.add(contentLabel).grow().left().top().row();
+        textContainer.add(inlineImageTable).growX().left().padTop(scl(8f)).row();
         textContainer.add(optionTable).growX().left().padTop(scl(10f)).row();
-        contentContainer.add(textContainer).grow().left().top();
-        add(contentContainer).grow().left().top().row();
+        add(textContainer).grow().left().top().padLeft(scl(12f)).padRight(scl(12f));
 
+        // 右侧立绘
+        add(rightSprite).size(scl(360)).right().padLeft(scl(12f));
+        row();
+
+        // 底部按钮
         Table buttonTable = new Table();
         buttonTable.right();
         buttonTable.add(autoPlayBtn).size(scl(150f), scl(80f)).padRight(scl(6f));
@@ -130,71 +161,138 @@ public class GalgameDialogueUI extends Table {
         buttonTable.add(fastForwardBtn).size(scl(150f), scl(80f)).padRight(scl(6f));
         buttonTable.add(fastSkipBtn).size(scl(150f), scl(80f)).padRight(scl(6f));
         buttonTable.add(forceSkipBtn).size(scl(160f), scl(80f));
-        add(buttonTable).growX().right().bottom();
+        add(buttonTable).colspan(3).growX().right().bottom().padTop(scl(8f));
+    }
+
+    /** 当前说话侧对应的立绘。 */
+    public Image activeSprite() {
+        return activeSide == Side.right ? rightSprite : leftSprite;
+    }
+
+    /** 所有已显示的非空立绘。 */
+    public Image[] allSprites() {
+        if (leftSprite.visible && rightSprite.visible) {
+            return new Image[] { leftSprite, rightSprite };
+        } else if (leftSprite.visible) {
+            return new Image[] { leftSprite };
+        } else if (rightSprite.visible) {
+            return new Image[] { rightSprite };
+        }
+        return new Image[0];
     }
 
     public void setDialogueLine(DialogueLine line) {
         currentLine = line;
+        activeSide = line.activeSide == null ? Side.left : line.activeSide;
         fullContent = line.content;
         typedIndex = 0;
         typingTimer = 0;
         nameLabel.setText(line.characterName == null ? "" : line.characterName);
         contentLabel.setText("");
-        if (line.characterSprite != null) {
-            characterSprite.setDrawable(line.characterSprite);
-            characterSprite.visible = true;
-            characterSprite.setTranslation(0f, 0f);
-            characterSprite.setScale(1f);
-            characterSprite.color.a = 1f;
-        } else {
-            characterSprite.visible = false;
-        }
         optionTable.clear();
         optionTable.visible = false;
+
+        // 左侧立绘
+        if (line.leftSprite != null) {
+            leftSprite.setDrawable(line.leftSprite);
+            leftSprite.visible = true;
+            resetSpriteTransforms(leftSprite);
+        } else {
+            leftSprite.visible = false;
+            leftSprite.setDrawable((Drawable) null);
+        }
+
+        // 右侧立绘
+        if (line.rightSprite != null) {
+            rightSprite.setDrawable(line.rightSprite);
+            rightSprite.visible = true;
+            resetSpriteTransforms(rightSprite);
+        } else {
+            rightSprite.visible = false;
+            rightSprite.setDrawable((Drawable) null);
+        }
+
+        // 内嵌图片/表情包
+        inlineImageTable.clear();
+        if (line.inlineImages != null && !line.inlineImages.isEmpty()) {
+            inlineImageTable.visible = true;
+            for (Drawable d : line.inlineImages) {
+                Image img = new Image(d);
+                img.setScaling(Scaling.fit);
+                inlineImageTable.add(img).size(scl(64f)).pad(scl(4f));
+            }
+        } else {
+            inlineImageTable.visible = false;
+        }
     }
 
+    private void resetSpriteTransforms(Image img) {
+        img.setTranslation(0f, 0f);
+        img.setScale(1f);
+        img.setRotation(0f);
+        img.color.a = 1f;
+    }
+
+    /** 播放进入动作。仅对当前说话侧生效；若两侧均未变化则不重复进入。 */
     public void playSpriteEnterAction() {
-        if (currentLine == null || currentLine.characterSprite == null)
+        Image target = activeSprite();
+        if (target == null || !target.visible)
             return;
-        if (currentLine.spriteEnterAction != null) {
+        if (currentLine != null && currentLine.spriteEnterAction != null) {
             currentLine.spriteEnterAction.run();
             return;
         }
-        characterSprite.clearActions();
-        characterSprite.color.a = 0f;
-        characterSprite.setScale(0.8f);
-        characterSprite.setTranslation(scl(-40f), 0f);
-        characterSprite.addAction(Actions.parallel(
+        target.clearActions();
+        target.color.a = 0f;
+        target.setScale(0.8f);
+        boolean fromLeft = activeSide == Side.left;
+        target.setTranslation(fromLeft ? scl(-40f) : scl(40f), 0f);
+        target.addAction(Actions.parallel(
                 Actions.fadeIn(0.4f),
-                Actions.translateBy(scl(40f), 0f, 0.4f, arc.math.Interp.pow3Out),
+                Actions.translateBy(fromLeft ? scl(40f) : scl(-40f), 0f, 0.4f, arc.math.Interp.pow3Out),
                 Actions.scaleTo(1f, 1f, 0.4f, arc.math.Interp.pow3Out)));
     }
 
+    /** 播放离开动作。仅对当前说话侧生效。 */
     public void playSpriteExitAction() {
-        if (currentLine == null || currentLine.characterSprite == null)
+        Image target = activeSprite();
+        if (target == null || !target.visible)
             return;
-        if (currentLine.spriteExitAction != null) {
+        if (currentLine != null && currentLine.spriteExitAction != null) {
             currentLine.spriteExitAction.run();
             return;
         }
-        characterSprite.clearActions();
-        characterSprite.addAction(Actions.parallel(
+        target.clearActions();
+        boolean toLeft = activeSide == Side.left;
+        target.addAction(Actions.parallel(
                 Actions.fadeOut(0.3f),
-                Actions.translateBy(scl(25f), 0f, 0.3f),
+                Actions.translateBy(toLeft ? scl(25f) : scl(-25f), 0f, 0.3f),
                 Actions.scaleTo(0.9f, 0.9f, 0.3f)));
     }
 
     public void startTyping() {
-        instance.isTyping = true;
+        manager.isTyping = true;
         typedIndex = 0;
         typingTimer = 0;
         contentLabel.setText("");
+        completeCalled = false;
     }
 
     public void finishTyping() {
-        instance.isTyping = false;
+        manager.isTyping = false;
         typedIndex = fullContent.length();
         contentLabel.setText(fullContent);
+        triggerComplete();
+    }
+
+    /** 触发当前句的 onComplete，并保证只触发一次。 */
+    private void triggerComplete() {
+        if (completeCalled)
+            return;
+        completeCalled = true;
+        if (currentLine != null && currentLine.onComplete != null) {
+            currentLine.onComplete.run();
+        }
     }
 
     public void showOptions(DialogueOption[] options) {
@@ -206,17 +304,18 @@ public class GalgameDialogueUI extends Table {
             btn.clicked(() -> {
                 optionTable.visible = false;
                 optionTable.clear();
-                var mgr = instance;
-                boolean restore = mgr.cachedAutoPlayBeforeOption;
-                mgr.cachedAutoPlayBeforeOption = false;
-                option.onSelect.get(option);
-                if (!mgr.isTyping && !mgr.dialogueQueue.isEmpty()) {
-                    Core.app.post(mgr::nextLine);
+                boolean restore = manager.cachedAutoPlayBeforeOption;
+                manager.cachedAutoPlayBeforeOption = false;
+                if (option.onSelect != null) {
+                    option.onSelect.get(option);
+                }
+                if (!manager.isTyping && !manager.dialogueQueue.isEmpty()) {
+                    Core.app.post(manager::nextLine);
                 }
                 if (restore) {
-                    mgr.isAutoPlay = true;
-                    mgr.ui.updateAutoPlayButton();
-                    mgr.startAutoPlay();
+                    manager.isAutoPlay = true;
+                    updateAutoPlayButton();
+                    manager.startAutoPlay();
                 }
             });
             optionTable.add(btn).growX()
@@ -227,21 +326,32 @@ public class GalgameDialogueUI extends Table {
     }
 
     public void updateAutoPlayButton() {
-        autoPlayBtn.setChecked(instance.isAutoPlay);
-        autoPlayBtn.setText(instance.isAutoPlay ? "取消自动" : "自动播放");
+        autoPlayBtn.setChecked(manager.isAutoPlay);
+        autoPlayBtn.setText(manager.isAutoPlay ? "取消自动" : "自动播放");
     }
 
     public void reset() {
         currentLine = null;
+        activeSide = Side.left;
         fullContent = "";
         typedIndex = 0;
         nameLabel.setText("");
         contentLabel.setText("");
-        characterSprite.setDrawable((Drawable) null);
+        leftSprite.setDrawable((Drawable) null);
+        rightSprite.setDrawable((Drawable) null);
+        leftSprite.visible = false;
+        rightSprite.visible = false;
+        leftSprite.clearActions();
+        rightSprite.clearActions();
+        inlineImageTable.clear();
+        inlineImageTable.visible = false;
         optionTable.clear();
         optionTable.visible = false;
-        characterSprite.clearActions();
         updateAutoPlayButton();
+    }
+
+    public void updateVisibility() {
+        visible = true;
     }
 
     public void resized(Runnable r) {

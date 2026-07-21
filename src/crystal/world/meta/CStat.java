@@ -26,6 +26,7 @@ public class CStat {
   public static final Stat magicPowerRegenTime;
   public static final Stat magicPowerRegen;
   public static final Stat storageCapacity;
+  public static final Stat suckRange;
 
   static {
     armorMultiplier = new Stat("armorMultiplier");
@@ -50,6 +51,7 @@ public class CStat {
     magicPowerRegen = new Stat("magicPowerRegen", CStatCat.magic);
     magicPowerRegenTime = new Stat("magicPowerRegenTime", CStatCat.magic);
     storageCapacity = new Stat("storageCapacity", StatCat.items);
+    suckRange = new Stat("suckRange");
   }
 
 }

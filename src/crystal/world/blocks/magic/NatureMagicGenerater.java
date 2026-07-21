@@ -89,7 +89,7 @@ public class NatureMagicGenerater extends Block {
       timer += Time.delta;
       if (timer >= reload && Vars.state.isCampaign()) {
         Events.fire(new CEventType.MagicPowerChange(amount));
-        Vars.ui.showLabel("+" + amount, id, 2f, x, y, WorldLabel.flagBackground | WorldLabel.flagAutoscale);
+        Vars.ui.showLabel("+" + amount, id, 2f, x, y);
         timer = 0f;
       }
     }
