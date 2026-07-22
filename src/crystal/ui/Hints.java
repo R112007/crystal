@@ -4,6 +4,7 @@ import arc.Core;
 import arc.func.Boolp;
 import arc.util.Nullable;
 import arc.util.Structs;
+import crystal.ui.gal.*;
 import mindustry.Vars;
 import mindustry.core.UI;
 import mindustry.ui.fragments.HintsFragment;
@@ -11,9 +12,8 @@ import mindustry.ui.fragments.HintsFragment.Hint;
 
 public enum Hints implements Hint {
   // TODO 安亦雨的提示
-  // pauseWatch(100, () -> GalgameDialogueManager.instance.isShowing, () ->
-  // !GalgameDialogueManager.instance.isShowing);
-  ;
+  pauseWatch(100, () -> GalgameDialogueManager.instance.isShowing, () -> !GalgameDialogueManager.instance.isShowing);
+
   @Nullable
   String text;
   Hint[] dependencies = {};

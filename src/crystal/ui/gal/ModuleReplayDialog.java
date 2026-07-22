@@ -59,8 +59,6 @@ public class ModuleReplayDialog extends BaseDialog {
 
         // 副本播放不需要历史、快速推进和强制跳过按钮
         manager.ui.historyBtn.visible = false;
-        manager.ui.fastSkipBtn.visible = false;
-        manager.ui.forceSkipBtn.visible = false;
 
         cont.add(manager.ui).grow();
 

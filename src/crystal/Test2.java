@@ -38,7 +38,7 @@ import static arc.graphics.g2d.Lines.*;
 
 public class Test2 {
 
-  public static boolean allow = true;
+  public static boolean allow = false;
   public static UnitType u1, u2, u3, u4, u5;
   public static UnitType eastWind;
   public static @EntityDef(value = { Unitc.class, Rammingc.class, Mechc.class }) UnitType u6;

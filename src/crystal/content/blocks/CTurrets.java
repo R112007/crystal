@@ -38,6 +38,7 @@ public class CTurrets {
   public static Block powerair1;
   public static Block chuantou;
   public static Block zi;
+  public static Block dianzijiqiang;
 
   public static void load() {
     qianfeng = new ItemTurret("qianfeng") {
@@ -598,6 +599,63 @@ public class CTurrets {
 
       }
     };
+    dianzijiqiang = new PowerTurret("dianzijiqiang") {
+      {
+        size = 2;
+        health = 720;
+        reload = 2f;
+        range = 320f;
+        inaccuracy = 0f;
+        shootCone = 2f;
+        recoil = 0f;
+        rotateSpeed = 18f;
+        shootSound = Sounds.shootLaser;
+        liquidCapacity = 30f;
+        drawer = new DrawTurret() {
+          {
+            heatColor = Color.valueOf("fa2859");
+            parts.addAll(
+                new RegionPart("-back") {
+                  {
+                    progress = PartProgress.warmup;
+                    mirror = true;
+                    moveRot = -15f;
+                    moveX = 0.5f;
+                    moveY = -0.5f;
+                    under = true;
+                    heatColor = Color.valueOf("fa2859");
+                  }
+                });
+          }
+        };
 
+        targetAir = true;
+        targetGround = true;
+        targetHealing = false;
+
+        shoot = new ShootAlternate(2.5f) {
+          {
+            barrels = 3;
+            shots = 3;
+            shotDelay = 0.5f;
+          }
+        };
+
+        shootType = new BasicBulletType(8f, 30f) {
+          {
+            lifetime = 40f;
+            width = 3f;
+            height = 8f;
+            collidesAir = true;
+            collidesGround = true;
+            collidesTeam = false;
+          }
+        };
+
+        consumePower(25f);
+        consumeCoolant(0.6f);
+        requirements(Category.turret, ItemStack.with(cuguijing, 80, chunguijing, 120, xi, 150, lvgang, 100));
+      }
+    };
   }
 }
