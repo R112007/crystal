@@ -643,7 +643,7 @@ public class PlayerXiuWeiSystem {
       t.row();
       t.add(Core.bundle.get("stat.jingjie") + ":" + CVars.playerJingJie.str);
       t.row();
-      t.add(Core.bundle.get("stat.magicpower") + ":" + CVars.playerMagicPower);
+      t.add(Core.bundle.get("stat.magicpower") + ":" + String.format("%.1f", CVars.playerMagicPower));
       t.row();
       t.add(Core.bundle.get("gongfahave"));
       Seq<GongFa> tmp = CVars.gongfaHave.toSeq().sort(j -> j.id);
@@ -673,7 +673,7 @@ public class PlayerXiuWeiSystem {
       t.row();
 
       JingJie next = getNextJingJie();
-      t.add(Core.bundle.get("nextjingjie") + CVars.playerMagicPower
+      t.add(Core.bundle.get("nextjingjie") + String.format("%.1f", CVars.playerMagicPower)
           + "/" + next.amount + " " + next.str);
     });
     xiuweiDialog.addCloseButton();

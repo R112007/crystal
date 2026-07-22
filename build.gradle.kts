@@ -6,13 +6,18 @@ import java.io.*
 
 buildscript{
     val arcVersion: String by project
+    val kotlinVersion: String by project
     val useJitpack = property("mindustryBE").toString().toBooleanStrict()
 
     dependencies{
         classpath("com.github.Anuken.Arc:arc-core:$arcVersion")
+        classpath(files("res/EntityAnno.jar"))
+        classpath(files("res/entity.jar"))
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
     }
 
     repositories{
+        mavenCentral()
         if(!useJitpack) maven("https://maven.xpdustry.com/mindustry")
         maven("https://jitpack.io")
     }
@@ -20,7 +25,6 @@ buildscript{
 
 plugins{
     java
-    id("com.github.GglLfr.EntityAnno") apply false
 }
 
 val arcVersion: String by project
@@ -37,7 +41,8 @@ val modGen: String by project
 val androidSdkVersion: String by project
 val androidBuildVersion: String by project
 val androidMinVersion: String by project
-
+val javapoetVersion: String by project
+val kotlinVersion: String by project
 val useJitpack = property("mindustryBE").toString().toBooleanStrict()
 
 fun arc(module: String): String{
@@ -51,7 +56,13 @@ fun mindustry(module: String): String{
 fun entity(module: String): String{
     return "com.github.GglLfr.EntityAnno$module:$entVersion"
 }
+fun javapoet(): String{
+    return "com.squareup:javapoet:$javapoetVersion"
+}
 
+fun kotlinPlugin(module: String): String{
+    return "org.jetbrains.kotlin.$module:org.jetbrains.kotlin.$module.gradle.plugin:$kotlinVersion"
+}
 allprojects{
 	tasks.withType<AbstractArchiveTask>().configureEach {
         isReproducibleFileOrder = false
@@ -75,7 +86,8 @@ sourceSets["main"].java {
 
     dependencies{
         // Downgrade Java 9+ syntax into being available in Java 8.
-        annotationProcessor(entity(":downgrader"))
+        annotationProcessor(files("res/downgrader.jar"))
+        annotationProcessor(arc(":arc-core"))
     }
 
     repositories{
@@ -94,7 +106,7 @@ sourceSets["main"].java {
         // Use Java 17+ syntax, but target Java 8 bytecode version.
         sourceCompatibility = "17"
         options.apply{
-            release = 8
+            release = 17
             compilerArgs.add("-Xlint:-options")
 
             isIncremental = true
@@ -117,8 +129,14 @@ project(":"){
 
     dependencies{
         // Use the entity generation annotation processor.
-        compileOnly(entity(":entity"))
-        add("kapt", entity(":entity"))
+        compileOnly(files("res/entity.jar", "res/EntityAnno.jar"))
+        add("kapt", files("res/entity.jar"))
+        add("kapt", kotlinPlugin("kapt"))
+        add("kapt", mindustry(":core"))
+        add("kapt", arc(":arc-core"))
+        add("kapt", files("res/EntityAnno.jar"))
+        add("kapt", javapoet())
+        
 
         compileOnly(mindustry(":core"))
         compileOnly(arc(":arc-core"))
@@ -264,4 +282,6 @@ val dex = tasks.register<Jar>("dex") {
         }
     }
 }
+
+
 

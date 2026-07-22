@@ -1,4 +1,4 @@
 <factorypath>
-    <factorypathentry kind="EXTJAR" id="/root/.gradle/caches/modules-2/files-2.1/com.github.Anuken.Arc/arc-core/v158/c101db02894acba4c389d6003bc89d45e112fe2c/arc-core-v158.jar" enabled="true" runInBatchMode="false"/>
-    <factorypathentry kind="EXTJAR" id="/root/.gradle/caches/modules-2/files-2.1/com.github.GglLfr.EntityAnno/downgrader/v158.0.0/1adf8358dd70bb35e83a78fa5d061d6886715d67/downgrader-v158.0.0.jar" enabled="true" runInBatchMode="false"/>
+    <factorypathentry kind="EXTJAR" id="/root/crystal/res/downgrader.jar" enabled="true" runInBatchMode="false"/>
+    <factorypathentry kind="EXTJAR" id="/root/.gradle/caches/modules-2/files-2.1/com.github.Anuken.Arc/arc-core/v159.7/74c192bbe0d4812024d514dfe5b04ba16b7645b2/arc-core-v159.7.jar" enabled="true" runInBatchMode="false"/>
 </factorypath>

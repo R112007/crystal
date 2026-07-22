@@ -62,9 +62,10 @@ public class GalgameDialogueManager {
 
   protected GalgameDialogueManager(boolean replay) {
     this.isReplayManager = replay;
-    this.ui = new GalgameDialogueUI(this);
+    // 先创建 historyUI/debugDialog，再创建 UI，避免 UI 初始化时读到 null 而隐藏按钮
     this.historyUI = replay ? null : new DialogueHistoryUI();
     this.debugDialog = replay ? null : new GalDebugDialog();
+    this.ui = new GalgameDialogueUI(this);
     if (!replay) {
       registerEvents();
     }
@@ -582,6 +583,7 @@ public class GalgameDialogueManager {
   }
 
   public void resetAllProgress() {
+    hide();
     modules.each(DialogueModule::resetProgress);
     currentModuleId = null;
     lastPlayedCharacterId = null;

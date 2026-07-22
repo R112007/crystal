@@ -37,4 +37,15 @@ public class Branch {
         this.nodes.addAll(nodes);
         return this;
     }
+
+    /**
+     * 创建用于模块副本回放的分支节点副本：保留文本、角色、立绘、表情、选项与回调。
+     */
+    public Seq<DialogueLine> createReplayCopies() {
+        Seq<DialogueLine> copies = new Seq<>();
+        for (DialogueLine line : nodes) {
+            copies.add(line.copyForReplay());
+        }
+        return copies;
+    }
 }

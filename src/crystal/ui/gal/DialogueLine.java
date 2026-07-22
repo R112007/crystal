@@ -283,13 +283,17 @@ public class DialogueLine {
         copy.content = this.content;
         copy.key = this.key;
         copy.inlineImages = this.inlineImages;
-        // 选项文案保留，但回调置空
+        // 选项文案保留；分支引用保留以便回溯/回放时跳转到分支剧情，回调置空避免重复触发游戏功能
         if (this.options != null) {
             copy.options = new DialogueOption[this.options.length];
             for (int i = 0; i < this.options.length; i++) {
                 DialogueOption o = this.options[i];
-                copy.options[i] = new DialogueOption(o.optionText, opt -> {
-                });
+                if (o.branch != null) {
+                    copy.options[i] = new DialogueOption(o.optionText, o.branch);
+                } else {
+                    copy.options[i] = new DialogueOption(o.optionText, opt -> {
+                    });
+                }
             }
         }
         // 回调与动作不拷贝
@@ -312,7 +316,11 @@ public class DialogueLine {
             copy.options = new DialogueOption[this.options.length];
             for (int i = 0; i < this.options.length; i++) {
                 DialogueOption o = this.options[i];
-                copy.options[i] = new DialogueOption(o.optionText, o.onSelect);
+                if (o.branch != null) {
+                    copy.options[i] = new DialogueOption(o.optionText, o.branch);
+                } else {
+                    copy.options[i] = new DialogueOption(o.optionText, o.onSelect);
+                }
             }
         }
         return copy;
@@ -322,9 +330,29 @@ public class DialogueLine {
     public static class DialogueOption {
         public String optionText;
         public Cons<DialogueOption> onSelect;
+        /**
+         * 选项直接关联的分支。
+         * 如果指定，在模块副本回放时可以直接播放该分支，而不依赖 onSelect 闭包。
+         */
+        public Branch branch;
 
         public DialogueOption(String optionText, Cons<DialogueOption> onSelect) {
             this.optionText = parseText(optionText);
+            this.onSelect = onSelect;
+        }
+
+        /** 指定分支的选项构造器，用于支持副本回放时选择未选分支。 */
+        public DialogueOption(String optionText, Branch branch) {
+            this(optionText, branch, null);
+        }
+
+        /**
+         * 同时指定分支和点击回调的构造器。
+         * 正常播放时走 onSelect，副本回放时走 branch。
+         */
+        public DialogueOption(String optionText, Branch branch, Cons<DialogueOption> onSelect) {
+            this.optionText = parseText(optionText);
+            this.branch = branch;
             this.onSelect = onSelect;
         }
     }
