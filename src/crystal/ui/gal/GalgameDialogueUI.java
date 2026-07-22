@@ -13,6 +13,7 @@ import arc.scene.ui.ScrollPane;
 import arc.scene.ui.TextButton;
 import arc.scene.ui.layout.Scl;
 import arc.scene.ui.layout.Table;
+import arc.struct.Seq;
 import arc.util.Align;
 import arc.util.Scaling;
 import crystal.ui.gal.DialogueLine.DialogueOption;
@@ -153,15 +154,15 @@ public class GalgameDialogueUI extends Table {
         add(rightSprite).size(scl(360)).right().padLeft(scl(12f));
         row();
 
-        // 底部按钮
+        // 底部按钮：统一大小并居中，避免分布不均
         Table buttonTable = new Table();
-        buttonTable.right();
-        buttonTable.add(autoPlayBtn).size(scl(150f), scl(80f)).padRight(scl(6f));
-        buttonTable.add(historyBtn).size(scl(150f), scl(80f)).padRight(scl(6f));
-        buttonTable.add(fastForwardBtn).size(scl(150f), scl(80f)).padRight(scl(6f));
-        buttonTable.add(fastSkipBtn).size(scl(150f), scl(80f)).padRight(scl(6f));
-        buttonTable.add(forceSkipBtn).size(scl(160f), scl(80f));
-        add(buttonTable).colspan(3).growX().right().bottom().padTop(scl(8f));
+        buttonTable.center();
+        buttonTable.add(autoPlayBtn).size(scl(130f), scl(80f)).padRight(scl(6f));
+        buttonTable.add(historyBtn).size(scl(130f), scl(80f)).padRight(scl(6f));
+        buttonTable.add(fastForwardBtn).size(scl(130f), scl(80f)).padRight(scl(6f));
+        buttonTable.add(fastSkipBtn).size(scl(130f), scl(80f)).padRight(scl(6f));
+        buttonTable.add(forceSkipBtn).size(scl(130f), scl(80f));
+        add(buttonTable).colspan(3).growX().center().bottom().padTop(scl(8f));
     }
 
     /** 当前说话侧对应的立绘。 */
@@ -306,6 +307,18 @@ public class GalgameDialogueUI extends Table {
                 optionTable.clear();
                 boolean restore = manager.cachedAutoPlayBeforeOption;
                 manager.cachedAutoPlayBeforeOption = false;
+                if (option.branch != null) {
+                    if (manager.isReplayManager) {
+                        // 副本回放：直接在当前队列开头插入分支副本，可播放之前未选分支
+                        Seq<DialogueLine> copies = option.branch.createReplayCopies();
+                        for (int i = copies.size - 1; i >= 0; i--) {
+                            manager.dialogueQueue.insert(0, copies.get(i));
+                        }
+                    } else if (option.onSelect == null) {
+                        // 正常模式：没有额外回调时，直接走 Manager 追加分支
+                        manager.addBranch(option.branch);
+                    }
+                }
                 if (option.onSelect != null) {
                     option.onSelect.get(option);
                 }

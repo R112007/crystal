@@ -72,6 +72,9 @@ public class Storys {
 
     public void registerEvents() {
         Events.on(SectorLaunchEvent.class, e -> {
+            Time.runTask(5f, () -> {
+                Vars.renderer.minimap.updateAll();
+            });
             if (e.sector.id == LxMaps.jianglindian.sector.id) {
                 Time.runTask(300f, () -> {
                     if (GalgameDialogueManager.instance != null) {
@@ -260,14 +263,14 @@ public class Storys {
                         new DialogueLine(player, normal, yi, normal, Side.right, "@jianglindian_gongfa-2"),
                         new DialogueLine(player, expected, yi, normal, Side.left, "@jianglindian_gongfa-3"),
                         new DialogueLine(player, normal, yi, happy, Side.right, "@jianglindian_gongfa-4",
-                                new DialogueOption("@jianglindian_gongfa-branch1-1",
+                                new DialogueOption("@jianglindian_gongfa-branch1-1", jianglindian_gongfa_1,
                                         opt -> {
                                             mgr.addBranch(jianglindian_gongfa_1);
                                         }),
-                                new DialogueOption("@jianglindian_gongfa-branch2-1",
-                                        opt -> {
-                                            mgr.addBranch(jianglindian_gongfa_2);
-                                        }))
+                                new DialogueOption("@jianglindian_gongfa-branch2-1", jianglindian_gongfa_2,
+                                        opt -> mgr.addBranch(jianglindian_gongfa_2))
+
+                        )
                 }));
         jianglindian_fatian = new DialogueModule("jianglindian_fatian",
                 Core.bundle.get("gal.jianglindian_fatian"))

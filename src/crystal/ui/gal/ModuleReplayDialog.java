@@ -2,7 +2,6 @@ package crystal.ui.gal;
 
 import arc.graphics.Color;
 import arc.scene.ui.Dialog;
-import mindustry.gen.Tex;
 import mindustry.ui.Styles;
 import mindustry.ui.dialogs.BaseDialog;
 

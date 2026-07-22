@@ -9,8 +9,8 @@ import crystal.entities.units.UnitEnum.XiuWei;
 import crystal.type.GongFa;
 
 public class CVars {
-  public static int maxVersion = 158;
-  public static boolean debug = false;
+  public static int maxVersion = 159;
+  public static boolean debug = true;
   public static boolean chooseNewRoad = false;
   public static UI cui = new UI();
   public static String modName = "crystal";

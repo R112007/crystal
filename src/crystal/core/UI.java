@@ -45,6 +45,7 @@ public class UI {
       Vars.ui.paused.cont.button(
           "历史记录",
           Icon.book, () -> {
+            GalgameDialogueManager.instance.historyUI.show();
           }).size(Vars.mobile ? 130f : 220f, Vars.mobile ? 130f : 55f)
           .pad(5f).colspan(20);
     });

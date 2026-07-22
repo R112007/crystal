@@ -51,6 +51,8 @@ public class DialogueModule {
     Seq<DialogueLine> copies = new Seq<>();
     for (int i = fromIndex; i < dialogueNodes.size; i++) {
       DialogueLine original = dialogueNodes.get(i);
+      if (original.nodeId != null && original.nodeId.contains("-branch-"))
+        continue;
       copies.add(original.copyForHistory());
     }
     return copies;
@@ -60,18 +62,26 @@ public class DialogueModule {
    * 生成用于模块回放副本的完整节点副本队列：
    * 文本、角色、立绘、表情、选项、回调与动作均保留，
    * 不影响原模块的进度与完成状态。
+   *
+   * 已触发分支的节点不会预置进副本，而是保留分支选项 line；
+   * 玩家在回放时选择某个分支后，再把对应分支副本动态插入队列，
+   * 从而可以体验之前未选择的分支。
    */
   public Seq<DialogueLine> createReplayCopies() {
     Seq<DialogueLine> copies = new Seq<>();
     for (DialogueLine original : dialogueNodes) {
+      if (original.nodeId != null && original.nodeId.contains("-branch-"))
+        continue;
       copies.add(original.copyForReplay());
     }
     return copies;
   }
 
   public void appendToHistory(DialogueLine line) {
-    if (line == null || line.nodeId == null) return;
-    if (playedNodeSet.contains(line.nodeId)) return;
+    if (line == null || line.nodeId == null)
+      return;
+    if (playedNodeSet.contains(line.nodeId))
+      return;
     history.add(new DialogueHistory(
         this.moduleId,
         line.nodeId,
@@ -85,7 +95,8 @@ public class DialogueModule {
     int size = dialogueNodes.size;
     for (int i = 0; i < size; i++) {
       DialogueLine line = dialogueNodes.get(i);
-      if (line == null) continue;
+      if (line == null)
+        continue;
       line.moduleId = this.moduleId;
       line.nodeId = this.moduleId + "-" + (i + 1);
     }
@@ -117,7 +128,8 @@ public class DialogueModule {
 
   /** 获取当前进度节点。 */
   public DialogueLine getCurrentNode() {
-    if (progressIndex >= dialogueNodes.size) return null;
+    if (progressIndex >= dialogueNodes.size)
+      return null;
     return dialogueNodes.get(progressIndex);
   }
 
@@ -178,14 +190,16 @@ public class DialogueModule {
 
     if (isCompleted) {
       for (DialogueLine d : dialogueNodes) {
-        if (d == null || d.nodeId == null) continue;
+        if (d == null || d.nodeId == null)
+          continue;
         history.add(new DialogueHistory(moduleId, d.nodeId, d.characterName, d.content));
         playedNodeSet.add(d.nodeId);
       }
     } else {
       for (int i = 0; i < progressIndex; i++) {
         DialogueLine d = dialogueNodes.get(i);
-        if (d == null || d.nodeId == null) continue;
+        if (d == null || d.nodeId == null)
+          continue;
         history.add(new DialogueHistory(moduleId, d.nodeId, d.characterName, d.content));
         playedNodeSet.add(d.nodeId);
       }
