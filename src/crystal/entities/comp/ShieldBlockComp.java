@@ -3,8 +3,11 @@ package crystal.entities.comp;
 import arc.math.Angles;
 import arc.math.Mathf;
 import arc.math.geom.Vec2;
+import arc.struct.Seq;
 import arc.util.Time;
 import arc.util.Tmp;
+import crystal.entities.mindustryX.MindustryXAdapter;
+import crystal.entities.mindustryX.MindustryXUnitc;
 import crystal.game.WaitTime;
 import crystal.type.BuildShieldUnit;
 import crystal.type.BuildShieldUnitType;
@@ -21,6 +24,7 @@ import ent.anno.Annotations.SyncLocal;
 import mindustry.Vars;
 import mindustry.content.Fx;
 import mindustry.entities.units.BuildPlan;
+import mindustry.entities.units.StatusEntry;
 import mindustry.game.Team;
 import mindustry.gen.Building;
 import mindustry.gen.Bullet;
@@ -32,13 +36,17 @@ import mindustry.type.UnitType;
 import static mindustry.Vars.*;
 
 @EntityComponent
-abstract class ShieldBlockComp implements Unitc {
+abstract class ShieldBlockComp implements Unitc, MindustryXUnitc {
   @Import
   UnitType type;
   @Import
   Team team;
   @Import
-  float x, y, rotation, buildSpeedMultiplier;
+  float x, y, rotation, buildSpeedMultiplier, health, maxHealth, shield, hitTime, shieldAlpha;
+  @Import
+  boolean dead;
+  @Import
+  Seq<StatusEntry> statuses;
 
   @SyncLocal
   transient float shieldHealth = 10000f;
@@ -57,7 +65,8 @@ abstract class ShieldBlockComp implements Unitc {
   transient BuildPlan currentPlan;
   public boolean drawArc = true;
   protected static Vec2 paramPos = new Vec2();
-  protected static transient Cons<Bullet> bulletc;
+  protected static Cons<Bullet> bulletc;
+  private transient MindustryXAdapter mindustryXAdapter = new MindustryXAdapter(self());
 
   @Override
   public void setType(UnitType type) {
@@ -97,6 +106,61 @@ abstract class ShieldBlockComp implements Unitc {
   }
 
   @Override
+  public void rawDamage(float amount) {
+    boolean hadShields = shield > 1.0E-4F;
+    if (Float.isNaN(health))
+      health = 0.0F;
+    if (hadShields) {
+      shieldAlpha = 1.0F;
+    }
+    float shieldDamage = Math.min(Math.max(shield, 0), amount);
+    shield -= shieldDamage;
+    hitTime = 1.0F;
+    amount -= shieldDamage;
+    if (amount > 0 && type.killable) {
+      health -= amount;
+      if (health <= 0 && !dead) {
+        kill();
+      }
+      if (hadShields && shield <= 1.0E-4F) {
+        Fx.unitShieldBreak.at(x, y, 0, type.shieldColor(self()), this);
+      }
+    }
+    healthChanged();
+  }
+
+  @Override
+  public void heal() {
+    dead = false;
+    health = maxHealth;
+    healthChanged();
+  }
+
+  @Override
+  public void clampHealth() {
+    health = Math.min(health, maxHealth);
+    if (Float.isNaN(health))
+      health = 0.0F;
+
+    healthChanged();
+  }
+
+  @Override
+  public Seq<StatusEntry> statuses() {
+    return statuses;
+  }
+
+  @Override
+  public float healthBalance() {
+    return mindustryXAdapter.getHealthBalance();
+  }
+
+  @Override
+  public void healthChanged() {
+    mindustryXAdapter.fireHealthChanged(self());
+  }
+
+  @Override
   public void update() {
     if (tile != null) {
       team = tile.team;
@@ -129,6 +193,7 @@ abstract class ShieldBlockComp implements Unitc {
     } else {
       widthScale = Mathf.lerpDelta(widthScale, 0f, 0.11f);
     }
+    mindustryXAdapter.update(self());
   }
 
   @Override

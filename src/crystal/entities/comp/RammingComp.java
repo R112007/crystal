@@ -3,9 +3,14 @@ package crystal.entities.comp;
 import arc.math.Mathf;
 import arc.math.geom.Vec2;
 import arc.struct.ObjectSet;
+import arc.struct.Seq;
+import crystal.entities.mindustryX.MindustryXAdapter;
+import crystal.entities.mindustryX.MindustryXUnitc;
 import crystal.type.RammingUnitType;
 import ent.anno.Annotations.EntityComponent;
 import ent.anno.Annotations.Import;
+import mindustry.content.Fx;
+import mindustry.entities.units.StatusEntry;
 import mindustry.game.Team;
 import mindustry.gen.Building;
 import mindustry.gen.Hitboxc;
@@ -16,10 +21,10 @@ import mindustry.world.Tile;
 import static mindustry.Vars.*;
 
 @EntityComponent
-abstract class RammingComp implements Unitc {
+abstract class RammingComp implements Unitc, MindustryXUnitc {
 
     @Import
-    float x, y, hitSize, health;
+    float x, y, hitSize, health, maxHealth, shield, shieldAlpha, hitTime;
     @Import
     Vec2 vel;
     @Import
@@ -28,8 +33,11 @@ abstract class RammingComp implements Unitc {
     UnitType type;
     @Import
     boolean dead;
+    @Import
+    Seq<StatusEntry> statuses;
 
     transient ObjectSet<Integer> hitThisFrame = new ObjectSet<>();
+    private transient MindustryXAdapter mindustryXAdapter = new MindustryXAdapter(self());
 
     @Override
     public void update() {
@@ -45,6 +53,62 @@ abstract class RammingComp implements Unitc {
             return;
 
         checkBuildingCollision(rt, speed);
+        mindustryXAdapter.update(self());
+    }
+
+    @Override
+    public Seq<StatusEntry> statuses() {
+        return statuses;
+    }
+
+    @Override
+    public float healthBalance() {
+        return mindustryXAdapter.getHealthBalance();
+    }
+
+    @Override
+    public void healthChanged() {
+        mindustryXAdapter.fireHealthChanged(self());
+    }
+
+    @Override
+    public void heal() {
+        dead = false;
+        health = maxHealth;
+        mindustryXAdapter.fireHealthChanged(self());
+    }
+
+    @Override
+    public void clampHealth() {
+        health = Math.min(health, maxHealth);
+        if (Float.isNaN(health))
+            health = 0.0F;
+
+        mindustryXAdapter.fireHealthChanged(self());
+    }
+
+    @Override
+    public void rawDamage(float amount) {
+        boolean hadShields = shield > 1.0E-4F;
+        if (Float.isNaN(health))
+            health = 0.0F;
+        if (hadShields) {
+            shieldAlpha = 1.0F;
+        }
+        float shieldDamage = Math.min(Math.max(shield, 0), amount);
+        shield -= shieldDamage;
+        hitTime = 1.0F;
+        amount -= shieldDamage;
+        if (amount > 0 && type.killable) {
+            health -= amount;
+            if (health <= 0 && !dead) {
+                kill();
+            }
+            if (hadShields && shield <= 1.0E-4F) {
+                Fx.unitShieldBreak.at(x, y, 0, type.shieldColor(self()), this);
+            }
+        }
+        mindustryXAdapter.fireHealthChanged(self());
     }
 
     @Override
