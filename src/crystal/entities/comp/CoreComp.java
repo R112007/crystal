@@ -28,6 +28,7 @@ import crystal.type.CoreUnitType;
 import crystal.util.DLog;
 import crystal.world.blocks.stroage.CoreInjector;
 import crystal.world.blocks.stroage.MoveCoreSystem;
+import ent.anno.Annotations;
 import ent.anno.Annotations.EntityComponent;
 import ent.anno.Annotations.Import;
 import ent.anno.Annotations.MethodPriority;
@@ -262,6 +263,7 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXUnitc {
         }
       });
     }
+    mindustryXAdapter.init(self());
   }
 
   public float realRad() {

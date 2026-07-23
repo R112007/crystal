@@ -7,6 +7,7 @@ import arc.struct.Seq;
 import crystal.entities.mindustryX.MindustryXAdapter;
 import crystal.entities.mindustryX.MindustryXUnitc;
 import crystal.type.RammingUnitType;
+import ent.anno.Annotations;
 import ent.anno.Annotations.EntityComponent;
 import ent.anno.Annotations.Import;
 import mindustry.content.Fx;
@@ -38,6 +39,11 @@ abstract class RammingComp implements Unitc, MindustryXUnitc {
 
     transient ObjectSet<Integer> hitThisFrame = new ObjectSet<>();
     private transient MindustryXAdapter mindustryXAdapter = new MindustryXAdapter(self());
+
+    @Annotations.Insert(value = "add()", block = Unitc.class)
+    public void init() {
+        mindustryXAdapter.init(self());
+    }
 
     @Override
     public void update() {

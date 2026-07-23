@@ -42,6 +42,12 @@ public class MindustryXAdapter {
         this.lastHealthChanged = entity.health();
     }
 
+    public void init(Shieldc shield) {
+        lastHealth = shield.health();
+        lastShield = shield.shield();
+        lastHealthChanged = shield.health();
+    }
+
     /**
      * 每帧调用，更新健康滑动窗口。
      * @param entity 实现了 Healthc 的单位

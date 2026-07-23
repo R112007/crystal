@@ -16,6 +16,7 @@ import arc.graphics.Color;
 import arc.graphics.g2d.Draw;
 import arc.graphics.g2d.Lines;
 import arc.graphics.g2d.TextureRegion;
+import ent.anno.Annotations;
 import ent.anno.Annotations.EntityComponent;
 import ent.anno.Annotations.Import;
 import ent.anno.Annotations.ReadOnly;
@@ -67,6 +68,11 @@ abstract class ShieldBlockComp implements Unitc, MindustryXUnitc {
   protected static Vec2 paramPos = new Vec2();
   protected static Cons<Bullet> bulletc;
   private transient MindustryXAdapter mindustryXAdapter = new MindustryXAdapter(self());
+
+  @Annotations.Insert(value = "add()", block = Unitc.class)
+  public void init() {
+    mindustryXAdapter.init(self());
+  }
 
   @Override
   public void setType(UnitType type) {

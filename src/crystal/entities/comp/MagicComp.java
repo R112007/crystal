@@ -13,6 +13,7 @@ import crystal.gen.FaShen;
 import crystal.gen.Magicc;
 import crystal.type.MagicUnitInterface;
 import crystal.type.MagicUnitType;
+import ent.anno.Annotations;
 import ent.anno.Annotations.EntityComponent;
 import ent.anno.Annotations.Import;
 import ent.anno.Annotations.Replace;
@@ -67,6 +68,13 @@ abstract class MagicComp implements Unitc, Magicc, MindustryXUnitc {
     } catch (ClassNotFoundException e) {
       hasHealthChanged = false;
     }
+  }
+
+  @Annotations.Insert(value = "add()", block = Unitc.class)
+  public void init() {
+    lastHealth = health;
+    lastShield = shield;
+    lastHealthChanged = health;
   }
 
   @Override
