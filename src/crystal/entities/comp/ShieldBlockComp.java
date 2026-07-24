@@ -9,6 +9,7 @@ import arc.util.Tmp;
 import crystal.entities.mindustryX.MindustryXAdapter;
 import crystal.entities.mindustryX.MindustryXUnitc;
 import crystal.game.WaitTime;
+import crystal.gen.MindustryXc;
 import crystal.type.BuildShieldUnit;
 import crystal.type.BuildShieldUnitType;
 import arc.func.Cons;
@@ -37,7 +38,7 @@ import mindustry.type.UnitType;
 import static mindustry.Vars.*;
 
 @EntityComponent
-abstract class ShieldBlockComp implements Unitc, MindustryXUnitc {
+abstract class ShieldBlockComp implements Unitc, MindustryXc {
   @Import
   UnitType type;
   @Import
@@ -46,8 +47,6 @@ abstract class ShieldBlockComp implements Unitc, MindustryXUnitc {
   float x, y, rotation, buildSpeedMultiplier, health, maxHealth, shield, hitTime, shieldAlpha;
   @Import
   boolean dead;
-  @Import
-  Seq<StatusEntry> statuses;
 
   @SyncLocal
   transient float shieldHealth = 10000f;
@@ -67,12 +66,6 @@ abstract class ShieldBlockComp implements Unitc, MindustryXUnitc {
   public boolean drawArc = true;
   protected static Vec2 paramPos = new Vec2();
   protected static Cons<Bullet> bulletc;
-  private transient MindustryXAdapter mindustryXAdapter = new MindustryXAdapter(self());
-
-  @Annotations.Insert(value = "add()", block = Unitc.class)
-  public void init() {
-    mindustryXAdapter.init(self());
-  }
 
   @Override
   public void setType(UnitType type) {
@@ -152,21 +145,6 @@ abstract class ShieldBlockComp implements Unitc, MindustryXUnitc {
   }
 
   @Override
-  public Seq<StatusEntry> statuses() {
-    return statuses;
-  }
-
-  @Override
-  public float healthBalance() {
-    return mindustryXAdapter.getHealthBalance();
-  }
-
-  @Override
-  public void healthChanged() {
-    mindustryXAdapter.fireHealthChanged(self());
-  }
-
-  @Override
   public void update() {
     if (tile != null) {
       team = tile.team;
@@ -199,7 +177,6 @@ abstract class ShieldBlockComp implements Unitc, MindustryXUnitc {
     } else {
       widthScale = Mathf.lerpDelta(widthScale, 0f, 0.11f);
     }
-    mindustryXAdapter.update(self());
   }
 
   @Override

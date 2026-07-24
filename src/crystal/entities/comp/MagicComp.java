@@ -11,6 +11,7 @@ import crystal.entities.shentong.ShenTong;
 import crystal.entities.units.UnitEnum.XiuWei;
 import crystal.gen.FaShen;
 import crystal.gen.Magicc;
+import crystal.gen.MindustryXc;
 import crystal.type.MagicUnitInterface;
 import crystal.type.MagicUnitType;
 import ent.anno.Annotations;
@@ -27,7 +28,7 @@ import mindustry.type.UnitType;
 import java.lang.reflect.Method;
 
 @EntityComponent
-abstract class MagicComp implements Unitc, Magicc, MindustryXUnitc {
+abstract class MagicComp implements Unitc, Magicc, MindustryXc {
   @Import
   float x, y, health, maxHealth, hitTime;
   @Import
@@ -38,8 +39,6 @@ abstract class MagicComp implements Unitc, Magicc, MindustryXUnitc {
   float shield, shieldAlpha, armor;
   @Import
   UnitType type;
-  @Import
-  Seq<StatusEntry> statuses;
 
   public float magicPower;
   public float maxMagicPower;
@@ -52,57 +51,6 @@ abstract class MagicComp implements Unitc, Magicc, MindustryXUnitc {
   public boolean inited = false;
   public int fashenId = -1;
   public transient FaShen cachedFashen = null;
-
-  public static Class<?> HealthChanged;
-  public static boolean hasHealthChanged = false;
-
-  private transient float lastHealth = 0f;             // 用于 healthBalance 的上一帧血量
-  private transient float lastShield = 0f;  // 用于 healthBalance 的上一帧护盾
-  protected transient float lastHealthChanged;
-  private transient final WindowedMean healthBalanceMean = new WindowedMean(120); // 滑动窗
-
-  static {
-    try {
-      HealthChanged = Class.forName("mindustryX.events.HealthChangedEvent");
-      hasHealthChanged = true;
-    } catch (ClassNotFoundException e) {
-      hasHealthChanged = false;
-    }
-  }
-
-  @Annotations.Insert(value = "add()", block = Unitc.class)
-  public void init() {
-    lastHealth = health;
-    lastShield = shield;
-    lastHealthChanged = health;
-  }
-
-  @Override
-  public Seq<StatusEntry> statuses() {
-    return statuses;
-  }
-
-  @Override
-  public float healthBalance() {
-    return healthBalanceMean.mean();
-  }
-
-  @Override
-  public void healthChanged() {
-    float var1 = this.lastHealthChanged;
-    if (var1 != 0.0F) {
-      var1 -= health;
-      if (var1 != 0.0F) {
-        try {
-          Method m = HealthChanged.getMethod("fire", Healthc.class, float.class);
-          m.invoke(null, this, var1);
-        } catch (Exception e) {
-        }
-      }
-    }
-
-    this.lastHealthChanged = health;
-  }
 
   public FaShen getFaShen() {
     if (fashenId < 0)
@@ -128,7 +76,6 @@ abstract class MagicComp implements Unitc, Magicc, MindustryXUnitc {
       }
     }
     health -= amount;
-    healthChanged();
     hitTime = 1.0F;
     if (health <= 0 && !dead) {
       kill();
@@ -137,21 +84,6 @@ abstract class MagicComp implements Unitc, Magicc, MindustryXUnitc {
 
   @Override
   public void killed() {
-  }
-
-  @Override
-  public void clampHealth() {
-    health = Math.min(health, maxHealth);
-    if (Float.isNaN(health))
-      health = 0.0F;
-    healthChanged();
-  }
-
-  @Override
-  public void heal() {
-    dead = false;
-    health = maxHealth;
-    healthChanged();
   }
 
   @Replace
@@ -176,7 +108,6 @@ abstract class MagicComp implements Unitc, Magicc, MindustryXUnitc {
     shield -= shieldDamage;
     hitTime = 1.0F;
     amount -= shieldDamage;
-    healthChanged();
     if (amount > 0 && type.killable) {
       health -= amount;
       if (health <= 0 && !dead) {
@@ -186,16 +117,7 @@ abstract class MagicComp implements Unitc, Magicc, MindustryXUnitc {
         Fx.unitShieldBreak.at(x, y, 0, type.shieldColor(self()), this);
       }
     }
-  }
-
-  private void updateHealthBalance() {
-    float delta = Time.delta;
-    if (delta > 0.001f) {
-      float rate = (shield - lastShield + (health - lastHealth)) / delta;
-      healthBalanceMean.add(rate);
-    }
-    lastHealth = health;
-    lastShield = shield;
+    amount = 0;
   }
 
   public float xiuWeiMultiplier(XiuWei xiuWei) {
@@ -239,8 +161,6 @@ abstract class MagicComp implements Unitc, Magicc, MindustryXUnitc {
     for (ShenTong shenTong : shenTongs) {
       shenTong.update(this);
     }
-
-    updateHealthBalance();
   }
 
   @Override

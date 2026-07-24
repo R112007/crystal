@@ -4,11 +4,7 @@ import arc.graphics.Color;
 import crystal.entities.abilities.AddWeaponAbility;
 import crystal.entities.abilities.ContinueRepairField;
 import crystal.entities.shentong.FaTianXiangDi;
-import crystal.gen.MagicUnit;
-import crystal.gen.Magicc;
-import crystal.gen.ShieldBlockc;
-import crystal.gen.ShieldBuilderUnit;
-import crystal.gen.ShieldBuilderc;
+import crystal.gen.*;
 import crystal.graphics.CPal;
 import crystal.type.BuildShieldUnitType;
 import crystal.type.MagicUnitType;
@@ -33,7 +29,7 @@ public class CUnits {
   public static @EntityDef({ Unitc.class, ShieldBuilderc.class }) BuildShieldUnitType taichu;
   public static @EntityDef({ Unitc.class, Magicc.class, Mechc.class }) MagicUnitType chujia1, chujia2;
   public static @EntityDef({ Unitc.class, Magicc.class, Crawlc.class }) MagicUnitType papa1;
-  public static @EntityDef({ Unitc.class, Magicc.class }) MagicUnitType liekong1, liekong2, liekong3;
+  public static @EntityDef({ Unitc.class, Magicc.class}) MagicUnitType liekong1, liekong2, liekong3;
   public static @EntityDef({ Unitc.class, Magicc.class, WaterMovec.class }) MagicUnitType xiji;
   public static @EntityDef({ Unitc.class, ShieldBlockc.class }) BuildShieldUnitType block;
 
