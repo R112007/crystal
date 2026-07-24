@@ -23,11 +23,13 @@ import crystal.content.CUnitCommands;
 import crystal.entities.mindustryX.MindustryXAdapter;
 import crystal.entities.mindustryX.MindustryXUnitc;
 import crystal.gen.Corec;
+import crystal.gen.MindustryXc;
 import crystal.type.CoreUnit;
 import crystal.type.CoreUnitType;
 import crystal.util.DLog;
 import crystal.world.blocks.stroage.CoreInjector;
 import crystal.world.blocks.stroage.MoveCoreSystem;
+import ent.anno.Annotations;
 import ent.anno.Annotations.EntityComponent;
 import ent.anno.Annotations.Import;
 import ent.anno.Annotations.MethodPriority;
@@ -75,7 +77,7 @@ import static mindustry.Vars.*;
 import java.lang.reflect.Field;
 
 @EntityComponent
-public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXUnitc {
+public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
   public ItemModule items = new ItemModule();
   public int storageCapacity;
   public boolean deployed = false;
@@ -88,7 +90,6 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXUnitc {
   public transient Seq<Building> nearbyBuildCache;
   public transient float cacheX, cacheY;
   public transient float cacheTime;
-  private transient MindustryXAdapter mindustryXAdapter = new MindustryXAdapter(self());
   public static final float moveThreshold = 2f;
   public static final int maxCacheFrames = 10;
   public ItemModule savedItems = new ItemModule();
@@ -106,8 +107,6 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXUnitc {
   float mineTimer, shield, health, shieldAlpha, hitTime, maxHealth;
   @Import
   boolean dead;
-  @Import
-  Seq<StatusEntry> statuses;
   public float idleTimer = 0f;
   public boolean autoSwitched = false;
   public Corec corec = self();
@@ -123,13 +122,6 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXUnitc {
       throw new IllegalArgumentException("CoreUnit must use CoreUnitType");
   }
 
-  @Override
-  public void heal() {
-    dead = false;
-    health = maxHealth;
-    mindustryXAdapter.fireHealthChanged(self());
-  }
-
   public @Nullable Item getOreItem(Tile tile) {
     if (type.mineFloor) {
       if (tile.floor() != null && tile.floor().itemDrop != null) {
@@ -143,30 +135,6 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXUnitc {
       return tile.block().itemDrop;
     }
     return null;
-  }
-
-  @Override
-  public Seq<StatusEntry> statuses() {
-    return statuses;
-  }
-
-  @Override
-  public void healthChanged() {
-    mindustryXAdapter.fireHealthChanged(self());
-  }
-
-  @Override
-  public float healthBalance() {
-    return mindustryXAdapter.getHealthBalance();
-  }
-
-  @Override
-  public void clampHealth() {
-    health = Math.min(health, maxHealth);
-    if (Float.isNaN(health))
-      health = 0.0F;
-
-    mindustryXAdapter.fireHealthChanged(self());
   }
 
   public ItemModule flowItems() {
@@ -474,7 +442,6 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXUnitc {
     }
     updateCatchItemFromPlayer();
     updateAutoCommand();
-    mindustryXAdapter.update(self());
   }
 
   @Override
@@ -516,7 +483,7 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXUnitc {
         Fx.unitShieldBreak.at(x(), y(), 0, type.shieldColor(self()), this);
       }
     }
-    mindustryXAdapter.fireHealthChanged(self());
+    amount = 0;
   }
 
   @Replace

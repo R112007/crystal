@@ -39,7 +39,7 @@ abstract class RetractableLegsComp implements Legsc {
     return baseRotation + (-90f) + 180f / legs.length + 360f / legs.length * index;
   }
 
-  @Insert(value = "update()", block = Legsc.class, after = true)
+  @Insert(value = "update()", block = Legsc.class)
   protected void updateRetractableLegs() {
     if (!(self() instanceof Corec core))
       return;
