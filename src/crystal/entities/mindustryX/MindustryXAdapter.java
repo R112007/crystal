@@ -6,6 +6,7 @@ import crystal.gen.MindustryXc;
 import mindustry.gen.Healthc;
 import mindustry.gen.Shieldc;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 /**
@@ -16,6 +17,7 @@ public class MindustryXAdapter {
     // MindustryX 事件类（静态，但每个实例共享检测结果）
     private static Class<?> HealthChanged;
     private static boolean hasHealthChanged;
+    private static Method fire;
 
     static {
         Class<?> cls = null;
@@ -23,7 +25,8 @@ public class MindustryXAdapter {
         try {
             HealthChanged = Class.forName("mindustryX.events.HealthChangedEvent");
             hasHealthChanged = true;
-        } catch (ClassNotFoundException ignored) {
+            fire = HealthChanged.getMethod("fire", Healthc.class, float.class);
+        } catch (ClassNotFoundException | NoSuchMethodException ignored) {
             hasHealthChanged = false;
         }
     }
@@ -48,6 +51,17 @@ public class MindustryXAdapter {
         entity.lastHealthChanged(entity.health());
     }
 
-    // 如果需要返回 statuses，则需要传入 entity 的 statuses 字段，
-    // 但 statuses 通常由组件提供，不在此适配器中管理。
+    /**
+     *应该可以用
+     * @param entity 生命变化的实体
+     * @param damage 生命变化的量，受到伤害就写正数，治疗就写负数
+     */
+    public static void fireHealthChanged(Healthc entity, float damage) {
+        if (!hasHealthChanged) return;
+        try {
+            fire.invoke(null, entity, damage);
+        } catch (Exception ignored) {
+        }
+    }
+
 }
