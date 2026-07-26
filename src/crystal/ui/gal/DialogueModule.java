@@ -51,8 +51,6 @@ public class DialogueModule {
     Seq<DialogueLine> copies = new Seq<>();
     for (int i = fromIndex; i < dialogueNodes.size; i++) {
       DialogueLine original = dialogueNodes.get(i);
-      if (original.nodeId != null && original.nodeId.contains("-branch-"))
-        continue;
       copies.add(original.copyForHistory());
     }
     return copies;
@@ -63,25 +61,21 @@ public class DialogueModule {
    * 文本、角色、立绘、表情、选项、回调与动作均保留，
    * 不影响原模块的进度与完成状态。
    *
-   * 已触发分支的节点不会预置进副本，而是保留分支选项 line；
-   * 玩家在回放时选择某个分支后，再把对应分支副本动态插入队列，
+   * 这里复制所有节点（包括已触发分支的节点），确保分支选项 line 一定存在；
+   * 玩家选择某个分支后，再在 showOptions 里把其它分支的节点清理掉，
    * 从而可以体验之前未选择的分支。
    */
   public Seq<DialogueLine> createReplayCopies() {
     Seq<DialogueLine> copies = new Seq<>();
     for (DialogueLine original : dialogueNodes) {
-      if (original.nodeId != null && original.nodeId.contains("-branch-"))
-        continue;
       copies.add(original.copyForReplay());
     }
     return copies;
   }
 
   public void appendToHistory(DialogueLine line) {
-    if (line == null || line.nodeId == null)
-      return;
-    if (playedNodeSet.contains(line.nodeId))
-      return;
+    if (line == null || line.nodeId == null) return;
+    if (playedNodeSet.contains(line.nodeId)) return;
     history.add(new DialogueHistory(
         this.moduleId,
         line.nodeId,
@@ -95,8 +89,7 @@ public class DialogueModule {
     int size = dialogueNodes.size;
     for (int i = 0; i < size; i++) {
       DialogueLine line = dialogueNodes.get(i);
-      if (line == null)
-        continue;
+      if (line == null) continue;
       line.moduleId = this.moduleId;
       line.nodeId = this.moduleId + "-" + (i + 1);
     }
@@ -128,8 +121,7 @@ public class DialogueModule {
 
   /** 获取当前进度节点。 */
   public DialogueLine getCurrentNode() {
-    if (progressIndex >= dialogueNodes.size)
-      return null;
+    if (progressIndex >= dialogueNodes.size) return null;
     return dialogueNodes.get(progressIndex);
   }
 
@@ -150,6 +142,9 @@ public class DialogueModule {
       dialogueNodes.set(originalMainNodes);
       setNodeIds();
     }
+    for (DialogueLine line : dialogueNodes) {
+      line.branchId = null;
+    }
     history.clear();
     playedNodeSet.clear();
     saveModuleData();
@@ -159,7 +154,10 @@ public class DialogueModule {
     String branchId = branch.id;
     if (!branchIds.contains(branchId)) {
       branchIds.add(branchId);
-      dialogueNodes.addAll(branch.nodes);
+      for (DialogueLine line : branch.nodes) {
+        line.branchId = branchId;
+        dialogueNodes.add(line);
+      }
       setNodeIds();
     }
   }
@@ -190,16 +188,14 @@ public class DialogueModule {
 
     if (isCompleted) {
       for (DialogueLine d : dialogueNodes) {
-        if (d == null || d.nodeId == null)
-          continue;
+        if (d == null || d.nodeId == null) continue;
         history.add(new DialogueHistory(moduleId, d.nodeId, d.characterName, d.content));
         playedNodeSet.add(d.nodeId);
       }
     } else {
       for (int i = 0; i < progressIndex; i++) {
         DialogueLine d = dialogueNodes.get(i);
-        if (d == null || d.nodeId == null)
-          continue;
+        if (d == null || d.nodeId == null) continue;
         history.add(new DialogueHistory(moduleId, d.nodeId, d.characterName, d.content));
         playedNodeSet.add(d.nodeId);
       }
@@ -211,10 +207,16 @@ public class DialogueModule {
       originalMainNodes = new Seq<>(this.dialogueNodes);
     }
     this.dialogueNodes.set(originalMainNodes);
+    for (DialogueLine line : dialogueNodes) {
+      line.branchId = null;
+    }
     for (String branchId : this.branchIds) {
       Branch targetBranch = Branch.branchIds.get(branchId);
       if (targetBranch != null) {
-        this.dialogueNodes.addAll(targetBranch.nodes);
+        for (DialogueLine line : targetBranch.nodes) {
+          line.branchId = branchId;
+          this.dialogueNodes.add(line);
+        }
       }
     }
     setNodeIds();

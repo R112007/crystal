@@ -24,6 +24,8 @@ import java.util.regex.Pattern;
 public class DialogueLine {
     public String nodeId;
     public String moduleId;
+    /** 该节点所属的分支 ID（null 表示主线节点）。 */
+    public String branchId;
 
     /** 左侧角色与表情。 */
     public Character leftCharacter;
@@ -272,6 +274,7 @@ public class DialogueLine {
         DialogueLine copy = new DialogueLine();
         copy.nodeId = this.nodeId;
         copy.moduleId = this.moduleId;
+        copy.branchId = this.branchId;
         copy.leftCharacter = this.leftCharacter;
         copy.leftExpression = this.leftExpression;
         copy.rightCharacter = this.rightCharacter;

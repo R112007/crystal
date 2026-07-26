@@ -51,10 +51,10 @@ public class CPlanets {
       }
     };
 
-    CPlanets.lx = new SaturnPlanet("lx", csun, 1.3f, 3) {
+    CPlanets.lx = new SaturnPlanet("lx", csun, 3f, 3) {
       {
-        minZoom = 0.1f; // 最远视角
-        maxZoom = 2.5f; // 最近视角
+        minZoom = 0.01f; // 最远视角
+        maxZoom = 5f; // 最近视角
         loadPlanetData = true;
         generator = new TantrosPlanetGenerator() {
           @Override

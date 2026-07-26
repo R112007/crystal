@@ -1,5 +1,6 @@
 package crystal.content.blocks;
 
+import crystal.world.blocks.liquid.CLiquidBridge;
 import mindustry.type.Category;
 import mindustry.type.ItemStack;
 import mindustry.world.Block;
@@ -87,7 +88,7 @@ public class CLiquidBlocks {
             ItemStack.with(new Object[] { lv, 8, boli, 4 }));
       }
     };
-    CLiquidBlocks.lvdaoguanqiao = new LiquidBridge("lvdaoguanqiao") {
+    CLiquidBlocks.lvdaoguanqiao = new CLiquidBridge("lvdaoguanqiao") {
       {
         this.size = 1;
         this.health = 250;

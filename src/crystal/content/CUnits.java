@@ -53,7 +53,7 @@ public class CUnits {
         this.buildSpeed = 1.5f;
         this.buildBeamOffset = 3.0f;
         this.mineWalls = true;
-        this.mineSpeed = 4.0f;
+        this.mineSpeed = 7.0f;
         this.mineTier = 1;
         this.mineRange = 100f;
         this.engineOffset = 6.5f;

@@ -3,6 +3,8 @@ package crystal.ui.gal;
 import arc.Core;
 import arc.graphics.Color;
 import arc.scene.actions.Actions;
+import arc.scene.event.ClickListener;
+import arc.scene.event.InputEvent;
 import arc.scene.event.ResizeListener;
 import arc.scene.event.Touchable;
 import arc.scene.style.Drawable;
@@ -15,6 +17,7 @@ import arc.scene.ui.layout.Scl;
 import arc.scene.ui.layout.Table;
 import arc.struct.Seq;
 import arc.util.Align;
+import arc.util.Log;
 import arc.util.Scaling;
 import crystal.ui.gal.DialogueLine.DialogueOption;
 import mindustry.Vars;
@@ -299,36 +302,59 @@ public class GalgameDialogueUI extends Table {
     public void showOptions(DialogueOption[] options) {
         optionTable.clear();
         optionTable.visible = true;
-        for (DialogueOption option : options) {
+        Log.info("[GalgameOptions] 显示选项: 共@个, 当前队列长度@", options.length, manager.dialogueQueue.size);
+        for (int idx = 0; idx < options.length; idx++) {
+            DialogueOption option = options[idx];
+            Log.info("[GalgameOptions] 选项@: text=@ branch=@ onSelect=@", idx, option.optionText,
+                    option.branch != null ? option.branch.id : "null", option.onSelect != null);
             TextButton btn = new TextButton(option.optionText, Styles.flatBordert);
             btn.getLabel().setWrap(true);
-            btn.clicked(() -> {
-                optionTable.visible = false;
-                optionTable.clear();
-                boolean restore = manager.cachedAutoPlayBeforeOption;
-                manager.cachedAutoPlayBeforeOption = false;
-                if (option.branch != null) {
-                    if (manager.isReplayManager) {
-                        // 副本回放：直接在当前队列开头插入分支副本，可播放之前未选分支
-                        Seq<DialogueLine> copies = option.branch.createReplayCopies();
-                        for (int i = copies.size - 1; i >= 0; i--) {
-                            manager.dialogueQueue.insert(0, copies.get(i));
+            btn.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    event.stop();
+                    optionTable.visible = false;
+                    optionTable.clear();
+                    boolean restore = manager.cachedAutoPlayBeforeOption;
+                    manager.cachedAutoPlayBeforeOption = false;
+                    Log.info("[GalgameOptions] 点击选项: text=@ branch=@ replay=@", option.optionText,
+                            option.branch != null ? option.branch.id : "null", manager.isReplayManager);
+                    Log.info("[GalgameOptions] 点击前队列长度@", manager.dialogueQueue.size);
+                    if (option.branch != null) {
+                        String selectedId = option.branch.id;
+                        // 先清理未选中的其它分支节点，避免同时播放多个分支
+                        manager.dialogueQueue
+                                .removeAll(line -> line.branchId != null && !line.branchId.equals(selectedId));
+
+                        if (manager.isReplayManager) {
+                            // 副本回放：把已选中分支的旧副本也清掉，避免重复插入
+                            manager.dialogueQueue
+                                    .removeAll(line -> line.branchId != null && line.branchId.equals(selectedId));
+                            Seq<DialogueLine> copies = option.branch.createReplayCopies();
+                            Log.info("[GalgameReplay] 选择分支: @ (节点数: @)", option.branch.id, copies.size);
+                            for (int i = copies.size - 1; i >= 0; i--) {
+                                manager.dialogueQueue.insert(0, copies.get(i));
+                            }
+                        } else if (option.onSelect == null) {
+                            // 正常/回溯模式：没有额外回调时，直接走 Manager 追加分支
+                            manager.addBranch(option.branch);
                         }
-                    } else if (option.onSelect == null) {
-                        // 正常模式：没有额外回调时，直接走 Manager 追加分支
-                        manager.addBranch(option.branch);
                     }
-                }
-                if (option.onSelect != null) {
-                    option.onSelect.get(option);
-                }
-                if (!manager.isTyping && !manager.dialogueQueue.isEmpty()) {
-                    Core.app.post(manager::nextLine);
-                }
-                if (restore) {
-                    manager.isAutoPlay = true;
-                    updateAutoPlayButton();
-                    manager.startAutoPlay();
+                    if (option.onSelect != null) {
+                        option.onSelect.get(option);
+                    }
+                    Log.info("[GalgameOptions] 点击后队列长度@", manager.dialogueQueue.size);
+                    if (!manager.isTyping && !manager.dialogueQueue.isEmpty()) {
+                        Core.app.post(manager::nextLine);
+                    } else {
+                        Log.info("[GalgameOptions] 未触发nextLine: isTyping=@ queueEmpty=@", manager.isTyping,
+                                manager.dialogueQueue.isEmpty());
+                    }
+                    if (restore) {
+                        manager.isAutoPlay = true;
+                        updateAutoPlayButton();
+                        manager.startAutoPlay();
+                    }
                 }
             });
             optionTable.add(btn).growX()

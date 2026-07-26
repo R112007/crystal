@@ -2,6 +2,8 @@ package crystal.entities.comp;
 
 import crystal.entities.mindustryX.MindustryXAdapter;
 import crystal.entities.mindustryX.MindustryXUnitc;
+import crystal.gen.MindustryXc;
+import ent.anno.Annotations;
 import ent.anno.Annotations.EntityComponent;
 import ent.anno.Annotations.Import;
 import ent.anno.Annotations.SyncLocal;
@@ -33,7 +35,7 @@ import crystal.type.BuildShieldUnit;
 import crystal.type.BuildShieldUnitType;
 
 @EntityComponent
-abstract class ShieldBuilderComp implements Unitc, MindustryXUnitc {
+abstract class ShieldBuilderComp implements Unitc, MindustryXc {
   @Import
   UnitType type;
   @Import
@@ -62,61 +64,10 @@ abstract class ShieldBuilderComp implements Unitc, MindustryXUnitc {
   public boolean drawArc = true;
   protected static Vec2 paramPos = new Vec2();
   protected static Cons<Bullet> bulletc;
-  private transient MindustryXAdapter mindustryXAdapter = new MindustryXAdapter(self());
 
   @Override
   public Seq<StatusEntry> statuses() {
     return statuses;
-  }
-
-  @Override
-  public void rawDamage(float amount) {
-    boolean hadShields = shield > 1.0E-4F;
-    if (Float.isNaN(health))
-      health = 0.0F;
-    if (hadShields) {
-      shieldAlpha = 1.0F;
-    }
-    float shieldDamage = Math.min(Math.max(shield, 0), amount);
-    shield -= shieldDamage;
-    hitTime = 1.0F;
-    amount -= shieldDamage;
-    if (amount > 0 && type.killable) {
-      health -= amount;
-      if (health <= 0 && !dead) {
-        kill();
-      }
-      if (hadShields && shield <= 1.0E-4F) {
-        Fx.unitShieldBreak.at(x, y, 0, type.shieldColor(self()), this);
-      }
-    }
-    healthChanged();
-  }
-
-  @Override
-  public float healthBalance() {
-    return mindustryXAdapter.getHealthBalance();
-  }
-
-  @Override
-  public void healthChanged() {
-    mindustryXAdapter.fireHealthChanged(self());
-  }
-
-  @Override
-  public void heal() {
-    dead = false;
-    health = maxHealth;
-    healthChanged();
-  }
-
-  @Override
-  public void clampHealth() {
-    health = Math.min(health, maxHealth);
-    if (Float.isNaN(health))
-      health = 0.0F;
-
-    healthChanged();
   }
 
   @Override
@@ -186,7 +137,6 @@ abstract class ShieldBuilderComp implements Unitc, MindustryXUnitc {
     } else {
       widthScale = Mathf.lerpDelta(widthScale, 0f, 0.11f);
     }
-    mindustryXAdapter.update(self());
   }
 
   @Override

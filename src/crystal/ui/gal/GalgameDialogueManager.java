@@ -584,9 +584,18 @@ public class GalgameDialogueManager {
 
   public void resetAllProgress() {
     hide();
+    isShowing = false;
+    isPlaying = false;
+    isPlayingModule = false;
+    isTyping = false;
+    isAutoPlay = false;
+    cachedAutoPlayBeforeOption = false;
+    stopAutoPlay();
+    dialogueQueue.clear();
+    currentLine = null;
+    lastPlayedCharacterId = null;
     modules.each(DialogueModule::resetProgress);
     currentModuleId = null;
-    lastPlayedCharacterId = null;
     Core.settings.remove(KEY_CURRENT_MODULE);
     clearWaitingQueue();
   }

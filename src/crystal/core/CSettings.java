@@ -72,18 +72,19 @@ public class CSettings {
       table.row();
 
       // 清空所有历史
-      table.pref(new SettingsMenuDialog.SettingsTable.Setting("crystal.clearallhistory") {
-        @Override
-        public void add(SettingsTable t) {
-          t.button(Core.bundle.get("clearallhistory"), Icon.trash, Styles.flatt, () -> {
-            ui.showConfirm(Core.bundle.get("confirm"), Core.bundle.get("clearallhistory.confirm"), () -> {
-              instance.clearAllDialogueHistory();
-              ui.showInfo(Core.bundle.get("clearallhistory.done"));
-            });
-          }).size(300f, 60f).left().marginLeft(4f).padTop(8f);
-          t.row();
-        }
-      });
+      if (CVars.debug)
+        table.pref(new SettingsMenuDialog.SettingsTable.Setting("crystal.clearallhistory") {
+          @Override
+          public void add(SettingsTable t) {
+            t.button(Core.bundle.get("clearallhistory"), Icon.trash, Styles.flatt, () -> {
+              ui.showConfirm(Core.bundle.get("confirm"), Core.bundle.get("clearallhistory.confirm"), () -> {
+                instance.clearAllDialogueHistory();
+                ui.showInfo(Core.bundle.get("clearallhistory.done"));
+              });
+            }).size(300f, 60f).left().marginLeft(4f).padTop(8f);
+            t.row();
+          }
+        });
 
       // 修改玩家名字
       table.pref(new SettingsMenuDialog.SettingsTable.Setting("crystal.changeplayername") {
@@ -116,18 +117,19 @@ public class CSettings {
       });
 
       // 清空所有模块进度
-      table.pref(new SettingsMenuDialog.SettingsTable.Setting("crystal.clearallmodel") {
-        @Override
-        public void add(SettingsTable t) {
-          t.button(Core.bundle.get("clearallmodel"), Icon.trash, Styles.flatt, () -> {
-            ui.showConfirm(Core.bundle.get("confirm"), Core.bundle.get("clearallmodel.confirm"), () -> {
-              GalgameDialogueManager.instance.resetAllProgress();
-              ui.showInfo(Core.bundle.get("clearallmodel.done"));
-            });
-          }).size(300f, 60f).left().marginLeft(4f).padTop(8f);
-          t.row();
-        }
-      });
+      if (CVars.debug)
+        table.pref(new SettingsMenuDialog.SettingsTable.Setting("crystal.clearallmodel") {
+          @Override
+          public void add(SettingsTable t) {
+            t.button(Core.bundle.get("clearallmodel"), Icon.trash, Styles.flatt, () -> {
+              ui.showConfirm(Core.bundle.get("confirm"), Core.bundle.get("clearallmodel.confirm"), () -> {
+                GalgameDialogueManager.instance.resetAllProgress();
+                ui.showInfo(Core.bundle.get("clearallmodel.done"));
+              });
+            }).size(300f, 60f).left().marginLeft(4f).padTop(8f);
+            t.row();
+          }
+        });
     });
   }
 

@@ -19,6 +19,8 @@ import arc.struct.*;
 import arc.util.*;
 import crystal.game.UnitInfo;
 import crystal.world.blocks.stroage.MoveCoreSystem;
+import crystal.aviation.Satellite;
+import crystal.aviation.SatelliteManager;
 import mindustry.*;
 import mindustry.content.*;
 import mindustry.content.TechTree.*;
@@ -62,6 +64,7 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
     public PlanetParams state = new PlanetParams();
     public float zoom = 1f;
     public @Nullable Sector selected, hovered, launchSector;
+    public @Nullable Satellite selectedSatellite;
     /** Must not be null in planet launch mode. */
     public @Nullable Seq<Planet> launchCandidates;
     public Mode mode = look;
@@ -235,6 +238,7 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
         mode = look;
         state.otherCamPos = null;
         selected = hovered = launchSector = null;
+        selectedSatellite = null;
         launching = false;
 
         zoom = 1f;
@@ -390,6 +394,50 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
     public void lookAt(Sector sector, float alpha) {
         float len = state.camPos.len();
         state.camPos.slerp(sector.planet.lookAt(sector, Tmp.v33).setLength(len), alpha);
+    }
+
+    /** 将视角聚焦到指定卫星（相机置于卫星方向、距离为 camLength 的位置）。 */
+    public void lookAt(Satellite satellite) {
+        if (satellite == null || satellite.planet != state.planet)
+            return;
+        selectedSatellite = satellite;
+        updateSatelliteCameraPosition(satellite);
+    }
+
+    /** 根据卫星当前轨道位置更新相机，使其始终保持在视野中央。 */
+    private void updateSatelliteCameraPosition(Satellite satellite) {
+        if (satellite == null || satellite.planet != state.planet)
+            return;
+        float r = satellite.planet.radius * satellite.orbitRadius;
+        float sx = Mathf.cos(satellite.orbitAngle) * r;
+        float sy = Mathf.sin(satellite.orbitAngle) * r * Mathf.cos(satellite.orbitTilt);
+        float sz = Mathf.sin(satellite.orbitAngle) * r * Mathf.sin(satellite.orbitTilt);
+        state.camPos.set(sx, sy, sz).setLength(camLength);
+    }
+
+    /** 进入当前选中的卫星地图。 */
+    public void enterSelectedSatellite() {
+        if (selectedSatellite == null)
+            return;
+        if (SatelliteManager.enterSatelliteMap(selectedSatellite)) {
+            hide();
+            ui.showInfoFade("已进入卫星 \"" + selectedSatellite.name + "\"");
+        }
+    }
+
+    /** 从卫星视角返回行星视角。 */
+    public void returnToPlanet() {
+        selectedSatellite = null;
+        if (state.planet != null) {
+            Sector last = state.planet.getLastSector();
+            if (last != null) {
+                lookAt(last);
+            } else if (!state.planet.sectors.isEmpty()) {
+                lookAt(state.planet.sectors.get(state.planet.startSector));
+            }
+        }
+        updateSelected();
+        rebuildExpand();
     }
 
     void clampZoom() {
@@ -574,7 +622,8 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
                         // use white for content icons
                         Draw.color(preficon == icon && sec.info.contentIcon != null ? Color.white : color,
                                 state.uiAlpha);
-                        Draw.rect(icon, 0, 0, iw, iw * icon.height / icon.width);
+                        Draw.rect(icon, 0, 0, iw * sec.planet.radius,
+                                (iw * icon.height / icon.width) * sec.planet.radius);
                     });
                 }
             }
@@ -790,6 +839,12 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
                     }
                 }).visible(() -> mode != select),
 
+                // 卫星列表（左侧中部）
+                new Table(t -> {
+                    t.left();
+                    rebuildSatelliteList(t);
+                }).visible(() -> mode == look && SatelliteManager.countForPlanet(state.planet) > 0),
+
                 new Table(c -> expandTable = c)).grow();
         rebuildExpand();
     }
@@ -896,6 +951,47 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
         }).grow().scrollX(false);
     }
 
+    /** 重建当前星球的卫星列表（左侧中部）。 */
+    void rebuildSatelliteList(Table parent) {
+        parent.clearChildren();
+        parent.left();
+
+        // 内层面板带背景，避免父 Table（铺满整个 stack）背景压暗整个界面
+        Table panel = new Table(Styles.black6);
+        panel.margin(8f);
+        panel.defaults().padBottom(4f);
+
+        panel.add("[accent]卫星列表").padBottom(8f).row();
+
+        Table list = new Table();
+        ScrollPane pane = new ScrollPane(list, Styles.smallPane);
+        pane.setScrollingDisabled(true, false);
+        panel.add(pane).width(200f).maxHeight(240f).row();
+
+        for (Satellite s : SatelliteManager.satellites.values()) {
+            if (s.planet != state.planet)
+                continue;
+
+            list.button(b -> {
+                b.left().defaults().growX();
+                b.add(s.name).wrap().growX();
+            }, Styles.flatTogglet, () -> {
+                lookAt(s);
+            }).width(190f).height(38f)
+                    .update(bb -> bb.setChecked(selectedSatellite != null && selectedSatellite.id == s.id)).row();
+        }
+
+        panel.button("进入", Icon.play, () -> {
+            enterSelectedSatellite();
+        }).size(140f, 46f).padTop(8f).disabled(b -> selectedSatellite == null).row();
+
+        panel.button("返回行星", Icon.left, () -> {
+            returnToPlanet();
+        }).size(140f, 46f).padTop(6f).disabled(b -> selectedSatellite == null);
+
+        parent.add(panel);
+    }
+
     public Planet getHoverPlanet(float mouseX, float mouseY) {
         Planet hoverPlanet = null;
         float nearest = Float.POSITIVE_INFINITY;
@@ -928,6 +1024,7 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
             clampZoom();
 
             selected = null;
+            selectedSatellite = null;
             updateSelected();
             rebuildExpand();
             settings.put("lastplanet", planet.name);
@@ -980,6 +1077,11 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
         // fade in sector dialog after panning
         if (sectorTop != null && state.otherCamPos == null) {
             sectorTop.color.a = Mathf.lerpDelta(sectorTop.color.a, 1f, 0.1f);
+        }
+
+        // 若选中了卫星且处于浏览模式，持续让卫星保持在视野中央
+        if (mode == look && selectedSatellite != null && state.otherCamPos == null) {
+            updateSatelliteCameraPosition(selectedSatellite);
         }
 
         if (hovered != null && state.planet.hasGrid()) {

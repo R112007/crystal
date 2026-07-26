@@ -64,8 +64,8 @@ public class Storys {
 
     public void init() {
         initCharacters();
-        initModels();
         initBranches();
+        initModels();
         registerModules();
         registerEvents();
     }
@@ -75,13 +75,14 @@ public class Storys {
             Time.runTask(5f, () -> {
                 Vars.renderer.minimap.updateAll();
             });
-            if (e.sector.id == LxMaps.jianglindian.sector.id) {
+            if (e.sector.planet == LxMaps.jianglindian.sector.planet
+                    && e.sector.name() == LxMaps.jianglindian.sector.name()) {
                 Time.runTask(300f, () -> {
                     if (GalgameDialogueManager.instance != null) {
                         GalgameDialogueManager.instance.playModule(jianglindian_lanuch);
                     }
                 });
-            } else if (e.sector.id == LxMaps.jingliuduanxia.sector.id) {
+            } else if (e.sector == LxMaps.jingliuduanxia.sector) {
                 Time.runTask(300f, () -> {
                     if (GalgameDialogueManager.instance != null) {
                         GalgameDialogueManager.instance.playModule(jingliuduanxia_launch);

@@ -15,12 +15,14 @@ import arc.struct.Seq;
 import arc.util.Time;
 import arc.util.Tmp;
 import crystal.Crystal;
+import crystal.entities.mindustryX.MindustryXAdapter;
 import crystal.entities.shentong.FaTianXiangDi;
 import crystal.gen.FaShen;
 import crystal.gen.FaShenc;
 import crystal.gen.Magicc;
 import crystal.gen.MechMagicUnit;
 import crystal.util.DLog;
+import ent.anno.Annotations;
 import ent.anno.Annotations.EntityComponent;
 import ent.anno.Annotations.EntityDef;
 import ent.anno.Annotations.Import;
@@ -134,6 +136,7 @@ public abstract class FaShenComp implements Teamc, Hitboxc, Velc, Drawc, Healthc
       health = 0.0F;
     health -= amount;
     hitTime = 1.0F;
+    MindustryXAdapter.fireHealthChanged(self(), amount);
     if (health <= 0 && !dead) {
       kill();
     }
@@ -283,6 +286,18 @@ public abstract class FaShenComp implements Teamc, Hitboxc, Velc, Drawc, Healthc
   @Replace
   public boolean canPass(int tileX, int tileY) {
     return true;
+  }
+
+  @Annotations.MethodPriority(999f)
+  @Override
+  public void heal(float amount) {
+    MindustryXAdapter.fireHealthChanged(self(), -amount);
+  }
+
+  @Annotations.MethodPriority(-999f)
+  @Override
+  public void heal() {
+    MindustryXAdapter.fireHealthChanged(self(), maxHealth - health);
   }
 
   @Override

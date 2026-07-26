@@ -8,6 +8,7 @@ import arc.struct.Seq;
 import arc.util.Log;
 import arc.util.Time;
 import crystal.audio.CMusics;
+import crystal.aviation.CrystalAviationMod;
 import crystal.content.CBlocks;
 import crystal.content.CEnvironment;
 import crystal.content.CIcons;
@@ -52,10 +53,12 @@ import crystal.world.blocks.stroage.MoveCoreSystem;
 import mindustry.Vars;
 import mindustry.core.UI;
 import mindustry.core.Version;
+import mindustry.core.GameState.State;
 import mindustry.editor.MapEditorDialog;
 import mindustry.editor.MapInfoDialog;
 import mindustry.entities.Units;
 import mindustry.game.EventType.ClientLoadEvent;
+import mindustry.game.EventType.StateChangeEvent;
 import mindustry.game.EventType.TapEvent;
 import mindustry.game.EventType.Trigger;
 import mindustry.gen.Building;
@@ -102,6 +105,7 @@ public class Crystal extends Mod {
     SpecialUnits.load();
     CBlocks.load();
     HZRBlocks.load();
+    CrystalAviationMod.loadAllContent();
     if (CVars.debug)
       Test.load();
     Test2.load();
@@ -301,6 +305,18 @@ public class Crystal extends Mod {
           }
         }
       });
+      replacePause();
+    });
+  }
+
+  public void replacePause() {
+    Events.run(Trigger.update, () -> {
+      if (Vars.ui.paused.isShown()) {
+        Vars.ui.paused.hide();
+        if (!CVars.cui.cpause.isShown()) {
+          CVars.cui.cpause.show();
+        }
+      }
     });
   }
 

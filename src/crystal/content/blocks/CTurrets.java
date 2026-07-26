@@ -150,7 +150,7 @@ public class CTurrets {
         this.width = 6f;
         this.height = 10f;
         this.splashDamage = 25f;
-        this.splashDamageRadius = 15;
+        this.splashDamageRadius = 12;
       }
     };
 
@@ -174,15 +174,14 @@ public class CTurrets {
         this.ammo(CItems.lv, zhentianbullet, CItems.li, zhentianbullet, CItems.cuguijing,
             new BasicBulletType(6, 6f) {
               {
-                this.reloadMultiplier = 1.5f;
                 this.knockback = 0.2f;
                 this.lifetime = 32f;
                 this.width = 6f;
                 this.height = 10f;
                 this.splashDamage = 30f;
-                this.splashDamageRadius = 18;
+                this.splashDamageRadius = 12;
                 this.fragBullets = 4;
-                this.fragBullet = new BasicBulletType(2f, 16f) {
+                this.fragBullet = new BasicBulletType(2f, 10f) {
                   {
                     this.lifetime = 30;
                   }

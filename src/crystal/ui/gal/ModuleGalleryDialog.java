@@ -11,6 +11,7 @@ import arc.scene.ui.layout.Table;
 import arc.struct.Seq;
 import arc.util.Log;
 import mindustry.Vars;
+import mindustry.gen.Icon;
 import mindustry.gen.Tex;
 import mindustry.ui.Styles;
 import mindustry.ui.dialogs.BaseDialog;
@@ -135,7 +136,7 @@ public class ModuleGalleryDialog extends BaseDialog {
                     return first.rightSprite;
             }
         }
-        return Tex.whiteui;
+        return Icon.lock;
     }
 
     @Override
