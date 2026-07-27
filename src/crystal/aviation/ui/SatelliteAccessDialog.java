@@ -53,31 +53,21 @@ public class SatelliteAccessDialog extends BaseDialog {
         }
     }
 
-    /** 从卫星地图返回之前的星球区块 */
+    /** 从卫星地图返回星球界面（不再直接进入区块）。 */
     public static void exitToSector() {
+        SatelliteManager.setExitingSatellite(true);
         Satellite current = SatelliteManager.get(SatelliteManager.currentSatelliteId);
         if (current != null) {
             current.mapData.captureFromWorld();
             // 立即持久化到 settings，防止后续加载普通区块存档时旧数据覆盖
             SatelliteManager.save();
-            Log.info("[CrystalAviation] Saved satellite @ before returning to sector.", current.id);
+            Log.info("[CrystalAviation] Saved satellite @ before returning to planet.", current.id);
         }
         SatelliteManager.currentSatelliteId = -1;
-
-        // 恢复进入卫星前记录的区块，而不是用当前已被清空的 state.rules.sector
-        Sector returnTo = SatelliteManager.lastSector;
         SatelliteManager.lastSector = null;
+        SatelliteManager.setExitingSatellite(false);
 
-        if (returnTo != null) {
-            try {
-                control.playSector(returnTo);
-            } catch (Exception e) {
-                Log.err("[CrystalAviation] Failed to return to sector from satellite", e);
-                ui.planet.show();
-            }
-        } else {
-            // 没有可返回的区块，回到星球界面
-            ui.planet.show();
-        }
+        // 显示星球界面，让玩家自己选择区块
+        ui.planet.show();
     }
 }

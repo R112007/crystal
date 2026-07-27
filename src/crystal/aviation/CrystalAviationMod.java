@@ -19,16 +19,10 @@ public class CrystalAviationMod {
     public static Block satelliteLauncher;
     /** 卫星控制中心（选择目标区块） */
     public static Block satelliteControlCenter;
-    /** 卫星对接港 */
-    public static Block satelliteDockingPort;
     /** 卫星扩容信标 */
     public static Block satelliteExpansionBeacon;
     /** 卫星太阳能阵列 */
     public static Block satelliteSolarArray;
-    /** 卫星资源扫描仪 */
-    public static Block satelliteResourceScanner;
-    /** 卫星量子中继器 */
-    public static Block satelliteRelay;
 
     /** 默认卫星地板（可在卫星数据里自定义） */
     public static final String defaultSatelliteFloor = "metal-floor";
@@ -56,14 +50,6 @@ public class CrystalAviationMod {
             }
         };
 
-        satelliteDockingPort = new SatelliteDockingPort("satellite-docking-port") {
-            {
-                size = 2;
-                this.requirements(Category.units, ItemStack.with(new Object[] { Items.copper, 1 }));
-                this.alwaysUnlocked = true;
-            }
-        };
-
         satelliteExpansionBeacon = new SatelliteExpansionBeacon("satellite-expansion-beacon") {
             {
                 size = 2;
@@ -79,22 +65,6 @@ public class CrystalAviationMod {
                 this.alwaysUnlocked = true;
             }
         };
-
-        satelliteResourceScanner = new SatelliteResourceScanner("satellite-resource-scanner") {
-            {
-                size = 2;
-                this.requirements(Category.units, ItemStack.with(new Object[] { Items.copper, 1 }));
-                this.alwaysUnlocked = true;
-            }
-        };
-
-        satelliteRelay = new SatelliteRelay("satellite-relay") {
-            {
-                size = 2;
-                this.requirements(Category.units, ItemStack.with(new Object[] { Items.copper, 1 }));
-                this.alwaysUnlocked = true;
-            }
-        };
         // 注册自定义存档块，确保卫星数据随地图存档一起保存
         SatelliteManager.registerSaveChunk();
 
@@ -104,19 +74,26 @@ public class CrystalAviationMod {
             SatelliteRenderer.init();
         });
         Events.on(WorldLoadEvent.class, e -> SatelliteManager.onWorldLoaded());
-        Events.on(SaveWriteEvent.class, e -> SatelliteManager.save());
+        // 任意游戏存档写入前，若当前在卫星地图中则先捕获世界状态，避免建筑丢失
+        Events.on(SaveWriteEvent.class, e -> SatelliteManager.onSaveWrite());
+        // 每帧更新，用于 30 秒自动保存
+        Events.run(Trigger.update, () -> SatelliteManager.update());
 
-        // 游戏状态重置前（如退出到菜单），若当前在卫星地图中则立即保存卫星数据
+        // 游戏状态重置前（如退出到菜单），若当前在卫星地图中则立即捕获并保存卫星数据
+        // 进入卫星地图时 logic.reset() 也会触发该事件，需跳过避免覆盖未加载完成的数据
         Events.on(ResetEvent.class, e -> {
-            if (SatelliteManager.currentSatelliteId >= 0) {
-                Log.info("[CrystalAviation] ResetEvent with satellite @, skipping capture (entities already cleared).",
-                        SatelliteManager.currentSatelliteId);
+            if (SatelliteManager.currentSatelliteId >= 0 && !SatelliteManager.isEnteringSatellite()
+                    && !SatelliteManager.isExitingSatellite()) {
+                SatelliteManager.resetRuntimeState(true);
             }
         });
         // 进入菜单状态时重置卫星运行时状态，避免旧状态污染下一场游戏
+        // 此时世界已被 logic.reset() 清空，不能再次捕获，否则保存的卫星地图会是空地图
+        // 进入卫星地图时也会先进入 menu 状态，需跳过
         Events.on(StateChangeEvent.class, e -> {
-            if (e.to == State.menu) {
-                SatelliteManager.resetRuntimeState();
+            if (e.to == State.menu && !SatelliteManager.isEnteringSatellite()
+                    && !SatelliteManager.isExitingSatellite()) {
+                SatelliteManager.resetRuntimeState(false);
             }
         });
     }

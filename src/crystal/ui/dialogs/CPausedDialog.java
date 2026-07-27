@@ -43,6 +43,11 @@ public class CPausedDialog extends BaseDialog {
         shown(() -> {
             rebuild();
 
+            // 打开暂停菜单时自动保存当前卫星地图
+            if (SatelliteManager.currentSatelliteId >= 0) {
+                SatelliteManager.onPauseDialogOpen();
+            }
+
             if (state.isCampaign()) {
                 state.getPlanet().saveStats();
             }
@@ -221,17 +226,21 @@ public class CPausedDialog extends BaseDialog {
 
         // 在重置世界前先保存卫星地图，否则 logic.reset() 会清空实体，导致保存空地图
         if (SatelliteManager.currentSatelliteId >= 0) {
+            SatelliteManager.setExitingSatellite(true);
             crystal.aviation.Satellite current = SatelliteManager.get(SatelliteManager.currentSatelliteId);
             if (current != null) {
                 current.mapData.captureFromWorld();
                 SatelliteManager.save();
                 Log.info("[CrystalAviation] Captured satellite @ before exit to menu.", current.id);
             }
+            // 立即重置运行时状态，防止随后的 ResetEvent/StateChangeEvent 再次捕获已被清空的世界
+            SatelliteManager.resetRuntimeState(false);
         }
 
         if (control.saves.getCurrent() == null || !control.saves.getCurrent().isAutosave() || wasClient
                 || state.gameOver || disableSave) {
             logic.reset();
+            SatelliteManager.setExitingSatellite(false);
             return;
         }
 
@@ -244,6 +253,7 @@ public class CPausedDialog extends BaseDialog {
                     ui.showException("[accent]" + Core.bundle.get("savefail"), e);
                 }
                 logic.reset();
+                SatelliteManager.setExitingSatellite(false);
             });
         }
     }

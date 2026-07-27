@@ -140,13 +140,13 @@ public class UI {
         Core.atlas.find("crystal-r"), "瑟瑟的始发点");
 
     Seq<Contributor> others = Seq.with(
-        new Contributor("白小惜", "贴图画师", false, "群主老婆，负责画画。", Core.atlas.find("crystal-bai"), "小惜老婆"),
-        new Contributor("花开了吗", "贴图画师", false, "画画外加提供猎奇想法", Core.atlas.find("crystal-hua"), "合晶"),
+        new Contributor("白小惜", "会画画的老婆", false, "群主老婆，负责画画。", Core.atlas.find("crystal-bai"), "小惜老婆"),
+        new Contributor("花开了吗", "会画画的基友", false, "画画外加提供猎奇想法", Core.atlas.find("crystal-hua"), "合晶"),
         new Contributor("ZXS", "eve的父母", false, "eve真好用", Core.atlas.find("crystal-zxs"), "猫娘"),
         new Contributor("小凡", "bus", false, "天天戏弄群主的臭杂鱼~", Core.atlas.find("crystal-fan"), "小凡大人"),
         new Contributor("RC-C814", "测试伙伴", false, "群主好朋友，天天聊天，交换想法", Core.atlas.find("crystal-rc"), "望星"),
         new Contributor("CN方柠喵FNM ~喵", "可rua猫", false, "陪群主玩", Core.atlas.find("crystal-js"), "随便rua"),
-        new Contributor("?!人人!?", "留有遗产", false, "我直接偷吃遗产（", Core.atlas.find("crystal-qin"), "高人红红~"));
+        new Contributor("?!人人!?", "留有遗产的基友", false, "我直接偷吃遗产（", Core.atlas.find("crystal-qin"), "高人红红~"));
 
     relativeDialog.setContributors(root, others);
 

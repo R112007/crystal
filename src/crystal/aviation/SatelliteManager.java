@@ -23,9 +23,10 @@ import static mindustry.Vars.*;
  * 负责：创建、查询、更新、存档/读档。
  */
 public class SatelliteManager {
-    private static final String settingsKey = "crystal-aviation-satellites";
+    private static final String settingsKey = "crystal-aviation-satellites-v2";
+    private static final String settingsKeyLegacy = "crystal-aviation-satellites";
     private static final String chunkName = "crystal-aviation";
-    private static final byte revision = 8;
+    private static final byte revision = 9;
 
     /** 所有卫星 */
     public static final ObjectMap<Integer, Satellite> satellites = new ObjectMap<>();
@@ -35,23 +36,73 @@ public class SatelliteManager {
     public static @Nullable Sector lastSector = null;
     /** 每颗星球最多允许的卫星数量 */
     public static final int maxSatellitesPerPlanet = 8;
+    /** 防止 captureFromWorld 触发 SaveWriteEvent 导致递归 */
+    private static boolean capturingWorld = false;
+    /** 标记是否正在进入卫星地图（用于跳过 logic.reset 产生的 ResetEvent/StateChangeEvent） */
+    private static boolean enteringSatellite = false;
+    /** 标记是否正在退出卫星地图（防止退出过程中 ResetEvent/StateChangeEvent 再次捕获空世界） */
+    private static boolean exitingSatellite = false;
+
+    /** 自动保存计时器（单位：tick，1 秒 ≈ 60 tick） */
+    private static float autoSaveTimer = 0f;
+    /** 自动保存间隔：30 秒 */
+    private static final float autoSaveInterval = 30f * 60f;
+
+    public static boolean isEnteringSatellite() {
+        return enteringSatellite;
+    }
+
+    public static boolean isExitingSatellite() {
+        return exitingSatellite;
+    }
+
+    public static void setExitingSatellite(boolean value) {
+        exitingSatellite = value;
+    }
+
+    public static boolean isCapturingWorld() {
+        return capturingWorld;
+    }
+
+    public static void setCapturingWorld(boolean value) {
+        capturingWorld = value;
+    }
 
     public static void load() {
         satellites.clear();
-        String data = Core.settings.getString(settingsKey, "");
-        if (data == null || data.isEmpty())
-            return;
-        try {
-            byte[] bytes = Base64Coder.decode(data);
-            loadBytes(bytes);
-        } catch (Throwable t) {
-            Log.err("[CrystalAviation] Failed to load satellites", t);
+        boolean migrated = false;
+        byte[] bytes = Core.settings.getBytes(settingsKey, null);
+        if (bytes == null || bytes.length == 0) {
+            String data = Core.settings.getString(settingsKeyLegacy, "");
+            if (data != null && !data.isEmpty()) {
+                try {
+                    bytes = Base64Coder.decode(data);
+                    migrated = true;
+                    Log.info("[CrystalAviation] Migrated satellite data from legacy Base64 key.");
+                } catch (Throwable t) {
+                    Log.err("[CrystalAviation] Failed to decode legacy satellite Base64", t);
+                }
+            }
+        }
+        if (bytes != null && bytes.length > 0) {
+            try {
+                loadBytes(bytes);
+            } catch (Throwable t) {
+                Log.err("[CrystalAviation] Failed to load satellites", t);
+            }
+        }
+        if (migrated) {
+            save();
         }
     }
 
     public static void save() {
         try {
-            Core.settings.put(settingsKey, new String(Base64Coder.encode(saveBytes())));
+            byte[] data = saveBytes();
+            Core.settings.put(settingsKey, data);
+            Core.settings.remove(settingsKeyLegacy);
+            Core.settings.forceSave();
+            Log.info("[CrystalAviation] Satellites persisted to settings (binary, @ bytes).", data.length);
         } catch (Throwable t) {
             Log.err("[CrystalAviation] Failed to save satellites", t);
         }
@@ -116,9 +167,11 @@ public class SatelliteManager {
             @Override
             public void read(DataInput stream) throws IOException {
                 int length = stream.readInt();
-                byte[] data = new byte[length];
-                stream.readFully(data);
-                loadBytes(data);
+                // 该 chunk 不再作为权威数据源（统一走 Core.settings），旧存档中的数据直接丢弃，
+                // 防止加载旧地图存档时覆盖当前 settings 里的最新卫星数据。
+                if (length > 0) {
+                    stream.skipBytes(length);
+                }
             }
 
             /**
@@ -137,6 +190,22 @@ public class SatelliteManager {
                 return false;
             }
         });
+    }
+
+    /** 任意游戏存档写入前调用。若当前在卫星地图中，先把世界状态捕获到 saveData，再保存 settings。 */
+    public static void onSaveWrite() {
+        if (capturingWorld || exitingSatellite || currentSatelliteId < 0)
+            return;
+        Satellite current = satellites.get(currentSatelliteId);
+        if (current != null) {
+            try {
+                current.mapData.captureFromWorld();
+                save();
+                Log.info("[CrystalAviation] Captured satellite @ before save write.", currentSatelliteId);
+            } catch (Throwable t) {
+                Log.err("[CrystalAviation] Failed to capture satellite world before save write", t);
+            }
+        }
     }
 
     /** 创建并注册一颗新卫星 */
@@ -254,6 +323,49 @@ public class SatelliteManager {
             if (s.isDockMaster())
                 s.update();
         }
+
+        // 30 秒自动保存：仅在当前处于卫星地图中且未在捕获世界时触发
+        if (currentSatelliteId >= 0) {
+            autoSaveTimer += Time.delta;
+            if (autoSaveTimer >= autoSaveInterval) {
+                autoSaveTimer = 0f;
+                onAutoSave();
+            }
+        } else {
+            autoSaveTimer = 0f;
+        }
+    }
+
+    /** 自动保存回调。 */
+    public static void onAutoSave() {
+        if (capturingWorld || exitingSatellite || currentSatelliteId < 0)
+            return;
+        Satellite current = satellites.get(currentSatelliteId);
+        if (current != null) {
+            try {
+                current.mapData.captureFromWorld();
+                save();
+                Log.info("[CrystalAviation] Auto-saved satellite @.", currentSatelliteId);
+            } catch (Throwable t) {
+                Log.err("[CrystalAviation] Failed to auto-save satellite world", t);
+            }
+        }
+    }
+
+    /** 打开暂停对话框时保存。 */
+    public static void onPauseDialogOpen() {
+        if (capturingWorld || exitingSatellite || currentSatelliteId < 0)
+            return;
+        Satellite current = satellites.get(currentSatelliteId);
+        if (current != null) {
+            try {
+                current.mapData.captureFromWorld();
+                save();
+                Log.info("[CrystalAviation] Saved satellite @ on pause dialog open.", currentSatelliteId);
+            } catch (Throwable t) {
+                Log.err("[CrystalAviation] Failed to save satellite world on pause dialog open", t);
+            }
+        }
     }
 
     /** 重置运行时卫星状态。退出到菜单或返回主界面时应调用，避免把旧的运行时状态带入下一场游戏。 */
@@ -269,9 +381,10 @@ public class SatelliteManager {
     public static void resetRuntimeState(boolean capture) {
         if (currentSatelliteId >= 0) {
             Satellite current = satellites.get(currentSatelliteId);
-            if (current != null && capture) {
+            if (current != null && capture && !exitingSatellite) {
                 try {
                     current.mapData.captureFromWorld();
+                    save();
                     Log.info("[CrystalAviation] Captured satellite @ before reset.", currentSatelliteId);
                 } catch (Throwable t) {
                     Log.err("[CrystalAviation] Failed to capture satellite world during reset", t);
@@ -281,6 +394,8 @@ public class SatelliteManager {
         }
         currentSatelliteId = -1;
         lastSector = null;
+        // 退出流程结束，清除标记
+        exitingSatellite = false;
     }
 
     public static void onWorldLoaded() {
@@ -349,8 +464,10 @@ public class SatelliteManager {
         // 如果已经在某颗卫星地图中，先保存当前世界
         if (currentSatelliteId >= 0) {
             Satellite current = satellites.get(currentSatelliteId);
-            if (current != null)
+            if (current != null) {
                 current.mapData.captureFromWorld();
+                save();
+            }
         } else if (state.isGame() && control.saves.getCurrent() != null) {
             // 在普通区块中：保存当前区块，避免数据丢失
             try {
@@ -365,6 +482,7 @@ public class SatelliteManager {
         final int targetId = s.id;
         final Satellite target = s;
 
+        enteringSatellite = true;
         ui.loadAnd(() -> {
             try {
                 currentSatelliteId = targetId;
@@ -392,7 +510,11 @@ public class SatelliteManager {
 
                 // 进入游戏状态
                 state.set(State.playing);
-                logic.play();
+                // 卫星地图跳过 logic.play()，避免其清空核心库存并重新添加 loadout
+                Events.fire(new PlayEvent());
+
+                // 断开当前存档槽位，防止在卫星内部时自动保存覆盖原星球区块存档
+                control.saves.resetSave();
 
                 Log.info("[CrystalAviation] Entered satellite @ (@)", target.id, target.name);
             } catch (Throwable t) {
@@ -412,6 +534,8 @@ public class SatelliteManager {
                         ui.planet.show();
                     }
                 });
+            } finally {
+                enteringSatellite = false;
             }
         });
         return true;

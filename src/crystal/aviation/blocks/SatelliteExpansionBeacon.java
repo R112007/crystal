@@ -10,37 +10,39 @@ import arc.util.io.Writes;
 import crystal.aviation.Satellite;
 import crystal.aviation.SatelliteManager;
 import crystal.aviation.world.SatelliteMapData;
+import mindustry.content.Blocks;
 import mindustry.game.Team;
 import mindustry.gen.Building;
 import mindustry.graphics.Drawf;
 import mindustry.graphics.Pal;
 import mindustry.type.Category;
+import mindustry.type.Item;
 import mindustry.type.ItemStack;
 import mindustry.ui.Styles;
 import mindustry.world.Block;
 import mindustry.world.Tile;
-import mindustry.world.blocks.defense.Wall;
+import mindustry.world.blocks.environment.Floor;
 import mindustry.world.meta.BlockGroup;
 import mindustry.world.meta.BuildVisibility;
 
 import static mindustry.Vars.*;
 
 /**
- * 卫星扩容信标（UnitAssembler 式虚线框扩展）。
+ * 卫星扩容信标（衰变式地板扩展）。
  *
- * 放置时会显示一个朝向可选的虚线框；虚线框必须至少覆盖一格当前卫星地图边界墙，
- * 否则无法放置。建筑会根据虚线框实际覆盖的墙数量动态计算物品消耗：
- * 总消耗 = baseItemCost × 覆盖墙格数。
+ * 放置时会显示一个朝向可选的虚线框；虚线框必须至少覆盖一格当前卫星地图的 void 地板，
+ * 否则无法放置。建筑会根据虚线框实际覆盖的 void 格数动态计算物品消耗：
+ * 总消耗 = baseItemCost × void 格数。
  *
- * 当物品与电力（若配置了 powerUse）都满足后，自动把虚线框向外超出当前地图的
- * 部分扩展为新的可建造区域。
+ * 当物品与电力（若配置了 powerUse）都满足后，自动把虚线框内的 void 地板转换为可建造地板，
+ * 并扩展卫星可建造范围；随后该建筑自毁（与衰变 FloorBuilder 机制一致）。
  */
 public class SatelliteExpansionBeacon extends Block {
 
     /** 虚线框边长（格数），可调。 */
     public int areaSize = 7;
 
-    /** 每覆盖一格墙的基础物品消耗。 */
+    /** 每转换一格 void 地板的基础物品消耗。 */
     public ItemStack[] baseItemCost = new ItemStack[] {
             new ItemStack(mindustry.content.Items.silicon, 10),
             new ItemStack(mindustry.content.Items.titanium, 5)
@@ -69,10 +71,10 @@ public class SatelliteExpansionBeacon extends Block {
     @Override
     public void init() {
         // 根据最大可能消耗设置库存容量，确保能装下全部扩展材料。
-        int maxWall = areaSize;
+        int maxVoid = areaSize * areaSize;
         int maxSingle = 0;
         for (ItemStack stack : baseItemCost) {
-            maxSingle = Math.max(maxSingle, stack.amount * maxWall);
+            maxSingle = Math.max(maxSingle, stack.amount * maxVoid);
         }
         itemCapacity = Math.max(itemCapacity, maxSingle * 2 + 10);
 
@@ -143,39 +145,17 @@ public class SatelliteExpansionBeacon extends Block {
         Satellite s = SatelliteManager.get(SatelliteManager.currentSatelliteId);
         if (s == null || s.mapData == null)
             return false;
-        if (world == null || world.tiles == null)
-            return false;
 
         int[] b = getTileBounds(tile.x, tile.y, rotation);
-        return countWallTiles(b[0], b[1], b[2], b[3]) > 0;
-    }
-
-    /** 统计整数范围内覆盖的 Wall 类型方块数量。虚线框必须覆盖至少一格墙才能放置。 */
-    public static int countWallTiles(int left, int bottom, int right, int top) {
-        int count = 0;
-        int w = world.tiles.width;
-        int h = world.tiles.height;
-        int x0 = Math.max(left, 0);
-        int x1 = Math.min(right, w - 1);
-        int y0 = Math.max(bottom, 0);
-        int y1 = Math.min(top, h - 1);
-
-        for (int y = y0; y <= y1; y++) {
-            for (int x = x0; x <= x1; x++) {
-                Tile t = world.tile(x, y);
-                if (t != null && t.block() instanceof Wall)
-                    count++;
-            }
-        }
-        return count;
+        return s.mapData.countVoidTiles(b[0], b[1], b[2], b[3]) > 0;
     }
 
     public class SatelliteExpansionBeaconBuild extends Building {
         public int satelliteId = -1;
         public boolean expanded = false;
 
-        /** 当前帧计算出的覆盖墙数量。 */
-        public transient int wallCount = 0;
+        /** 当前帧计算出的覆盖 void 格数量。 */
+        public transient int voidCount = 0;
         /** 当前帧计算出的动态消耗。 */
         public transient ItemStack[] currentCost = new ItemStack[0];
 
@@ -196,7 +176,7 @@ public class SatelliteExpansionBeacon extends Block {
                 return;
 
             recalculateCost();
-            if (wallCount <= 0)
+            if (voidCount <= 0)
                 return;
 
             // 检查物品
@@ -217,34 +197,40 @@ public class SatelliteExpansionBeacon extends Block {
                 }
                 expandMap(s);
                 expanded = true;
+                // 衰变式机制：转换完成后自毁
+                Core.app.post(() -> {
+                    if (!dead && tile != null) {
+                        tile.setBlock(Blocks.air);
+                    }
+                });
             }
         }
 
-        /** 根据建筑朝向与位置重新计算虚线框覆盖的墙数及对应消耗。 */
+        /** 根据建筑朝向与位置重新计算虚线框覆盖的 void 格数及对应消耗。 */
         void recalculateCost() {
+            Satellite s = SatelliteManager.get(satelliteId);
+            if (s == null || s.mapData == null) {
+                voidCount = 0;
+                currentCost = new ItemStack[0];
+                return;
+            }
             int[] b = getTileBounds(tile.x, tile.y, rotation);
-            wallCount = countWallTiles(b[0], b[1], b[2], b[3]);
+            voidCount = s.mapData.countVoidTiles(b[0], b[1], b[2], b[3]);
 
             currentCost = new ItemStack[baseItemCost.length];
             for (int i = 0; i < baseItemCost.length; i++) {
-                currentCost[i] = new ItemStack(baseItemCost[i].item, baseItemCost[i].amount * wallCount);
+                currentCost[i] = new ItemStack(baseItemCost[i].item, baseItemCost[i].amount * voidCount);
             }
         }
 
-        /** 根据虚线框覆盖的可建造边界墙执行定向扩展。 */
+        /** 根据虚线框覆盖的 void 区域执行地板扩展。 */
         void expandMap(Satellite s) {
             SatelliteMapData data = s.mapData;
             int[] b = getTileBounds(tile.x, tile.y, rotation);
-            int left = b[0], bottom = b[1], right = b[2], top = b[3];
-
-            // 新机制：实际地图尺寸不变，只扩大可建造范围。
-            // 扩展量 = 虚线框超出当前可建造范围的部分。
-            int expandLeft = Math.max(0, data.buildableLeft - left);
-            int expandRight = Math.max(0, right - data.buildableRight);
-            int expandBottom = Math.max(0, data.buildableBottom - bottom);
-            int expandTop = Math.max(0, top - data.buildableTop);
-
-            data.expand(expandLeft, expandRight, expandBottom, expandTop);
+            int converted = data.expandArea(b[0], b[1], b[2], b[3]);
+            if (converted > 0) {
+                ui.showInfoFade("已扩展 " + converted + " 格卫星区域");
+            }
         }
 
         @Override
@@ -255,14 +241,45 @@ public class SatelliteExpansionBeacon extends Block {
         }
 
         @Override
+        public boolean acceptItem(Building source, Item item) {
+            if (expanded || item == null)
+                return false;
+            recalculateCost();
+            for (ItemStack stack : currentCost) {
+                if (stack.item == item) {
+                    return items.get(item) < stack.amount;
+                }
+            }
+            return false;
+        }
+
+        @Override
+        public void handleItem(Building source, Item item) {
+            items.add(item, 1);
+            // 物品到达后立即尝试扩展（updateTile 会检查全部条件）
+            recalculateCost();
+        }
+
+        @Override
+        public int getMaximumAccepted(Item item) {
+            recalculateCost();
+            for (ItemStack stack : currentCost) {
+                if (stack.item == item) {
+                    return stack.amount;
+                }
+            }
+            return 0;
+        }
+
+        @Override
         public void buildConfiguration(Table table) {
             table.defaults().pad(4f);
-            table.add("虚线框覆盖墙格数: ").style(Styles.outlineLabel);
-            table.add(String.valueOf(wallCount)).style(Styles.outlineLabel);
+            table.add("虚线框覆盖 void 格数: ").style(Styles.outlineLabel);
+            table.add(String.valueOf(voidCount)).style(Styles.outlineLabel);
             table.row();
 
             if (currentCost.length == 0) {
-                table.add("当前不覆盖任何地图墙").style(Styles.outlineLabel);
+                table.add("当前不覆盖任何可扩展区域").style(Styles.outlineLabel);
             } else {
                 table.add("扩展所需物品:").style(Styles.outlineLabel);
                 table.row();
