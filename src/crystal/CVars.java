@@ -10,7 +10,7 @@ import crystal.type.GongFa;
 
 public class CVars {
   public static int maxVersion = 159;
-  public static boolean debug = true;
+  public static boolean debug = false;
   public static boolean chooseNewRoad = false;
   public static UI cui = new UI();
   public static String modName = "crystal";

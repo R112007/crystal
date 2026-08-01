@@ -2,6 +2,7 @@ package crystal.aviation.ui;
 
 import arc.*;
 import arc.math.*;
+import arc.math.geom.*;
 import arc.scene.ui.*;
 import arc.scene.ui.layout.*;
 import arc.struct.*;
@@ -12,8 +13,11 @@ import mindustry.ui.dialogs.*;
 
 import crystal.aviation.*;
 
+import static mindustry.Vars.*;
+
 /**
  * 在卫星上选择要移动到的目标区块。
+ * 选择后卫星会解除旧绑定、移动到目标区块上方，并跟随该区块自转。
  */
 public class SatelliteSectorDialog extends BaseDialog{
     public SatelliteSectorDialog(Satellite satellite){
@@ -25,7 +29,7 @@ public class SatelliteSectorDialog extends BaseDialog{
             return;
         }
 
-        Seq<Sector> available = planet.sectors.select(s -> s.hasBase() || s.unlocked() || s.preset != null);
+        Seq<Sector> available = planet.sectors.select(s -> s.hasBase());
 
         ScrollPane pane = new ScrollPane(new Table(), Styles.defaultPane);
         Table table = (Table)pane.getWidget();
@@ -33,12 +37,13 @@ public class SatelliteSectorDialog extends BaseDialog{
         for(Sector sector : available){
             String label = sector.id + ": " + (sector.preset != null ? sector.preset.localizedName : "Sector " + sector.id);
             table.button(label, Styles.cleart, () -> {
-                // 计算目标角度：指向该 sector 的方向
-                float targetAngle = Mathf.atan2(sector.tile.v.x, sector.tile.v.y);
+                // 计算目标角度：指向该 sector 的世界方向（已包含星球自转）
+                Vec3 dir = Tmp.v31.set(sector.tile.v).rotate(Vec3.Y, satellite.planet.getRotation());
+                float targetAngle = Mathf.atan2(dir.z, dir.x);
                 // 先解除旧绑定再重新绑定，确保可以移动
                 satellite.unbindSector();
                 satellite.startMove(targetAngle, 120f); // 2秒动画
-                satellite.bindToSector(sector.id);      // 移动结束后静止在区块上方
+                satellite.bindToSector(sector.id);      // 移动结束后跟随区块自转
                 hide();
             }).width(280f).pad(4f).row();
         }

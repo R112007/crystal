@@ -19,6 +19,7 @@ import mindustry.graphics.g3d.*;
 
 import crystal.aviation.*;
 import crystal.aviation.blocks.*;
+import crystal.aviation.blocks.SatelliteUpgradeCenter;
 
 import java.io.*;
 import java.util.zip.InflaterInputStream;
@@ -57,11 +58,11 @@ public class SatelliteMapData {
     /** 当前可建造区域上边界（包含） */
     public int buildableTop;
     /** 可建造地板方块名称 */
-    public String floorName = CrystalAviationMod.defaultSatelliteFloor;
+    public String floorName = CrystalAviationSystemCore.defaultSatelliteFloor;
     /** 外部 void/未探索地板方块名称 */
     public String voidFloorName = Blocks.empty.name;
     /** 核心方块名称 */
-    public String coreName = "core-shard";
+    public String coreName = "space-core";
 
     /** 卫星世界存档数据（SaveIO 格式的 .msav 字节流，包含地形与实体）。这是唯一的持久化地图状态。 */
     public byte[] saveData = new byte[0];
@@ -106,17 +107,13 @@ public class SatelliteMapData {
      * 其余区域为 void 地板。扩展时把 void 地板转换为可建造地板，无需重载世界。
      */
     public void generateDefault() {
-        Floor buildableFloor = (Floor) content.block(floorName);
-        if (buildableFloor == null)
-            buildableFloor = (Floor) content.block(CrystalAviationMod.defaultSatelliteFloor);
-        if (buildableFloor == null)
-            buildableFloor = (Floor) Blocks.metalFloor;
+        // 强制使用 spaceFloor 作为可建造地板，忽略存档中可能存在的旧 floorName
+        Floor buildableFloor = resolveSpaceFloor();
+        Floor voidFloor = resolveVoidFloor();
 
-        Floor voidFloor = (Floor) content.block(voidFloorName);
-        if (voidFloor == null)
-            voidFloor = (Floor) Blocks.empty;
-
-        Block core = content.block(coreName);
+        Block core = CrystalAviationSystemCore.spaceCore;
+        if (core == null)
+            core = content.block(coreName);
         if (core == null)
             core = Blocks.coreShard;
 
@@ -141,16 +138,58 @@ public class SatelliteMapData {
             }
         }
 
-        // 注意：2x2 建筑在 Mindustry 中占据 [x, x+1] x [y, y+1]，
-        // 3x3 核心占据 [cx-1, cx+1] x [cy-1, cy+1]。
-        // 以下坐标均经过间距校验，确保不重叠。
-        // 只保留卫星中枢、太阳能阵列、扩展信标。
+        // spaceCore 为 4x4，satelliteControlCenter 为 4x4，
+        // 在核心右侧紧邻放置一个卫星控制中心，其余建筑不生成。
         placeBuildingLocal(centerX, centerY, core, Team.sharded, 0, null);
-        placeBuildingLocal(centerX + 3, centerY, CrystalAviationMod.satelliteControlCenter, Team.sharded, 0, null);
-        placeBuildingLocal(centerX, centerY + 4, CrystalAviationMod.satelliteSolarArray, Team.sharded, 0, null);
-        placeBuildingLocal(centerX, centerY - 4, CrystalAviationMod.satelliteSolarArray, Team.sharded, 0, null);
+        placeBuildingLocal(centerX + 4, centerY, CrystalAviationSystemCore.satelliteControlCenter, Team.sharded, 0,
+                null);
 
         rebuildBuildings();
+    }
+
+    /** 获取当前注册的可建造地板，优先使用 spaceCore 中定义的 spaceFloor。 */
+    private Floor resolveSpaceFloor() {
+        Floor floor = CrystalAviationSystemCore.spaceFloor != null ? (Floor) CrystalAviationSystemCore.spaceFloor : null;
+        if (floor == null)
+            floor = (Floor) content.block(CrystalAviationSystemCore.defaultSatelliteFloor);
+        if (floor == null)
+            floor = (Floor) content.block(floorName);
+        if (floor == null)
+            floor = (Floor) Blocks.metalFloor;
+        return floor;
+    }
+
+    /** 获取外部 void 地板。 */
+    private Floor resolveVoidFloor() {
+        Floor floor = (Floor) content.block(voidFloorName);
+        if (floor == null)
+            floor = (Floor) Blocks.empty;
+        return floor;
+    }
+
+    /**
+     * 将 transient tiles 中所有可建造区域内的地板强制替换为 spaceFloor。
+     * 用于兼容旧存档中保存的 metal-floor 等旧地板，确保玩家进入卫星地图时看到的是 spaceFloor。
+     */
+    public void migrateToSpaceFloor() {
+        if (tiles == null)
+            return;
+        Floor spaceFloor = resolveSpaceFloor();
+        Floor voidFloor = resolveVoidFloor();
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                TileEntry e = tiles[y][x];
+                boolean inside = x >= buildableLeft && x <= buildableRight
+                        && y >= buildableBottom && y <= buildableTop;
+                Block floor = content.block(e.floor);
+                if (inside) {
+                    e.floor = spaceFloor.name;
+                } else if (floor != voidFloor) {
+                    e.floor = voidFloor.name;
+                }
+            }
+        }
+        floorName = spaceFloor.name;
     }
 
     /** 是否使用了自定义地图文件 */
@@ -303,7 +342,7 @@ public class SatelliteMapData {
                         e.floor = floor.name;
                     } else {
                         Floor fallback = (Floor) content.block(floorName);
-                        e.floor = fallback != null ? fallback.name : CrystalAviationMod.defaultSatelliteFloor;
+                        e.floor = fallback != null ? fallback.name : CrystalAviationSystemCore.defaultSatelliteFloor;
                     }
                     return t;
                 }
@@ -335,7 +374,6 @@ public class SatelliteMapData {
 
         ensureHasCore();
         rebuildBuildings();
-        Log.info("[CrystalAviation] Decoded map @x@, buildings: @", width, height, buildings.size);
     }
 
     /** 确保 transient tiles 已就绪。优先从 saveData 解码，其次自定义地图，最后默认生成。 */
@@ -351,17 +389,16 @@ public class SatelliteMapData {
                 try {
                     loadFromMapFile(customMapFile);
                 } catch (Exception e) {
-                    Log.err("[CrystalAviation] Failed to reload custom map '@', using default.", customMapPath);
-                    Log.err(e);
                     generateDefault();
                 }
             } else {
-                Log.warn("[CrystalAviation] Custom map file missing '@', using default.", customMapPath);
                 generateDefault();
             }
         } else {
             generateDefault();
         }
+        // 强制把可建造区域地板替换为 spaceFloor（兼容旧存档）
+        migrateToSpaceFloor();
         return tiles;
     }
 
@@ -388,10 +425,7 @@ public class SatelliteMapData {
             buildableBottom = Mathf.clamp(oldBottom, 1, height - 2);
             buildableTop = Mathf.clamp(oldTop, 1, height - 2);
 
-            Log.info("[CrystalAviation] Decoded saveData @x@, bounds L@ R@ B@ T@, buildings: @", width, height,
-                    buildableLeft, buildableRight, buildableBottom, buildableTop, buildings.size);
         } catch (Exception e) {
-            Log.err("[CrystalAviation] Failed to decode satellite saveData, using default.", e);
             saveData = new byte[0];
             generateDefault();
         }
@@ -410,7 +444,9 @@ public class SatelliteMapData {
             }
         }
         int cx = width / 2, cy = height / 2;
-        Block core = content.block(coreName);
+        Block core = CrystalAviationSystemCore.spaceCore;
+        if (core == null)
+            core = content.block(coreName);
         if (core == null)
             core = Blocks.coreShard;
         placeBuildingLocal(cx, cy, core, Team.sharded, 0, null);
@@ -471,23 +507,31 @@ public class SatelliteMapData {
                     temp.writeBytes(saveData);
                     SaveIO.load(temp);
 
+                    // 污染校验：加载的存档必须是当前卫星的卫星地图，不能是区块地图。
+                    // 若 saveData 被 sector 数据覆盖，tags 会不匹配或 rules.sector 不为 null。
+                    String loadedTag = state.map != null ? state.map.tags.get("crystal-aviation-satellite") : null;
+                    if (loadedTag == null || !loadedTag.equals(String.valueOf(targetId)) || state.rules.sector != null) {
+                        Log.warn("Satellite @ saveData is contaminated (tag='@', sector='@'), falling back to tiles",
+                                targetId, loadedTag, state.rules.sector);
+                        throw new IOException("Satellite saveData contaminated with sector data");
+                    }
+
                     width = world.tiles.width;
                     height = world.tiles.height;
                     centerX = width / 2;
                     centerY = height / 2;
+
+                    // 强制替换存档中的旧地板为 spaceFloor
+                    replaceWorldFloorsWithSpaceFloor();
 
                     restoreSatelliteMapTags(targetId);
                     applySatelliteRules();
                     setupBackgroundRules();
                     rebindBuildings();
 
-                    Log.info("[CrystalAviation] Loaded satellite @ from saveData (@x@), buildings: @, units: @",
-                            targetId, width, height, Groups.build.size(), Groups.unit.size());
                     return;
                 } catch (Exception e) {
-                    Log.err("[CrystalAviation] Failed to load satellite saveData for @, falling back to tiles.", targetId);
-                    Log.err(e);
-                    // 加载失败时保留 saveData 以便调试，并继续走 tiles 回退
+                    // 加载失败或被污染时保留 saveData 以便调试，并继续走 tiles 回退
                 }
             }
 
@@ -496,7 +540,6 @@ public class SatelliteMapData {
 
             // 2. 验证 saveData 是否成功解码；失败则清空，走默认 tiles
             if (hadSaveData && (tiles == null || tiles.length == 0 || tiles[0].length == 0)) {
-                Log.err("[CrystalAviation] saveData decoded to empty tiles for satellite @, using fallback.", targetId);
                 saveData = new byte[0];
                 ensureTiles();
             }
@@ -515,8 +558,6 @@ public class SatelliteMapData {
             setupBackgroundRules();
             rebindBuildings();
         } catch (Exception e) {
-            Log.err("[CrystalAviation] Failed to apply satellite world @", targetId);
-            Log.err(e);
         }
     }
 
@@ -529,30 +570,17 @@ public class SatelliteMapData {
      */
     private void applyFallbackToWorld(int targetId, boolean captureAfter) {
         ensureTiles();
-        Log.info("[CrystalAviation] Applying satellite @ from transient tiles (@x@), captureAfter=@", targetId, width,
-                height, captureAfter);
         world.loadGenerator(width, height, genTiles -> {
-            Floor buildableFloor = (Floor) content.block(floorName);
-            if (buildableFloor == null)
-                buildableFloor = (Floor) Blocks.metalFloor;
-            Floor voidFloor = (Floor) content.block(voidFloorName);
-            if (voidFloor == null)
-                voidFloor = (Floor) Blocks.empty;
+            Floor buildableFloor = resolveSpaceFloor();
+            Floor voidFloor = resolveVoidFloor();
 
             // 第一步：铺设全部地板，避免多格建筑 setBlock 时相邻 tile 尚未初始化
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
                     TileEntry e = tiles[y][x];
-                    Block floor = content.block(e.floor);
-                    if (!(floor instanceof Floor))
-                        floor = buildableFloor;
-
                     boolean inside = x >= buildableLeft && x <= buildableRight
                             && y >= buildableBottom && y <= buildableTop;
                     Floor targetFloor = inside ? buildableFloor : voidFloor;
-                    if (floor != targetFloor && floor != voidFloor && floor != buildableFloor) {
-                        targetFloor = inside ? (Floor) floor : voidFloor;
-                    }
 
                     genTiles.set(x, y, new Tile(x, y, targetFloor, Blocks.air, Blocks.air));
                 }
@@ -575,21 +603,39 @@ public class SatelliteMapData {
                             try {
                                 tile.build.configured(null, e.config);
                             } catch (Throwable t) {
-                                Log.warn("[CrystalAviation] Failed to configure building '@' at @,@: @", block.name, x,
-                                        y, t.getMessage());
                             }
                         }
                     }
                 }
             }
-            Log.info("[CrystalAviation] Fallback placed @ buildings from transient tiles.", placed);
         });
 
         // 只有从 tiles（无 saveData）回退生成时，才需要捕获为 saveData；否则已有 saveData 无需重复写入
         if (captureAfter) {
             captureFromWorld();
             SatelliteManager.save();
-            Log.info("[CrystalAviation] Captured fallback satellite @ to saveData.", targetId);
+        }
+    }
+
+    /** 将当前已加载世界中的可建造区域地板强制替换为 spaceFloor（兼容旧存档）。 */
+    private void replaceWorldFloorsWithSpaceFloor() {
+        if (world == null || world.tiles == null)
+            return;
+        Floor spaceFloor = resolveSpaceFloor();
+        Floor voidFloor = resolveVoidFloor();
+        for (int y = 0; y < world.tiles.height; y++) {
+            for (int x = 0; x < world.tiles.width; x++) {
+                Tile t = world.tile(x, y);
+                if (t == null)
+                    continue;
+                boolean inside = x >= buildableLeft && x <= buildableRight
+                        && y >= buildableBottom && y <= buildableTop;
+                if (inside && t.floor() != spaceFloor) {
+                    t.setFloor(spaceFloor);
+                } else if (!inside && t.floor() != voidFloor) {
+                    t.setFloor(voidFloor);
+                }
+            }
         }
     }
 
@@ -650,7 +696,6 @@ public class SatelliteMapData {
             return;
         // 防御：菜单/重置状态下世界可能已被清空，不应覆盖有效存档
         if (state != null && state.isMenu()) {
-            Log.warn("[CrystalAviation] Skipped satellite capture because game state is menu.");
             return;
         }
         SatelliteManager.setCapturingWorld(true);
@@ -682,10 +727,7 @@ public class SatelliteMapData {
             tiles = null;
             buildings.clear();
 
-            Log.info("[CrystalAviation] Captured satellite @ world: @x@, saveData: @ bytes, buildings: @, units: @",
-                    satellite != null ? satellite.id : -1, width, height, saveData.length, Groups.build.size(), Groups.unit.size());
         } catch (Exception e) {
-            Log.err("[CrystalAviation] Failed to capture satellite world", e);
         } finally {
             SatelliteManager.setCapturingWorld(false);
         }
@@ -705,6 +747,8 @@ public class SatelliteMapData {
                     ((SatelliteExpansionBeacon.SatelliteExpansionBeaconBuild) tile.build).satelliteId = satellite.id;
                 } else if (tile.block() instanceof SatelliteSolarArray) {
                     ((SatelliteSolarArray.SatelliteSolarArrayBuild) tile.build).satelliteId = satellite.id;
+                } else if (tile.block() instanceof SatelliteUpgradeCenter) {
+                    ((SatelliteUpgradeCenter.SatelliteUpgradeCenterBuild) tile.build).satelliteId = satellite.id;
                 }
             }
         }
@@ -1087,6 +1131,11 @@ public class SatelliteMapData {
             resetBuildableBounds();
         }
         floorName = read.str();
+        // 强制把卫星地图地板更新为 spaceFloor，忽略旧存档中的 metal-floor 等旧值
+        Floor spaceFloor = resolveSpaceFloor();
+        if (spaceFloor != null) {
+            floorName = spaceFloor.name;
+        }
         if (revision >= 9) {
             voidFloorName = read.str();
         } else {

@@ -10,6 +10,7 @@ import mindustry.game.*;
 import mindustry.gen.*;
 import mindustry.ui.dialogs.*;
 import crystal.aviation.SatelliteManager;
+import crystal.aviation.input.SatelliteMissileInputHandler;
 
 import static mindustry.Vars.*;
 
@@ -255,6 +256,9 @@ public class CPausedDialog extends BaseDialog {
                 logic.reset();
                 SatelliteManager.setExitingSatellite(false);
             });
+        }
+        if (SatelliteMissileInputHandler.orbitalStrikeMode) {
+            SatelliteMissileInputHandler.exitToMenu();
         }
     }
 }

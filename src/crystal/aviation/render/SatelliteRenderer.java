@@ -61,6 +61,8 @@ public class SatelliteRenderer{
 
         for(Satellite s : SatelliteManager.satellites.values()){
             if(!s.isDockMaster()) continue;
+            // 若卫星位于星球背面（从相机看被星球本体遮挡），则跳过模型渲染
+            if(isOccludedByPlanet(s, cam)) continue;
             drawSatellite(batch, s);
             drawDockedSatellites(batch, s);
             drawOrbitRing(batch, s);
@@ -69,11 +71,44 @@ public class SatelliteRenderer{
         batch.flush(Gl.triangles);
     }
 
+    /** 判断卫星是否被其所属星球本体遮挡。 */
+    static boolean isOccludedByPlanet(Satellite s, Camera3D cam){
+        if(s.planet == null) return false;
+        Vec3 camPos = cam.position;
+        Vec3 planetPos = s.planet.position;
+        Vec3 satPos = tmp.set(s.renderX, s.renderY, s.renderZ);
+
+        Vec3 camToSat = new Vec3(satPos).sub(camPos);
+        Vec3 camToPlanet = new Vec3(planetPos).sub(camPos);
+        float satDist2 = camToSat.len2();
+        float planetDist2 = camToPlanet.len2();
+
+        // 相机在星球内部时不做遮挡
+        if(planetDist2 <= s.planet.radius * s.planet.radius) return false;
+
+        // 将星球中心投影到相机->卫星的连线上
+        float t = camToPlanet.dot(camToSat) / satDist2;
+        if(t <= 0f || t >= 1f) return false;
+
+        Vec3 closest = new Vec3(camToSat).scl(t).add(camPos);
+        return closest.dst2(planetPos) < s.planet.radius * s.planet.radius;
+    }
+
     static void drawSatellite(VertexBatch3D batch, Satellite s){
         Vec3 pos = tmp.set(s.renderX, s.renderY, s.renderZ);
         float scale = 0.08f * s.visualScale * s.planet.radius;
         float spin = s.spinAngle;
+        int model = Mathf.clamp(s.tier, 1, 3);
 
+        switch(model){
+            case 1 -> drawModel1(batch, pos, scale, spin, s);
+            case 2 -> drawModel2(batch, pos, scale, spin, s);
+            default -> drawModel3(batch, pos, scale, spin, s);
+        }
+    }
+
+    /** 基础卫星模型：简单核心 + 四片太阳能板 */
+    static void drawModel1(VertexBatch3D batch, Vec3 pos, float scale, float spin, Satellite s){
         // 主体：中央圆柱形核心舱（近似八棱柱）
         drawOctPrism(batch, pos, scale * 0.55f, scale * 1.6f, bodyMid, bodyLight, bodyDark);
 
@@ -94,7 +129,6 @@ public class SatelliteRenderer{
             float baseAngle = i * Mathf.PI / 2f;
             float bx = Mathf.cos(baseAngle) * scale * 0.85f;
             float bz = Mathf.sin(baseAngle) * scale * 0.85f;
-            // 翼面远端相对位置（受 spin 影响）
             float dx = cos * wingSpan;
             float dz = sin * wingSpan;
             Vec3 base = tmp2.set(pos).add(bx, 0, bz);
@@ -102,7 +136,7 @@ public class SatelliteRenderer{
             drawPanel(batch, base, end, wingW, wingH, (i % 2 == 0) ? panelBase : panelGrid);
         }
 
-        // 顶部通讯天线（碟形近似）
+        // 顶部通讯天线
         tmp2.set(pos).add(0, scale * 0.95f, 0);
         drawDish(batch, tmp2, scale * 0.55f, glow);
 
@@ -112,10 +146,122 @@ public class SatelliteRenderer{
         tmp2.add(0, -scale * 0.22f, 0);
         drawGlow(batch, tmp2, scale * 0.18f, thrust);
 
-        // 对接桁架（若已对接）
+        // 对接桁架
         if(s.dockedSatellites.size > 0){
             tmp2.set(pos).add(0, 0, scale * 0.9f);
             drawBox(batch, tmp2, scale * 0.35f, scale * 0.35f, scale * 0.6f, dock);
+        }
+    }
+
+    /** 进阶卫星模型：更长的核心、八片太阳能板、顶部双天线 */
+    static void drawModel2(VertexBatch3D batch, Vec3 pos, float scale, float spin, Satellite s){
+        // 主体更长
+        drawOctPrism(batch, pos, scale * 0.65f, scale * 2.2f, bodyMid, bodyLight, bodyDark);
+
+        // 上下两圈金色环
+        for(float sign : new float[]{1f, -1f}){
+            tmp2.set(pos).add(0, sign * scale * 0.75f, 0);
+            drawOctPrism(batch, tmp2, scale * 0.72f, scale * 0.28f, gold, gold, gold);
+        }
+
+        // 八片太阳能板（两圈各四片，反向旋转）
+        for(int ring = 0; ring < 2; ring++){
+            float wingSpan = scale * (3.2f + ring * 0.6f);
+            float wingW = scale * 0.9f;
+            float wingH = scale * 0.04f;
+            float dir = ring == 0 ? 1f : -1f;
+            float cos = Mathf.cos(spin * dir);
+            float sin = Mathf.sin(spin * dir);
+            float yOff = (ring == 0 ? 1f : -1f) * scale * 0.5f;
+
+            for(int i = 0; i < 4; i++){
+                float baseAngle = i * Mathf.PI / 2f;
+                float bx = Mathf.cos(baseAngle) * scale * 0.85f;
+                float bz = Mathf.sin(baseAngle) * scale * 0.85f;
+                float dx = cos * wingSpan;
+                float dz = sin * wingSpan;
+                Vec3 base = tmp2.set(pos).add(bx, yOff, bz);
+                Vec3 end = tmp.set(base).add(dx, yOff, dz);
+                Color col = (i % 2 == 0) ? panelBase : panelGrid;
+                drawPanel(batch, base, end, wingW, wingH, col.cpy().mul(1f - ring * 0.15f));
+            }
+        }
+
+        // 顶部双天线
+        tmp2.set(pos).add(-scale * 0.35f, scale * 1.25f, 0);
+        drawDish(batch, tmp2, scale * 0.4f, glow);
+        tmp2.set(pos).add(scale * 0.35f, scale * 1.25f, 0);
+        drawDish(batch, tmp2, scale * 0.4f, glow);
+
+        // 底部推进器
+        tmp2.set(pos).add(0, -scale * 1.2f, 0);
+        drawBox(batch, tmp2, scale * 0.3f, scale * 0.4f, scale * 0.3f, bodyDark);
+        tmp2.add(0, -scale * 0.25f, 0);
+        drawGlow(batch, tmp2, scale * 0.22f, thrust);
+
+        if(s.dockedSatellites.size > 0){
+            tmp2.set(pos).add(0, 0, scale * 1.1f);
+            drawBox(batch, tmp2, scale * 0.45f, scale * 0.45f, scale * 0.75f, dock);
+        }
+    }
+
+    /** 高级卫星模型：球形核心、大型环状天线、多组太阳能翼 */
+    static void drawModel3(VertexBatch3D batch, Vec3 pos, float scale, float spin, Satellite s){
+        // 球形核心：用两个垂直交叉的八棱柱近似
+        drawOctPrism(batch, pos, scale * 0.75f, scale * 1.6f, bodyMid, bodyLight, bodyDark);
+        tmp2.set(pos);
+        drawOctPrism(batch, tmp2, scale * 0.75f, scale * 1.6f, bodyLight, bodyMid, bodyDark);
+
+        // 环状天线（水平大环）
+        int seg = 32;
+        float ringR = scale * 1.6f;
+        float tube = scale * 0.06f;
+        Color ringColor = glow.cpy().a(0.9f);
+        for(int i = 0; i < seg; i++){
+            float a0 = i * Mathf.PI2 / seg;
+            float a1 = (i + 1) * Mathf.PI2 / seg;
+            p1.set(pos.x + Mathf.cos(a0) * ringR, pos.y + scale * 0.3f, pos.z + Mathf.sin(a0) * ringR);
+            p2.set(pos.x + Mathf.cos(a1) * ringR, pos.y + scale * 0.3f, pos.z + Mathf.sin(a1) * ringR);
+            p3.set(pos.x + Mathf.cos(a1) * (ringR + tube), pos.y + scale * 0.3f, pos.z + Mathf.sin(a1) * (ringR + tube));
+            p4.set(pos.x + Mathf.cos(a0) * (ringR + tube), pos.y + scale * 0.3f, pos.z + Mathf.sin(a0) * (ringR + tube));
+            batch.quad(p1, p2, p3, p4, ringColor);
+        }
+
+        // 四组大型太阳能翼，沿 Z 轴与 X 轴展开
+        float wingSpan = scale * 3.6f;
+        float wingW = scale * 1.1f;
+        float wingH = scale * 0.05f;
+        float cos = Mathf.cos(spin);
+        float sin = Mathf.sin(spin);
+
+        for(int i = 0; i < 4; i++){
+            float baseAngle = i * Mathf.PI / 2f;
+            float bx = Mathf.cos(baseAngle) * scale * 1.0f;
+            float bz = Mathf.sin(baseAngle) * scale * 1.0f;
+            float dx = cos * wingSpan;
+            float dz = sin * wingSpan;
+            Vec3 base = tmp2.set(pos).add(bx, 0, bz);
+            Vec3 end = tmp.set(base).add(dx, 0, dz);
+            drawPanel(batch, base, end, wingW, wingH, (i % 2 == 0) ? panelBase : panelGrid);
+        }
+
+        // 顶部大型通讯天线阵列
+        for(int i = 0; i < 3; i++){
+            float ang = i * Mathf.PI2 / 3f + spin * 0.5f;
+            tmp2.set(pos).add(Mathf.cos(ang) * scale * 0.5f, scale * 1.1f, Mathf.sin(ang) * scale * 0.5f);
+            drawDish(batch, tmp2, scale * 0.35f, glow);
+        }
+
+        // 底部推进器阵列
+        for(int i = 0; i < 4; i++){
+            float ang = i * Mathf.PI2 / 4f;
+            tmp2.set(pos).add(Mathf.cos(ang) * scale * 0.45f, -scale * 0.95f, Mathf.sin(ang) * scale * 0.45f);
+            drawGlow(batch, tmp2, scale * 0.12f, thrust);
+        }
+
+        if(s.dockedSatellites.size > 0){
+            tmp2.set(pos).add(0, 0, scale * 1.3f);
+            drawBox(batch, tmp2, scale * 0.55f, scale * 0.55f, scale * 0.9f, dock);
         }
     }
 

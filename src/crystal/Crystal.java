@@ -8,7 +8,7 @@ import arc.struct.Seq;
 import arc.util.Log;
 import arc.util.Time;
 import crystal.audio.CMusics;
-import crystal.aviation.CrystalAviationMod;
+import crystal.aviation.CrystalAviationSystemCore;
 import crystal.content.CBlocks;
 import crystal.content.CEnvironment;
 import crystal.content.CIcons;
@@ -50,6 +50,7 @@ import crystal.util.DLog;
 import crystal.world.blocks.payloads.UnitLaunchPayload;
 import crystal.world.blocks.stroage.MoveBlockSystem;
 import crystal.world.blocks.stroage.MoveCoreSystem;
+import crystal.world.time.TimeRewind;
 import mindustry.Vars;
 import mindustry.core.UI;
 import mindustry.core.Version;
@@ -79,6 +80,7 @@ public class Crystal extends Mod {
   public static int timer = 0;
   public static Sector hereSector = null;
   public static Map hereMap = null;
+  private TimeRewind timeRewind;
   Seq<Sector> sectors = new Seq<>();
   static {
     registerEntity();
@@ -105,7 +107,7 @@ public class Crystal extends Mod {
     SpecialUnits.load();
     CBlocks.load();
     HZRBlocks.load();
-    CrystalAviationMod.loadAllContent();
+    CrystalAviationSystemCore.loadAllContent();
     if (CVars.debug)
       Test.load();
     Test2.load();
@@ -184,6 +186,12 @@ public class Crystal extends Mod {
     });
     SummonUnit.init();
     // MuchLoadUnit.addTab();
+    timeRewind = new TimeRewind();
+    // 在逻辑更新前驱动：正向时捕获快照，回溯时恢复旧快照
+    Events.run(Trigger.beforeGameUpdate, () -> {
+      if (timeRewind != null)
+        timeRewind.update();
+    });
   }
 
   public void update() {
@@ -192,6 +200,10 @@ public class Crystal extends Mod {
     updateSector();
     updateMap();
     FaTianXiangDi.faShens.update();
+    if (timer % 60 == 0) {
+      Log.info("Camera width " + Core.camera.width);
+      Log.info("Camera height " + Core.camera.height);
+    }
   }
 
   public void updateSector() {

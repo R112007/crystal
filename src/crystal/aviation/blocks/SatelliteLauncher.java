@@ -70,14 +70,26 @@ public class SatelliteLauncher extends Block{
         public String satelliteName = "";
         /** 本次发射使用的自定义地图文件 */
         public @Nullable arc.files.Fi selectedMapFile;
+        /** 发射轨道半径（相对于星球半径的倍数） */
+        public float launchOrbitRadius = -1f;
+        /** 发射初始轨道角度（度） */
+        public float launchOrbitAngleDeg = -1f;
         /** 发射完成后等待下一逻辑帧自毁，避免在 Android 渲染线程直接 kill 导致 tile 事件竞态崩溃 */
         public boolean pendingKill = false;
+        /** 自毁后需要进入的卫星（延迟到 kill 完成后再跳转，避免竞态） */
+        public @Nullable Satellite pendingEnterSatellite;
 
         @Override
         public void updateTile(){
             if(pendingKill){
                 pendingKill = false;
                 if(!dead) kill();
+                // kill 完成后再跳转卫星地图，避免与 TilePreChange/MinimapRenderer 竞态
+                if(pendingEnterSatellite != null){
+                    Satellite s = pendingEnterSatellite;
+                    pendingEnterSatellite = null;
+                    Core.app.post(() -> SatelliteManager.enterSatelliteMap(s));
+                }
                 return;
             }
 
@@ -122,7 +134,9 @@ public class SatelliteLauncher extends Block{
                     if(result == null || result.name == null || result.name.isEmpty()) return;
                     this.satelliteName = result.name;
                     this.selectedMapFile = result.mapFile;
-                    configure(result.name); // 只同步名称，地图文件保留在本地
+                    this.launchOrbitRadius = result.orbitRadius;
+                    this.launchOrbitAngleDeg = result.orbitAngleDeg;
+                    configure(result.name); // 只同步名称，地图文件与轨道参数保留在本地
                 });
                 dialog.show();
             }).size(40f).tooltip("发射卫星");
@@ -156,10 +170,17 @@ public class SatelliteLauncher extends Block{
                 items.remove(stack.item, stack.amount);
             }
 
-            // 创建卫星，传入自定义地图文件（如果有）
+            // 创建卫星，传入自定义地图文件、轨道高度与角度
             Planet planet = state.rules.sector != null ? state.rules.sector.planet : Planets.serpulo;
-            Satellite satellite = SatelliteManager.launch(planet, satelliteName.isEmpty() ? "Satellite" : satelliteName, selectedMapFile);
+            Satellite satellite = SatelliteManager.launch(
+                    planet,
+                    satelliteName.isEmpty() ? "Satellite" : satelliteName,
+                    selectedMapFile,
+                    launchOrbitRadius,
+                    launchOrbitAngleDeg);
             selectedMapFile = null;
+            launchOrbitRadius = -1f;
+            launchOrbitAngleDeg = -1f;
 
             // 自毁：标记为等待下一逻辑帧在 updateTile 中执行，避免在 Android 渲染线程直接 kill
             // 导致 TilePreChangeEvent / MinimapRenderer 的竞态 NullPointerException。
@@ -168,12 +189,14 @@ public class SatelliteLauncher extends Block{
             if(satellite != null){
                 Fx.rocketSmokeLarge.at(sx, sy);
                 ui.showInfoFade("卫星 \"" + satellite.name + "\" 已发射");
+                // 先记录待进入卫星，等 kill 完成后再跳转，避免与当前建筑的 kill/TilePreChange 事件产生竞态
+                pendingEnterSatellite = satellite;
             }
         }
 
         @Override
         public byte version(){
-            return 1;
+            return 2;
         }
 
         @Override
@@ -182,6 +205,8 @@ public class SatelliteLauncher extends Block{
             write.f(launchProgress);
             write.bool(launching);
             write.str(satelliteName);
+            write.f(launchOrbitRadius);
+            write.f(launchOrbitAngleDeg);
         }
 
         @Override
@@ -190,6 +215,10 @@ public class SatelliteLauncher extends Block{
             launchProgress = read.f();
             launching = read.bool();
             satelliteName = read.str();
+            if(revision >= 2){
+                launchOrbitRadius = read.f();
+                launchOrbitAngleDeg = read.f();
+            }
         }
     }
 }

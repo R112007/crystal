@@ -22,6 +22,7 @@ import static mindustry.Vars.*;
  */
 public class SatelliteDebugDialog extends BaseDialog {
     private Table content;
+    private ScrollPane pane;
     private float refreshInterval = 1f;
     private float timer = 0f;
 
@@ -29,8 +30,13 @@ public class SatelliteDebugDialog extends BaseDialog {
         super("卫星系统调试面板");
 
         cont.clear();
-        content = cont.table(t -> {
-        }).grow().get();
+        content = new Table();
+        content.defaults().growX().left();
+        content.margin(8f);
+
+        pane = new ScrollPane(content, Styles.defaultPane);
+        pane.setOverscroll(false, true);
+        cont.add(pane).grow();
 
         buttons.button("@close", this::hide).size(120f, 50f);
         buttons.button("刷新", Icon.refresh, this::rebuild).size(120f, 50f);
@@ -84,6 +90,9 @@ public class SatelliteDebugDialog extends BaseDialog {
                     .tooltip("将 currentSatelliteId 设为 -1，不会捕获地图");
             t.button("捕获当前世界", Icon.edit, this::captureCurrentWorld).tooltip("把当前世界状态写入当前所在卫星的 saveData");
         }).left().row();
+
+        // 滚动到顶部
+        pane.setScrollY(0f);
     }
 
     void buildSatelliteCard(Table table, Satellite s) {
@@ -116,6 +125,8 @@ public class SatelliteDebugDialog extends BaseDialog {
         table.row();
         table.add("  太阳能=" + Strings.fixed(s.solarPower, 1) + ", 仓库条目=" + s.storage.size + ", 已扫描="
                 + s.scannedSectors.size).left();
+        table.row();
+        table.add("  导弹库存=" + (s.missileModule != null ? s.missileModule.total() : 0)).left();
         table.row();
 
         table.table(bt -> {
@@ -156,10 +167,8 @@ public class SatelliteDebugDialog extends BaseDialog {
             SatelliteManager.save();
             Core.settings.manualSave();
             ui.showInfoFade("已强制保存卫星数据到 settings");
-            Log.info("[CrystalAviation] Debug panel forced SatelliteManager.save() and manualSave().");
-        } catch (Throwable t) {
-            Log.err("[CrystalAviation] Debug panel force save failed", t);
-            ui.showException("保存失败", t);
+                    } catch (Throwable t) {
+                        ui.showException("保存失败", t);
         }
     }
 
@@ -167,11 +176,8 @@ public class SatelliteDebugDialog extends BaseDialog {
         try {
             SatelliteManager.load();
             ui.showInfoFade("已从 settings 重载卫星数据");
-            Log.info("[CrystalAviation] Debug panel reloaded satellites from settings. count=@{}",
-                    SatelliteManager.satellites.size);
-        } catch (Throwable t) {
-            Log.err("[CrystalAviation] Debug panel reload failed", t);
-            ui.showException("重载失败", t);
+                    } catch (Throwable t) {
+                        ui.showException("重载失败", t);
         }
         rebuild();
     }
@@ -190,10 +196,8 @@ public class SatelliteDebugDialog extends BaseDialog {
             s.mapData.captureFromWorld();
             SatelliteManager.save();
             ui.showInfoFade("已捕获当前世界并保存 (卫星 #" + s.id + ")");
-            Log.info("[CrystalAviation] Debug panel captured world for satellite @.", s.id);
-        } catch (Throwable t) {
-            Log.err("[CrystalAviation] Debug panel capture failed", t);
-            ui.showException("捕获失败", t);
+                    } catch (Throwable t) {
+                        ui.showException("捕获失败", t);
         }
         rebuild();
     }

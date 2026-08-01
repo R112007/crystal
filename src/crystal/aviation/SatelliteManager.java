@@ -2,16 +2,23 @@ package crystal.aviation;
 
 import arc.*;
 import arc.files.*;
+import arc.scene.Element;
+import arc.scene.Group;
+import arc.scene.ui.layout.Table;
+import arc.scene.ui.layout.WidgetGroup;
 import arc.struct.*;
 import arc.util.*;
 import arc.util.io.*;
 import arc.util.serialization.*;
+import crystal.aviation.input.SatelliteMissileInputHandler;
 import crystal.aviation.ui.SatelliteAccessDialog;
 import mindustry.core.GameState.State;
 import mindustry.game.EventType.*;
 import mindustry.io.*;
 import mindustry.maps.*;
 import mindustry.type.*;
+import mindustry.ui.fragments.PlacementFragment;
+import crystal.ui.fragments.SatellitePlacementFragment;
 import mindustry.world.*;
 
 import java.io.*;
@@ -26,7 +33,7 @@ public class SatelliteManager {
     private static final String settingsKey = "crystal-aviation-satellites-v2";
     private static final String settingsKeyLegacy = "crystal-aviation-satellites";
     private static final String chunkName = "crystal-aviation";
-    private static final byte revision = 9;
+    private static final byte revision = 11;
 
     /** 所有卫星 */
     public static final ObjectMap<Integer, Satellite> satellites = new ObjectMap<>();
@@ -35,13 +42,18 @@ public class SatelliteManager {
     /** 进入卫星前所在的星球区块，用于退出时返回 */
     public static @Nullable Sector lastSector = null;
     /** 每颗星球最多允许的卫星数量 */
-    public static final int maxSatellitesPerPlanet = 8;
+    public static final int maxSatellitesPerPlanet = 20;
     /** 防止 captureFromWorld 触发 SaveWriteEvent 导致递归 */
     private static boolean capturingWorld = false;
     /** 标记是否正在进入卫星地图（用于跳过 logic.reset 产生的 ResetEvent/StateChangeEvent） */
     private static boolean enteringSatellite = false;
     /** 标记是否正在退出卫星地图（防止退出过程中 ResetEvent/StateChangeEvent 再次捕获空世界） */
     private static boolean exitingSatellite = false;
+
+    /** 进入卫星地图前备份的默认建筑列表 Fragment */
+    private static @Nullable PlacementFragment defaultPlacementFragment;
+    /** 当前是否正在使用卫星地图专用的建筑列表 */
+    private static boolean usingSatellitePlacement = false;
 
     /** 自动保存计时器（单位：tick，1 秒 ≈ 60 tick） */
     private static float autoSaveTimer = 0f;
@@ -58,6 +70,107 @@ public class SatelliteManager {
 
     public static void setExitingSatellite(boolean value) {
         exitingSatellite = value;
+    }
+
+    /** 切换为卫星地图专用的建筑列表（仅显示已解锁建筑）。 */
+    public static void installSatellitePlacementFragment(){
+        if(usingSatellitePlacement || ui == null || ui.hudfrag == null) return;
+
+        PlacementFragment old = ui.hudfrag.blockfrag;
+        if(old != null){
+            defaultPlacementFragment = old;
+            removeFragmentToggler(old);
+        }
+
+        SatellitePlacementFragment satelliteFrag = new SatellitePlacementFragment();
+        satelliteFrag.build(ui.hudGroup);
+        ui.hudfrag.blockfrag = satelliteFrag;
+        usingSatellitePlacement = true;
+    }
+
+    /**
+     * 运行时检查并恢复 currentSatelliteId（从当前地图 tag）。
+     * 仅在真正处于卫星地图时恢复：游戏运行中、当前不是普通星球区块（rules.sector == null）、
+     * 且不在进入/退出卫星的流程中。避免在星球界面或普通区块被旧 tag 误恢复。
+     */
+    public static void recoverCurrentSatelliteId() {
+        if (currentSatelliteId >= 0)
+            return; // 已有值，不处理
+        if (state.map == null || !state.isGame())
+            return; // 不在游戏地图中
+        if (state.rules.sector != null)
+            return; // 当前是普通星球区块，不是卫星地图
+        if (enteringSatellite || exitingSatellite)
+            return; // 正在进入/退出卫星，不干预
+        String tag = state.map.tags.get("crystal-aviation-satellite");
+        if (tag != null && !tag.isEmpty()) {
+            try {
+                int id = Integer.parseInt(tag);
+                Satellite s = satellites.get(id);
+                if (s != null) {
+                    currentSatelliteId = id;
+                    s.mapData.rebindBuildings();
+                    installSatellitePlacementFragment();
+                    Log.info("Recovered satellite id: @", id);
+                }
+            } catch (NumberFormatException ignored) {
+            }
+        }
+    }
+
+    /** 恢复默认建筑列表。 */
+    public static void restoreDefaultPlacementFragment(){
+        if(!usingSatellitePlacement || ui == null || ui.hudfrag == null) return;
+
+        PlacementFragment old = ui.hudfrag.blockfrag;
+        removeFragmentToggler(old);
+
+        if(defaultPlacementFragment != null){
+            defaultPlacementFragment.build(ui.hudGroup);
+            ui.hudfrag.blockfrag = defaultPlacementFragment;
+        }
+        usingSatellitePlacement = false;
+    }
+
+    /**
+     * 安全移除 PlacementFragment 的 UI。
+     * 原版 PlacementFragment 在构造时注册了 WorldLoadEvent/UnlockEvent 等回调，
+     * 这些回调会调用没有空指针保护的 rebuild()；仅 remove() 掉 toggler 会导致
+     * toggler.parent == null 而在后续事件里 NPE。这里对原版 fragment 挂到一个
+     * 离屏 Group，对我们自己的 SatellitePlacementFragment 则直接置空（其 rebuild()
+     * 已做空指针保护）。
+     */
+    private static void removeFragmentToggler(PlacementFragment fragment){
+        if(fragment == null) return;
+        try{
+            java.lang.reflect.Field togglerField = PlacementFragment.class.getDeclaredField("toggler");
+            togglerField.setAccessible(true);
+            Element toggler = (Element)togglerField.get(fragment);
+            if(toggler != null && toggler.parent != null){
+                toggler.remove();
+            }
+
+            if(fragment instanceof SatellitePlacementFragment){
+                // 我们自己的 fragment rebuild() 已做空指针保护，直接置空即可
+                togglerField.set(fragment, null);
+            }else{
+                // 原版 fragment 的 rebuild() 没有空指针保护：挂到离屏 Group 防止 NPE
+                Table dummyToggler = new Table();
+                Group dummyParent = new WidgetGroup();
+                dummyParent.addChild(dummyToggler);
+                togglerField.set(fragment, dummyToggler);
+            }
+        }catch(Exception e){
+            // 反射失败时回退：遍历 hudGroup 查找 placement-toggler
+            if(ui != null && ui.hudGroup != null){
+                for(Element child : ui.hudGroup.getChildren()){
+                    if("placement-toggler".equals(child.name)){
+                        child.remove();
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     public static boolean isCapturingWorld() {
@@ -78,9 +191,7 @@ public class SatelliteManager {
                 try {
                     bytes = Base64Coder.decode(data);
                     migrated = true;
-                    Log.info("[CrystalAviation] Migrated satellite data from legacy Base64 key.");
                 } catch (Throwable t) {
-                    Log.err("[CrystalAviation] Failed to decode legacy satellite Base64", t);
                 }
             }
         }
@@ -88,7 +199,6 @@ public class SatelliteManager {
             try {
                 loadBytes(bytes);
             } catch (Throwable t) {
-                Log.err("[CrystalAviation] Failed to load satellites", t);
             }
         }
         if (migrated) {
@@ -102,9 +212,7 @@ public class SatelliteManager {
             Core.settings.put(settingsKey, data);
             Core.settings.remove(settingsKeyLegacy);
             Core.settings.forceSave();
-            Log.info("[CrystalAviation] Satellites persisted to settings (binary, @ bytes).", data.length);
         } catch (Throwable t) {
-            Log.err("[CrystalAviation] Failed to save satellites", t);
         }
     }
 
@@ -123,7 +231,6 @@ public class SatelliteManager {
             write.close();
             return baos.toByteArray();
         } catch (Throwable t) {
-            Log.err("[CrystalAviation] Failed to save satellites", t);
             return new byte[0];
         }
     }
@@ -151,7 +258,6 @@ public class SatelliteManager {
             lastSector = null;
             read.close();
         } catch (Throwable t) {
-            Log.err("[CrystalAviation] Failed to load satellites", t);
         }
     }
 
@@ -201,25 +307,31 @@ public class SatelliteManager {
             try {
                 current.mapData.captureFromWorld();
                 save();
-                Log.info("[CrystalAviation] Captured satellite @ before save write.", currentSatelliteId);
             } catch (Throwable t) {
-                Log.err("[CrystalAviation] Failed to capture satellite world before save write", t);
             }
         }
     }
 
     /** 创建并注册一颗新卫星 */
     public static @Nullable Satellite launch(Planet planet, String name) {
-        return launch(planet, name, null);
+        return launch(planet, name, null, -1f, -1f);
     }
 
     /** 创建并注册一颗新卫星，可指定自定义地图文件 */
     public static @Nullable Satellite launch(Planet planet, String name, @Nullable Fi mapFile) {
+        return launch(planet, name, mapFile, -1f, -1f);
+    }
+
+    /**
+     * 创建并注册一颗新卫星，可指定自定义地图文件、轨道高度与初始角度。
+     * @param orbitRadius 轨道半径（相对于星球半径的倍数），<=0 时使用随机默认值
+     * @param orbitAngleDeg 初始轨道角度（度），<0 时使用随机默认值
+     */
+    public static @Nullable Satellite launch(Planet planet, String name, @Nullable Fi mapFile, float orbitRadius, float orbitAngleDeg) {
         if (!canLaunchOn(planet)) {
-            Log.warn("[CrystalAviation] Satellite limit reached for planet @", planet.name);
             return null;
         }
-        Satellite s = new Satellite(planet, name, mapFile);
+        Satellite s = new Satellite(planet, name, mapFile, orbitRadius, orbitAngleDeg);
         s.id = nextSatelliteId();
         satellites.put(s.id, s);
         save();
@@ -228,10 +340,11 @@ public class SatelliteManager {
     }
 
     /** 生成下一个不会与已有卫星冲突的 ID。不依赖静态 idCounter，避免类重载或读档顺序导致重复。 */
-    private static int nextSatelliteId(){
+    private static int nextSatelliteId() {
         int max = 0;
-        for(Satellite s : satellites.values()){
-            if(s.id > max) max = s.id;
+        for (Satellite s : satellites.values()) {
+            if (s.id > max)
+                max = s.id;
         }
         return max + 1;
     }
@@ -319,6 +432,7 @@ public class SatelliteManager {
     }
 
     public static void update() {
+        recoverCurrentSatelliteId();
         for (Satellite s : satellites.values()) {
             if (s.isDockMaster())
                 s.update();
@@ -345,9 +459,7 @@ public class SatelliteManager {
             try {
                 current.mapData.captureFromWorld();
                 save();
-                Log.info("[CrystalAviation] Auto-saved satellite @.", currentSatelliteId);
             } catch (Throwable t) {
-                Log.err("[CrystalAviation] Failed to auto-save satellite world", t);
             }
         }
     }
@@ -361,9 +473,7 @@ public class SatelliteManager {
             try {
                 current.mapData.captureFromWorld();
                 save();
-                Log.info("[CrystalAviation] Saved satellite @ on pause dialog open.", currentSatelliteId);
             } catch (Throwable t) {
-                Log.err("[CrystalAviation] Failed to save satellite world on pause dialog open", t);
             }
         }
     }
@@ -375,6 +485,7 @@ public class SatelliteManager {
 
     /**
      * 重置运行时卫星状态。
+     * 
      * @param capture 是否在重置前把当前世界捕获到卫星 saveData；应在世界仍完整时（如 ResetEvent）使用 true，
      *                在世界已被清空后（如 StateChangeEvent playing→menu）使用 false，避免保存空地图。
      */
@@ -385,35 +496,53 @@ public class SatelliteManager {
                 try {
                     current.mapData.captureFromWorld();
                     save();
-                    Log.info("[CrystalAviation] Captured satellite @ before reset.", currentSatelliteId);
                 } catch (Throwable t) {
-                    Log.err("[CrystalAviation] Failed to capture satellite world during reset", t);
                 }
             }
-            Log.info("[CrystalAviation] Reset runtime satellite state (was @).", currentSatelliteId);
         }
+        // 离开卫星地图时恢复默认建筑列表
+        restoreDefaultPlacementFragment();
         currentSatelliteId = -1;
         lastSector = null;
         // 退出流程结束，清除标记
         exitingSatellite = false;
+        // 轨道打击模式由 SatelliteMissileInputHandler 自己管理，不在此处重置，避免暂停/锁屏时丢失 activeSatelliteId
+        if (!SatelliteMissileInputHandler.orbitalStrikeMode) {
+            SatelliteMissileInputHandler.resets();
+        }
     }
 
     public static void onWorldLoaded() {
+        // 仅在实际处于卫星地图时恢复状态：游戏运行中、当前不是普通星球区块、且不在进入/退出流程中。
+        // 普通区块加载时可能残留卫星 tag，必须跳过，否则会把 sector 世界误判为卫星地图。
+        if (state.map == null || !state.isGame())
+            return;
+        if (state.rules.sector != null)
+            return;
+        if (enteringSatellite || exitingSatellite)
+            return;
+
+        boolean recovered = false;
+
         // 读档或某些情况下运行时状态会丢失，但地图标签中保留了卫星 ID，从中恢复
-        if (currentSatelliteId < 0 && state.map != null) {
+        if (currentSatelliteId < 0) {
             String tag = state.map.tags.get("crystal-aviation-satellite");
             if (tag != null && !tag.isEmpty()) {
                 try {
-                    currentSatelliteId = Integer.parseInt(tag);
-                    Log.info("[CrystalAviation] Restored current satellite id from map tag: @", currentSatelliteId);
+                    int id = Integer.parseInt(tag);
+                    Satellite s = satellites.get(id);
+                    if (s != null) {
+                        currentSatelliteId = id;
+                        recovered = true;
+                        Log.info("WorldLoad recovered satellite id: @", id);
+                    }
                 } catch (NumberFormatException e) {
-                    Log.err("[CrystalAviation] Invalid satellite tag: @", tag);
                 }
             }
         }
 
         // 同时恢复退出时要返回的区块
-        if (currentSatelliteId >= 0 && state.map != null && lastSector == null) {
+        if (currentSatelliteId >= 0 && lastSector == null) {
             Satellite s = get(currentSatelliteId);
             String lastSectorTag = state.map.tags.get("crystal-aviation-last-sector");
             if (s != null && s.planet != null && lastSectorTag != null && !lastSectorTag.isEmpty()) {
@@ -424,21 +553,22 @@ public class SatelliteManager {
                         for (Sector sec : s.planet.sectors) {
                             if (sec.id == sectorId) {
                                 lastSector = sec;
-                                Log.info("[CrystalAviation] Restored last sector from map tag: @", lastSector.id);
                                 break;
                             }
                         }
                     }
                 } catch (Exception e) {
-                    Log.err("[CrystalAviation] Failed to restore last sector: @", lastSectorTag);
                 }
             }
         }
 
-        // 如果当前世界是卫星地图，重新绑定控制/对接建筑引用
+        // 如果当前世界是卫星地图，重新绑定控制/对接建筑引用，并安装卫星专用建筑列表
         if (currentSatelliteId >= 0) {
             Satellite s = get(currentSatelliteId);
             if (s != null) {
+                if (recovered) {
+                    installSatellitePlacementFragment();
+                }
                 s.mapData.rebindBuildings();
             }
         }
@@ -451,14 +581,20 @@ public class SatelliteManager {
 
         // 如果已经在目标卫星中，无需重复加载
         if (currentSatelliteId == s.id) {
-            Log.info("[CrystalAviation] Already in satellite @, skipping reload.", s.id);
             return false;
         }
 
         // 记录进入卫星前所在的区块，以便退出时返回
         if (state.isCampaign() && state.rules.sector != null) {
             lastSector = state.rules.sector;
-            Log.info("[CrystalAviation] Remember last sector: @", lastSector.id);
+        }
+
+        // 状态一致性检查：如果当前在普通区块中，但 currentSatelliteId 仍 >=0，
+        // 说明之前的状态恢复有误。必须清空，否则会把 sector 世界误保存到卫星存档。
+        if (currentSatelliteId >= 0 && state.rules.sector != null) {
+            Log.warn("Inconsistent satellite state detected: currentSatelliteId=@ but rules.sector=@, resetting",
+                    currentSatelliteId, state.rules.sector);
+            currentSatelliteId = -1;
         }
 
         // 如果已经在某颗卫星地图中，先保存当前世界
@@ -472,10 +608,7 @@ public class SatelliteManager {
             // 在普通区块中：保存当前区块，避免数据丢失
             try {
                 control.saves.getCurrent().save();
-                Log.info("[CrystalAviation] Saved current sector before entering satellite.");
             } catch (Throwable t) {
-                Log.warn("[CrystalAviation] Failed to save current sector before entering satellite: @",
-                        t.getMessage());
             }
         }
 
@@ -487,6 +620,9 @@ public class SatelliteManager {
             try {
                 currentSatelliteId = targetId;
 
+                // 切换为卫星地图专用建筑列表（仅显示已解锁建筑）
+                installSatellitePlacementFragment();
+
                 // 重置逻辑状态，准备进入新地图
                 logic.reset();
 
@@ -495,7 +631,8 @@ public class SatelliteManager {
                 tags.put("name", target.name);
                 tags.put("author", "Crystal Aviation");
                 tags.put("crystal-aviation-satellite", String.valueOf(targetId));
-                tags.put("crystal-aviation-last-sector", lastSector != null ? lastSector.planet.name + ":" + lastSector.id : "");
+                tags.put("crystal-aviation-last-sector",
+                        lastSector != null ? lastSector.planet.name + ":" + lastSector.id : "");
                 state.map = new Map(tags);
 
                 // 加载卫星世界数据：优先使用 saveData（.msav），否则回退到 transient tiles
@@ -516,10 +653,7 @@ public class SatelliteManager {
                 // 断开当前存档槽位，防止在卫星内部时自动保存覆盖原星球区块存档
                 control.saves.resetSave();
 
-                Log.info("[CrystalAviation] Entered satellite @ (@)", target.id, target.name);
             } catch (Throwable t) {
-                Log.err("[CrystalAviation] Failed to enter satellite @", targetId);
-                Log.err(t);
                 currentSatelliteId = -1;
                 // 出错时安全返回之前的区块或星球界面
                 Core.app.post(() -> {
@@ -527,7 +661,6 @@ public class SatelliteManager {
                         try {
                             control.playSector(lastSector);
                         } catch (Throwable t2) {
-                            Log.err(t2);
                             ui.planet.show();
                         }
                     } else {
