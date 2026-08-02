@@ -100,7 +100,7 @@ public class CLiquidBlocks {
         this.range = 5;
       }
     };
-    CLiquidBlocks.xidaoguanqiao = new LiquidBridge("xidaoguanqiao") {
+    CLiquidBlocks.xidaoguanqiao = new CLiquidBridge("xidaoguanqiao") {
       {
         this.size = 1;
         this.health = 430;

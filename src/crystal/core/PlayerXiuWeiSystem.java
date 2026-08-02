@@ -78,12 +78,14 @@ public class PlayerXiuWeiSystem {
     DLog.info("渡劫失败执行：已重置当前境界与灵力");
   }
 
-  public static void addButton(float amount, float h) {
+  public static void addButton(XiuWei xiuWei, float h) {
     if (CVars.debug)
       Vars.ui.hudGroup.fill(null, table -> {
         table.table(null, t -> {
-          t.button("加" + Core.bundle.get("stat.xiuwei") + amount,
-              () -> Events.fire(new MagicPowerChange(amount))).size(100, 70);
+          t.button(xiuWei.str,
+              () -> {
+                CVars.playerXiuWei = xiuWei;
+              });
         }).size(100, 70);
         table.center().left().update(() -> {
           height = Core.settings.getBool("showXiuWei") ? h : 10000;
@@ -138,12 +140,9 @@ public class PlayerXiuWeiSystem {
         });
       });
 
-      addButton(-100, -60);
-      addButton(-10, 0);
-      addButton(-1, 60);
-      addButton(1, 120);
-      addButton(10, 180);
-      addButton(100, 240);
+      addButton(XiuWei.fan, -60);
+      addButton(XiuWei.shen, 0);
+      addButton(XiuWei.dijun, 60);
 
       if (debug)
         Vars.ui.hudGroup.fill(null, table -> {

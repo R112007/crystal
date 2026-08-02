@@ -3,7 +3,9 @@ package crystal;
 import arc.Core;
 import arc.Events;
 import arc.graphics.Color;
+import arc.math.Mathf;
 import arc.scene.ui.layout.Scl;
+import arc.struct.ObjectMap;
 import arc.struct.Seq;
 import arc.util.Log;
 import arc.util.Time;
@@ -35,6 +37,7 @@ import crystal.entities.shentong.ShenTong;
 import crystal.entities.units.MultiStageMechUnit;
 import crystal.entities.units.SummonUnit;
 import crystal.entities.units.UnitEnum.JingJie;
+import crystal.entities.units.UnitEnum.XiuWei;
 import crystal.game.MultiSectorWaveTrigger;
 import crystal.game.CEventType.MapChangeEvent;
 import crystal.game.CEventType.SectorChangeEvent;
@@ -62,8 +65,11 @@ import mindustry.game.EventType.ClientLoadEvent;
 import mindustry.game.EventType.StateChangeEvent;
 import mindustry.game.EventType.TapEvent;
 import mindustry.game.EventType.Trigger;
+import mindustry.game.EventType.UnitChangeEvent;
 import mindustry.gen.Building;
 import mindustry.gen.EntityMapping;
+import mindustry.gen.Player;
+import mindustry.gen.Unit;
 import mindustry.maps.Map;
 import mindustry.mod.Mod;
 import mindustry.type.Sector;
@@ -143,6 +149,26 @@ public class Crystal extends Mod {
       ui.showErrorMessage("你的游戏版本太高，要" + CVars.maxVersion + "才行");
     }
     checkGongFa();
+  }
+
+  ObjectMap<Player, Unit> lastUnit = new ObjectMap<>();
+
+  public void events() {
+    Events.on(UnitChangeEvent.class, e -> {
+      increase();
+      Unit p = lastUnit.get(e.player);
+      lastUnit.put(e.player, e.unit);
+      p.setType(p.type);
+    });
+  }
+
+  public void increase() {
+    float f = Math.max(XiuWei.xiuWeiMultiplier(CVars.playerXiuWei) + 1, 1f);
+    player.unit().health *= f;
+    player.unit().maxHealth *= f;
+    for (var w : player.unit().mounts) {
+      w.weapon.bullet.damage *= f;
+    }
   }
 
   public void checkGongFa() {

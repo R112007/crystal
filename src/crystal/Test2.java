@@ -18,6 +18,7 @@ import crystal.world.blocks.defence.turrets.HealingItemTurret;
 import crystal.world.blocks.defence.turrets.HealingPowerTurret;
 import crystal.world.blocks.payloads.DronePayloadAssembler;
 import crystal.world.blocks.payloads.PayloadAssembler;
+import crystal.world.blocks.production.MultipleCrafter;
 import ent.anno.Annotations.EntityDef;
 import mindustry.Vars;
 import mindustry.content.Fx;
@@ -46,6 +47,7 @@ import mindustry.type.UnitType;
 import mindustry.type.Weapon;
 import mindustry.world.Block;
 import mindustry.world.blocks.defense.turrets.PowerTurret;
+import mindustry.world.consumers.ConsumeItems;
 
 import static arc.graphics.g2d.Draw.*;
 import static arc.graphics.g2d.Lines.*;
@@ -61,11 +63,32 @@ public class Test2 {
   public static UnitType eastWind;
   public static @EntityDef(value = { Unitc.class, Rammingc.class, Mechc.class }) UnitType u6;
   public static UnitType healUnit;
-  public static Block healItemTurret, healPowerTurret;
+  public static Block healItemTurret, healPowerTurret, mu;
 
   public static void load() {
     if (!allow)
       return;
+    mu = new MultipleCrafter("mu") {
+      {
+        requirements(Category.crafting, with(Items.copper, 60, Items.silicon, 40, Items.metaglass, 30));
+        size = 2;
+        hasItems = true;
+        hasLiquids = true;
+        formulas = new Seq<>();
+        formulas.add(new Formula() {
+          {
+            inputs.add(new ConsumeItems(with(Items.copper, 1, Items.lead, 2)));
+            outputItems.add(with(Items.coal, 1));
+          }
+        });
+        formulas.add(new Formula() {
+          {
+            inputs.add(new ConsumeItems(with(Items.thorium, 1, Items.titanium, 2)));
+            outputItems.add(with(Items.surgeAlloy, 1));
+          }
+        });
+      }
+    };
     BulletType healBullet = new HealUnitBulletType(4.5f, 0f) {
       {
         healpercent = 15f;

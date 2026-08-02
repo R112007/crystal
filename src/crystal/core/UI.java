@@ -7,6 +7,7 @@ import arc.scene.ui.Button;
 import arc.scene.ui.TextButton;
 import arc.scene.ui.layout.Table;
 import arc.struct.Seq;
+import crystal.CVars;
 import crystal.Crystal;
 import crystal.aviation.CrystalAviationSystemCore;
 import crystal.aviation.ui.SatelliteDebugDialog;
@@ -98,21 +99,22 @@ public class UI {
           table.translation.set(100, height + 150);
         });
       });
-    Vars.ui.hudGroup.fill(null, table -> {
-      table.table(null, t -> {
-        t.button("回溯", Styles.flatt, () -> {
-          Table buttonTable = new Table();
-          buttonTable.add(timeButton(5f)).size(80, 60).padRight(6f);
-          buttonTable.add(timeButton(5f)).size(80, 60).padRight(6f);
-          buttonTable.add(timeButton(15f)).size(80, 60).padRight(6f);
-          buttonTable.add(timeButton(20f)).size(80, 60).padRight(6f);
-          t.add(buttonTable);
+    if (CVars.debug)
+      Vars.ui.hudGroup.fill(null, table -> {
+        table.table(null, t -> {
+          t.button("回溯", Styles.flatt, () -> {
+            Table buttonTable = new Table();
+            buttonTable.add(timeButton(5f)).size(80, 60).padRight(6f);
+            buttonTable.add(timeButton(5f)).size(80, 60).padRight(6f);
+            buttonTable.add(timeButton(15f)).size(80, 60).padRight(6f);
+            buttonTable.add(timeButton(20f)).size(80, 60).padRight(6f);
+            t.add(buttonTable);
+          }).size(100, 70);
         }).size(100, 70);
-      }).size(100, 70);
-      table.center().left().update(() -> {
-        table.translation.set(100, height + 150);
+        table.center().left().update(() -> {
+          table.translation.set(100, height + 150);
+        });
       });
-    });
     if (debug)
       Vars.ui.hudGroup.fill(null, table -> {
         table.table(null, t -> {

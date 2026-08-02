@@ -143,15 +143,24 @@ public class Storys {
                 Events.on(CoreChangeEvent.class, e -> {
                     if (Vars.state.isCampaign()) {
                         Time.runTask(8f, () -> {
-                            CoreBuild cor = Vars.player.team().data().cores.first();
-                            for (var c : Vars.player.team().data().cores) {
-                                if (c.health > cor.health)
-                                    cor = c;
+                            try {
+                                // 【修复】：先判断 cores 集合是否为空，如果为空则直接返回，避免抛出异常
+                                if (Vars.player.team().data().cores.isEmpty()) {
+                                    return;
+                                }
+
+                                CoreBuild cor = Vars.player.team().data().cores.first();
+                                for (var c : Vars.player.team().data().cores) {
+                                    if (c.health > cor.health)
+                                        cor = c;
+                                }
+                                addExpression(Expression.normal, new TextureRegionDrawable(cor.block.fullIcon));
+                            } finally {
                             }
-                            addExpression(Expression.normal, new TextureRegionDrawable(cor.block.fullIcon));
                         });
                     }
                 });
+
             }
         };
     }

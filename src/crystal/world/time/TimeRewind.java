@@ -25,6 +25,8 @@ import mindustry.gen.*;
 import mindustry.world.Block;
 import mindustry.world.Tile;
 import mindustry.world.blocks.storage.CoreBlock;
+import mindustry.type.UnitType;
+import mindustry.content.UnitTypes;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -84,6 +86,16 @@ public class TimeRewind {
     private int targetOffset = 0;
     /** 捕获计数器，用于支持 captureInterval */
     private int captureCounter = 0;
+
+    /** 建筑快照元数据 */
+    private static class BuildingSnap {
+        int pos;
+        short blockId;
+        byte teamId;
+        byte rotation;
+        byte version;
+        byte[] state;
+    }
 
     /** 回溯期间锁定的波次倒计时，防止 Logic 继续倒计时 */
     private float lockWaveTime = 0f;
@@ -352,7 +364,7 @@ public class TimeRewind {
         count += writeEntityGroup(Groups.unit, written);
         count += writeEntityGroup(Groups.bullet, written);
         count += writeEntityGroup(Groups.all, written);
-        count += writeEntityGroup(Groups.player, written);
+        // Player 实体不参与快照：避免恢复时覆盖当前 Vars.player 及其单位引用
 
         byte[] bytes = entityStream.toByteArray();
         bytes[0] = (byte) (count >> 24);
@@ -369,6 +381,9 @@ public class TimeRewind {
         int added = 0;
         for (Entityc entity : group) {
             if (entity == null || !entity.serialize() || !written.add(entity.id()))
+                continue;
+            // 排除玩家实体：恢复时覆盖 Vars.player 会同时覆盖其单位引用，导致刚重生的单位失效
+            if (entity instanceof Player)
                 continue;
             // 排除玩家控制的单位，避免其位置和状态被回溯
             if (entity instanceof Unit && ((Unit) entity).isPlayer())
@@ -463,18 +478,19 @@ public class TimeRewind {
         }
     }
 
-    /** 恢复动态实体 */
+    /**
+     * 恢复动态实体。
+     *
+     * Player 实体不参与快照：清空动态组后，把当前的 Vars.player 原对象重新加回世界，
+     * 并把其单位也重新绑定。这样就不会被历史 Player 实体覆盖单位引用。
+     */
     private void restoreEntities(byte[] data) throws IOException {
         if (data == null || data.length < 4)
             return;
 
-        // 备份当前本地玩家控制的单位，避免被 clearDynamicGroups 误删且不被回溯
-        Unit retainedPlayerUnit = null;
-        boolean retainedPlayerUnitAdded = false;
-        if (Vars.player != null) {
-            retainedPlayerUnit = Vars.player.unit();
-            retainedPlayerUnitAdded = retainedPlayerUnit != null && retainedPlayerUnit.isAdded();
-        }
+        // 备份当前本地玩家及其单位引用
+        Player retainedPlayer = Vars.player;
+        Unit retainedPlayerUnit = retainedPlayer != null ? retainedPlayer.unit() : null;
 
         clearDynamicGroups();
 
@@ -485,54 +501,43 @@ public class TimeRewind {
             Log.warn("[CrystalRewind] 实体快照数量异常(@)，放弃恢复。", count);
             return;
         }
-        final Entityc[] newPlayer = { null };
-        Seq<Player> restoredPlayers = new Seq<>();
 
         for (int i = 0; i < count; i++) {
-            int classId = in.readUnsignedByte();
-            int id = in.readInt();
+            try {
+                int classId = in.readUnsignedByte();
+                int id = in.readInt();
 
-            Prov<? extends Entityc> prov = EntityMapping.map(classId);
-            if (prov == null) {
-                Log.warn("[CrystalRewind] 未知实体 classId: @", classId);
-                continue;
-            }
-
-            Entityc entity = prov.get();
-            EntityGroup.checkNextId(id);
-            entity.id(id);
-            entity.read(read);
-            entity.add();
-
-            if (entity instanceof Player) {
-                Player p = (Player) entity;
-                restoredPlayers.add(p);
-                if (Vars.player != null && p.id() == Vars.player.id()) {
-                    newPlayer[0] = p;
+                Prov<? extends Entityc> prov = EntityMapping.map(classId);
+                if (prov == null) {
+                    Log.warn("[CrystalRewind] 未知实体 classId: @", classId);
+                    continue;
                 }
-            }
-        }
 
-        // 优先按 id 匹配；若 id 不同（玩家曾重生等），按 uuid 回退匹配
-        if (newPlayer[0] == null && Vars.player != null) {
-            String localUuid = Vars.player.uuid();
-            for (Player p : restoredPlayers) {
-                if (p.uuid() != null && p.uuid().equals(localUuid)) {
-                    newPlayer[0] = p;
-                    break;
+                Entityc entity = prov.get();
+                EntityGroup.checkNextId(id);
+                entity.id(id);
+                entity.read(read);
+
+                // 防御性跳过：快照里不应再有 Player，但万一读到也忽略，避免覆盖 Vars.player
+                if (entity instanceof Player) {
+                    continue;
                 }
-            }
-            // 单人模式下只有一个玩家时，直接采用
-            if (newPlayer[0] == null && restoredPlayers.size == 1) {
-                newPlayer[0] = restoredPlayers.first();
+
+                entity.add();
+            } catch (Exception e) {
+                Log.warn("[CrystalRewind] 恢复单个实体失败（@/@），跳过: @", i, count, e.getMessage());
             }
         }
 
-        if (newPlayer[0] != null) {
-            Vars.player = (Player) newPlayer[0];
+        // 把本地玩家原对象重新加回世界，避免 Vars.player 被历史 Player 覆盖
+        if (retainedPlayer != null) {
+            if (!retainedPlayer.isAdded()) {
+                retainedPlayer.add();
+            }
+            Vars.player = retainedPlayer;
         }
 
-        // 确保所有动态组都执行 afterReadAll，以正确解析单位与玩家之间的引用
+        // 确保所有动态组都执行 afterReadAll，以正确解析单位与建筑之间的引用
         Groups.all.each(Entityc::afterReadAll);
         Groups.player.each(Entityc::afterReadAll);
         Groups.unit.each(Entityc::afterReadAll);
@@ -542,11 +547,12 @@ public class TimeRewind {
         Groups.unit.updatePhysics();
         Groups.bullet.updatePhysics();
 
-        // 恢复被排除的玩家单位绑定，使其保持回溯前的状态
-        if (retainedPlayerUnitAdded && retainedPlayerUnit != null && Vars.player != null) {
-            Vars.player.unit(retainedPlayerUnit);
-            if (!retainedPlayerUnit.isAdded())
+        // 恢复被排除的玩家单位绑定
+        if (retainedPlayer != null && retainedPlayerUnit != null) {
+            if (!retainedPlayerUnit.isAdded()) {
                 retainedPlayerUnit.add();
+            }
+            retainedPlayer.unit(retainedPlayerUnit);
         }
     }
 
@@ -579,22 +585,51 @@ public class TimeRewind {
         }
 
         if (u == null) {
-            Teams.TeamData data = state.teams.get(Vars.player.team());
-            Log.info("[CrystalRewind] fixPlayerUnit: player.team=@, cores.size=@", Vars.player.team(),
-                    data == null ? "null" : data.cores.size);
-            if (data != null && data.cores.size > 0) {
-                CoreBlock.CoreBuild core = data.cores.first();
-                if (core != null && core.tile != null) {
-                    Log.info("[CrystalRewind] fixPlayerUnit: 尝试从核心 @ 强制重生。", core.tile.pos());
-                    CoreBlock.playerSpawn(core.tile, Vars.player);
-                    Log.info("[CrystalRewind] fixPlayerUnit: playerSpawn 调用完成，重生后 unit=@",
-                            Vars.player.unit() == null ? "null" : Vars.player.unit().id());
-                } else {
-                    Log.warn("[CrystalRewind] fixPlayerUnit: 核心或核心瓦片为空。");
-                }
-            } else {
-                Log.warn("[CrystalRewind] fixPlayerUnit: 未找到己方核心，无法强制重生。");
-            }
+            spawnPlayerFromCore();
+        }
+    }
+
+    /** 手动从核心为本地玩家生成单位，避免依赖 CoreBlock.playerSpawn 的远程/条件判断。 */
+    private void spawnPlayerFromCore() {
+        if (Vars.player == null) {
+            Log.warn("[CrystalRewind] spawnPlayerFromCore: Vars.player 为 null。");
+            return;
+        }
+
+        Team team = Vars.player.team();
+        Teams.TeamData data = state.teams.get(team);
+        Log.info("[CrystalRewind] spawnPlayerFromCore: player.team=@, cores.size=@", team,
+                data == null ? "null" : data.cores.size);
+
+        if (data == null || data.cores.size == 0) {
+            Log.warn("[CrystalRewind] spawnPlayerFromCore: 队伍@没有核心，无法重生。", team);
+            return;
+        }
+
+        CoreBlock.CoreBuild core = data.cores.first();
+        if (core == null || core.tile == null || !(core.block instanceof CoreBlock)) {
+            Log.warn("[CrystalRewind] spawnPlayerFromCore: 核心或核心瓦片无效。");
+            return;
+        }
+
+        UnitType type = ((CoreBlock) core.block).unitType;
+        if (type == null) {
+            Log.warn("[CrystalRewind] spawnPlayerFromCore: 核心单位类型为空，回退到 alpha。");
+            type = UnitTypes.alpha;
+        }
+
+        try {
+            Unit unit = type.create(team);
+            unit.set(core);
+            unit.rotation(90f);
+            unit.impulse(0f, 3f);
+            unit.spawnedByCore(true);
+            unit.controller(Vars.player);
+            unit.add();
+            Vars.player.unit(unit);
+            Log.info("[CrystalRewind] spawnPlayerFromCore: 已从核心@生成单位@并绑定到玩家。", core.tile.pos(), unit.id());
+        } catch (Exception e) {
+            Log.err("[CrystalRewind] spawnPlayerFromCore: 手动生成单位失败。", e);
         }
     }
 
@@ -612,7 +647,15 @@ public class TimeRewind {
         Groups.label.clear();
     }
 
-    /** 恢复建筑状态，包括创建/删除建筑以匹配快照。 */
+    /**
+     * 恢复建筑状态。
+     *
+     * 重构后不再删除任何现有建筑，只执行两类操作：
+     * 1. 快照中位置已有同类型建筑 -> 直接读取状态字节回溯其内部状态。
+     * 2. 快照中位置没有对应建筑 -> 创建该建筑（通常只会在回溯期间新建的建筑时使用）。
+     *
+     * 这样可以从根源上避免“误删核心 -> 无法重生”的问题。
+     */
     private void restoreBuildings(byte[] data) throws IOException {
         if (data == null || data.length < 4)
             return;
@@ -623,26 +666,21 @@ public class TimeRewind {
             Log.warn("[CrystalRewind] 建筑快照数量异常(@)，放弃恢复。", count);
             return;
         }
+        if (count == 0) {
+            Log.info("[CrystalRewind] 建筑快照为空，不执行建筑恢复。");
+            return;
+        }
 
         final int headerSize = 4 + 2 + 1 + 1 + 1 + 4; // pos + blockId + team + rotation + version + len
 
-        class Snap {
-            int pos;
-            short blockId;
-            byte teamId;
-            byte rotation;
-            byte version;
-            byte[] state;
-        }
-
-        Seq<Snap> snaps = new Seq<>(Math.min(count, 4096));
+        Seq<BuildingSnap> snaps = new Seq<>(Math.min(count, 4096));
         for (int i = 0; i < count; i++) {
             if (in.available() < headerSize) {
-                Log.warn("[CrystalRewind] 建筑快照数据不足，终止读取（已读@/@）。", i, count);
+                Log.warn("[CrystalRewind] 建筑快照头不足，停止读取（已读@/@）。", i, count);
                 break;
             }
 
-            Snap s = new Snap();
+            BuildingSnap s = new BuildingSnap();
             s.pos = in.readInt();
             s.blockId = in.readShort();
             s.teamId = in.readByte();
@@ -650,7 +688,7 @@ public class TimeRewind {
             s.version = in.readByte();
             int len = in.readInt();
             if (len < 0 || len > maxBuildingStateBytes || len > in.available()) {
-                Log.warn("[CrystalRewind] 建筑状态长度异常(@B)，停止恢复以避免 OOM。", len);
+                Log.warn("[CrystalRewind] 建筑状态长度异常(@B)，停止读取。", len);
                 break;
             }
             s.state = new byte[len];
@@ -658,57 +696,100 @@ public class TimeRewind {
             snaps.add(s);
         }
 
-        // 当前世界中所有中心建筑
-        IntMap<Building> current = new IntMap<>();
-        if (world.tiles != null) {
-            for (int i = 0; i < world.tiles.width * world.tiles.height; i++) {
-                Tile tile = world.tiles.geti(i);
-                if (tile != null && tile.build != null && tile.isCenter()) {
-                    current.put(tile.pos(), tile.build);
-                }
-            }
+        if (snaps.size == 0) {
+            Log.warn("[CrystalRewind] 未读到有效建筑快照，跳过恢复。");
+            return;
         }
 
-        // 快照中存在的建筑位置集合
-        IntSet snapPos = new IntSet(snaps.size);
-        for (Snap s : snaps)
-            snapPos.add(s.pos);
-
-        // 1. 删除快照中没有的建筑
-        for (IntMap.Entry<Building> entry : current) {
-            if (!snapPos.contains(entry.key)) {
-                Tile tile = world.tile(entry.key);
-                if (tile != null)
-                    tile.setBlock(Blocks.air);
-            }
+        // 分离核心与普通建筑
+        Seq<BuildingSnap> cores = new Seq<>();
+        Seq<BuildingSnap> others = new Seq<>();
+        for (BuildingSnap s : snaps) {
+            Block block = content.block(s.blockId);
+            if (block instanceof CoreBlock)
+                cores.add(s);
+            else
+                others.add(s);
         }
 
-        // 2. 创建或更新快照中的建筑
-        for (Snap s : snaps) {
-            Tile tile = world.tile(s.pos);
-            if (tile == null)
-                continue;
+        Log.info("[CrystalRewind] 恢复建筑：核心@个，其他@个", cores.size, others.size);
 
-            Building build = tile.build;
-            if (build == null || build.block.id != s.blockId) {
-                Block block = content.block(s.blockId);
-                if (block == null) {
-                    Log.warn("[CrystalRewind] 未知方块 id: @", s.blockId);
-                    continue;
-                }
-                Team team = Team.get(s.teamId);
+        // 先恢复核心，确保重生点始终可用
+        for (BuildingSnap s : cores)
+            restoreBuilding(s);
+        // 再恢复其他建筑
+        for (BuildingSnap s : others)
+            restoreBuilding(s);
+
+        // 同步队伍核心列表
+        repairTeamCores();
+    }
+
+    /** 恢复单个建筑快照 */
+    private void restoreBuilding(BuildingSnap s) {
+        Tile tile = world.tile(s.pos);
+        if (tile == null)
+            return;
+
+        Building build = tile.build;
+        if (build == null || build.block.id != s.blockId) {
+            Block block = content.block(s.blockId);
+            if (block == null) {
+                Log.warn("[CrystalRewind] 未知方块 id: @", s.blockId);
+                return;
+            }
+            Team team = Team.get(s.teamId);
+            try {
                 tile.setBlock(block, team, s.rotation);
                 build = tile.build;
-            }
-
-            if (build != null && build.block.id == s.blockId) {
-                try {
-                    Reads stateRead = new Reads(new DataInputStream(new ByteArrayInputStream(s.state)));
-                    build.readAll(stateRead, s.version);
-                } catch (Exception e) {
-                    Log.warn("[CrystalRewind] 建筑恢复失败: @ @", build.block.name, s.pos);
-                }
+            } catch (Exception e) {
+                Log.warn("[CrystalRewind] 创建建筑失败: @ @", block.name, s.pos);
+                return;
             }
         }
+
+        if (build != null && build.block.id == s.blockId) {
+            try {
+                Reads stateRead = new Reads(new DataInputStream(new ByteArrayInputStream(s.state)));
+                build.readAll(stateRead, s.version);
+            } catch (Exception e) {
+                Log.warn("[CrystalRewind] 建筑状态恢复失败: @ @", build.block.name, s.pos);
+            }
+        }
+    }
+
+    /** 修复队伍核心列表，移除失效引用并补录世界中存在的核心 */
+    private void repairTeamCores() {
+        if (world == null || world.tiles == null)
+            return;
+
+        // 清理失效引用
+        for (Team team : Team.all) {
+            Teams.TeamData data = state.teams.get(team);
+            if (data == null)
+                continue;
+            data.cores.removeAll(core -> {
+                if (core == null)
+                    return true;
+                if (core.tile == null || core.tile.build != core)
+                    return true;
+                return !(core.block instanceof CoreBlock);
+            });
+        }
+
+        // 确保世界中每个核心都在对应队伍的 cores 列表中
+        for (int i = 0; i < world.tiles.width * world.tiles.height; i++) {
+            Tile tile = world.tiles.geti(i);
+            if (tile == null || tile.build == null || !(tile.build.block instanceof CoreBlock) || !tile.isCenter())
+                continue;
+
+            CoreBlock.CoreBuild core = (CoreBlock.CoreBuild) tile.build;
+            Teams.TeamData data = state.teams.get(core.team);
+            if (data != null && !data.cores.contains(core)) {
+                data.cores.add(core);
+            }
+        }
+
+        state.teams.updateTeamStats();
     }
 }
