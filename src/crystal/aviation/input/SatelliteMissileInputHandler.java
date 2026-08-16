@@ -29,6 +29,7 @@ import arc.util.Tmp;
 import mindustry.input.Binding;
 import crystal.aviation.Satellite;
 import crystal.aviation.SatelliteManager;
+import crystal.content.CIcons;
 import crystal.type.SatelliteMissile;
 import crystal.ui.style.CircleButton;
 import mindustry.content.Fx;
@@ -261,8 +262,13 @@ public class SatelliteMissileInputHandler extends InputHandler {
         SatelliteMissileInputHandler handler = instance();
         handler.previousInput = control.input;
         handler.active = true;
-        handler.selected = SatelliteMissile.basic != null ? SatelliteMissile.basic
-                : SatelliteMissile.map.values().next();
+        Satellite s = activeSatellite();
+        if (s != null && s.selectedMissile != null) {
+            handler.selected = s.selectedMissile;
+        } else {
+            handler.selected = SatelliteMissile.basic != null ? SatelliteMissile.basic
+                    : SatelliteMissile.map.values().next();
+        }
         // 进入轨道打击模式时保存并限制最大缩放
         if (handler.savedMaxZoomInGame < 0f) {
             handler.savedMaxZoomInGame = renderer.maxZoomInGame;
@@ -477,7 +483,7 @@ public class SatelliteMissileInputHandler extends InputHandler {
             btns.defaults().pad(18f);
 
             // 大号导弹/弹药按钮：显示当前导弹与数量，点击执行连续发射
-            CircleButton missileBtn = newCircleButton(Icon.defenseSmall, 88f, panelLight, Color.white);
+            CircleButton missileBtn = newCircleButton(CIcons.timesfire, 88f, panelLight, Color.white);
             selectedIcon = missileBtn.getImage();
             selectedIcon.setScaling(Scaling.fit);
             missileBtn.clicked(this::consecutive);
@@ -538,13 +544,13 @@ public class SatelliteMissileInputHandler extends InputHandler {
             btns.right().marginRight(14f).marginTop(80f).marginBottom(40f);
             btns.defaults().pad(18f);
 
-            // 上方切换导弹按钮（金色高亮）
-            CircleButton switchBtn = newCircleButton(Icon.units, 62f, panelLight, accentYellow);
-            switchBtn.clicked(this::showSelector);
-            btns.add(switchBtn).size(62f).row();
+            // 导弹切换按钮：仅在轨道打击模式下生效，不影响自动攻击导弹
+            CircleButton selectBtn = newCircleButton(Icon.units, 72f, panelLight, Color.white);
+            selectBtn.clicked(this::showSelector);
+            btns.add(selectBtn).size(72f).row();
 
             // 下方大号开火按钮
-            CircleButton fireBtn = newCircleButton(Icon.defenseSmall, 96f, Color.valueOf("5c2a24"), Color.white);
+            CircleButton fireBtn = newCircleButton(CIcons.onefire, 96f, Color.valueOf("5c2a24"), Color.white);
             fireBtn.strokeColor = Color.valueOf("ff6b5c");
             fireBtn.clicked(this::fire);
             btns.add(fireBtn).size(96f).padTop(18f).row();
@@ -815,16 +821,15 @@ public class SatelliteMissileInputHandler extends InputHandler {
         s.missileModule.remove(missile, 1);
         updateSelectedDisplay();
 
-        // 左右炮管交替发射：从屏幕两侧中间向中央准星飞行。
-        // 生成点基于当前相机视口计算，并限制在世界范围内，避免一出生就在世界外被移除。
-        float sideOffset = Core.camera.width * 0.55f;
+        // 导弹从相机视口两侧飞出，向准星位置飞去。
+        float cx = Core.camera.position.x;
+        float cy = Core.camera.position.y;
         float sx = fireLeftSideNext
-                ? Mathf.clamp(tx - sideOffset, 20f, world.unitWidth() - 20f)
-                : Mathf.clamp(tx + sideOffset, 20f, world.unitWidth() - 20f);
-        float sy = /* (Mathf.random() * 2 - 1) **/ Mathf.clamp(ty, 20f, world.unitHeight() - 20f);
+                ? cx - (Core.camera.width / 2f + 8f)
+                : cx + (Core.camera.width / 2f + 8f);
+        float sy = cy + Mathf.random(-24f, 24f);
 
-        origin.set(getVec2InRound(tx, ty, 1.8f * tilesize));
-        launchMissile(s, sx, sy, origin.x + 8, origin.y, missile);
+        launchMissile(s, sx, sy, tx, ty, missile);
         fireLeftSideNext = !fireLeftSideNext;
 
         // 发射时屏幕轻微震动

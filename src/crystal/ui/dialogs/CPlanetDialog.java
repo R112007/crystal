@@ -21,6 +21,8 @@ import crystal.game.UnitInfo;
 import crystal.world.blocks.stroage.MoveCoreSystem;
 import crystal.aviation.Satellite;
 import crystal.aviation.SatelliteManager;
+import crystal.aviation.SatelliteSectorInfo;
+import crystal.aviation.SatelliteSectorInfoManager;
 import mindustry.*;
 import mindustry.content.*;
 import mindustry.content.TechTree.*;
@@ -1191,22 +1193,165 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
         }
     }
 
+    void displaySatelliteExports(Table c, SatelliteSectorInfo info) {
+        if (info == null)
+            return;
+        boolean any = false;
+        for (var entry : info.satelliteItemExports) {
+            int satId = entry.key;
+            Satellite sat = SatelliteManager.get(satId);
+            if (sat == null)
+                continue;
+            Table items = buildSatelliteItemStatTable(entry.value);
+            if (items.getChildren().any()) {
+                c.add("[accent]向卫星[] " + sat.name + "[accent]发射: []").left().row();
+                c.add(items).padLeft(10f).row();
+                any = true;
+            }
+        }
+        for (var entry : info.satelliteLiquidExports) {
+            int satId = entry.key;
+            Satellite sat = SatelliteManager.get(satId);
+            if (sat == null)
+                continue;
+            Table liquids = buildSatelliteLiquidStatTable(entry.value);
+            if (liquids.getChildren().any()) {
+                c.add("[accent]向卫星[] " + sat.name + "[accent]发射(液体): []").left().row();
+                c.add(liquids).padLeft(10f).row();
+                any = true;
+            }
+        }
+        if (any) {
+            c.row();
+        }
+    }
+
+    void displaySatelliteImports(Table c, SatelliteSectorInfo info) {
+        if (info == null)
+            return;
+        boolean any = false;
+        for (var entry : info.satelliteItemImports) {
+            int satId = entry.key;
+            Satellite sat = SatelliteManager.get(satId);
+            if (sat == null)
+                continue;
+            Table items = buildSatelliteItemStatTable(entry.value);
+            if (items.getChildren().any()) {
+                c.add("[accent]卫星注入: []" + sat.name).left().row();
+                c.add(items).padLeft(10f).row();
+                any = true;
+            }
+        }
+        for (var entry : info.satelliteLiquidImports) {
+            int satId = entry.key;
+            Satellite sat = SatelliteManager.get(satId);
+            if (sat == null)
+                continue;
+            Table liquids = buildSatelliteLiquidStatTable(entry.value);
+            if (liquids.getChildren().any()) {
+                c.add("[accent]卫星注入(液体): []" + sat.name).left().row();
+                c.add(liquids).padLeft(10f).row();
+                any = true;
+            }
+        }
+        if (any) {
+            c.row();
+        }
+    }
+
+    Table buildSatelliteItemStatTable(ObjectMap<Item, SatelliteSectorInfo.ExportStat> stats) {
+        Table t = new Table().left();
+        int i = 0;
+        for (var item : content.items()) {
+            SatelliteSectorInfo.ExportStat stat = stats.get(item);
+            if (stat == null)
+                continue;
+            int total = (int) (stat.mean * 60);
+            if (total > 1) {
+                t.image(item.uiIcon).padRight(3);
+                t.add(UI.formatAmount(total) + " " + Core.bundle.get("unit.perminute")).color(Color.lightGray)
+                        .padRight(3);
+                if (++i % 3 == 0) {
+                    t.row();
+                }
+            }
+        }
+        return t;
+    }
+
+    Table buildSatelliteLiquidStatTable(ObjectMap<Liquid, SatelliteSectorInfo.ExportStat> stats) {
+        Table t = new Table().left();
+        int i = 0;
+        for (var liquid : content.liquids()) {
+            SatelliteSectorInfo.ExportStat stat = stats.get(liquid);
+            if (stat == null)
+                continue;
+            int total = (int) (stat.mean * 60);
+            if (total > 1) {
+                t.image(liquid.uiIcon).padRight(3);
+                t.add(UI.formatAmount(total) + " " + Core.bundle.get("unit.perminute")).color(Color.lightGray)
+                        .padRight(3);
+                if (++i % 3 == 0) {
+                    t.row();
+                }
+            }
+        }
+        return t;
+    }
+
     void showUnitInfoStats(Sector sector, Table c) {
-        var info = UnitInfo.get(sector);
         c.defaults().padBottom(5);
+
+        // 卫星向本区块传输资源速率（接收台 + 注入台）
+        SatelliteSectorInfo satInfo = SatelliteSectorInfoManager.get(sector);
+        if (satInfo != null && satInfo.hasAnyImports()) {
+            c.add("[accent]卫星传输[]").left().row();
+            c.table(t -> {
+                satInfo.satelliteItemImports.each((satId, stats) -> {
+                    Satellite sat = SatelliteManager.get(satId);
+                    if (sat == null)
+                        return;
+                    stats.each((item, stat) -> {
+                        if (item == null || stat == null)
+                            return;
+                        int rate = (int) (stat.mean * 60);
+                        if (rate > 1) {
+                            t.add("  " + sat.name + " " + item.localizedName + " " + UI.formatAmount(rate) + "/min")
+                                    .color(Color.lightGray).left().row();
+                        }
+                    });
+                });
+                satInfo.satelliteLiquidImports.each((satId, stats) -> {
+                    Satellite sat = SatelliteManager.get(satId);
+                    if (sat == null)
+                        return;
+                    stats.each((liquid, stat) -> {
+                        if (liquid == null || stat == null)
+                            return;
+                        int rate = (int) (stat.mean * 60);
+                        if (rate > 1) {
+                            t.add("  " + sat.name + " " + liquid.localizedName + " " + UI.formatAmount(rate) + "/min")
+                                    .color(Color.lightGray).left().row();
+                        }
+                    });
+                });
+            }).padLeft(10f).left().row();
+        }
+
+        var info = UnitInfo.get(sector);
+        if (info == null || info.possessed.isEmpty())
+            return;
+
         c.add(Core.bundle.get("unitinfo.possessed")).left().row();
         c.table(t -> {
-            int i;
-            if (!info.possessed.isEmpty()) {
-                i = 0;
-                info.possessed.sort();
-                for (var stack : info.possessed) {
-                    if (stack.amount != 0) {
-                        t.add(StatValues.stack(stack.unit, stack.amount));
-                        i++;
-                        if (i % 4 == 0) {
-                            t.row();
-                        }
+            int i = 0;
+            info.possessed.sort();
+            for (var stack : info.possessed) {
+                if (stack.amount != 0) {
+                    t.add(StatValues.stack(stack.unit, stack.amount));
+                    i++;
+                    if (i % 4 == 0) {
+                        t.row();
                     }
                 }
             }
@@ -1278,6 +1423,12 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
                 });
             }
 
+            // 卫星发射统计（注入统计在 showUnitInfoStats 中按物品列出）
+            SatelliteSectorInfo satInfo = SatelliteSectorInfoManager.get(sector);
+            if (satInfo != null && satInfo.hasAnyStats()) {
+                displaySatelliteExports(c, satInfo);
+            }
+
             ItemSeq items = sector.items();
 
             // stored resources
@@ -1300,8 +1451,7 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
                     }).padLeft(10f);
                 }).left().row();
             }
-            if (UnitInfo.get(sector) != null)
-                showUnitInfoStats(sector, c);
+            showUnitInfoStats(sector, c);
         });
 
         dialog.addCloseButton();
@@ -1506,6 +1656,42 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
                         continue; // apparently this is possible.
                     t.image(c.uiIcon).padRight(3).scaling(Scaling.fit).size(iconSmall);
                 }
+            }).padLeft(10f).fillX().row();
+        }
+
+        // 卫星注入提示：显示正在向本区块注入物资的卫星
+        SatelliteSectorInfo satInfoTop = SatelliteSectorInfoManager.get(sector);
+        if (satInfoTop != null && satInfoTop.hasAnyImports()) {
+            stable.table(t -> {
+                t.add("[accent]卫星活动[]").padRight(4).row();
+                satInfoTop.satelliteItemImports.each((satId, stats) -> {
+                    Satellite sat = SatelliteManager.get(satId);
+                    if (sat == null)
+                        return;
+                    stats.each((item, stat) -> {
+                        if (item == null || stat == null)
+                            return;
+                        int rate = (int) (stat.mean * 60);
+                        if (rate > 1) {
+                            t.add("  " + sat.name + " " + item.localizedName + " " + UI.formatAmount(rate) + "/min")
+                                    .color(Color.lightGray).left().row();
+                        }
+                    });
+                });
+                satInfoTop.satelliteLiquidImports.each((satId, stats) -> {
+                    Satellite sat = SatelliteManager.get(satId);
+                    if (sat == null)
+                        return;
+                    stats.each((liquid, stat) -> {
+                        if (liquid == null || stat == null)
+                            return;
+                        int rate = (int) (stat.mean * 60);
+                        if (rate > 1) {
+                            t.add("  " + sat.name + " " + liquid.localizedName + " " + UI.formatAmount(rate) + "/min")
+                                    .color(Color.lightGray).left().row();
+                        }
+                    });
+                });
             }).padLeft(10f).fillX().row();
         }
 

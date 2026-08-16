@@ -10,10 +10,10 @@ import mindustry.type.Category;
 import mindustry.type.ItemStack;
 import mindustry.world.*;
 import mindustry.world.blocks.environment.*;
-import mindustry.world.blocks.storage.CoreBlock;
 import crystal.aviation.blocks.*;
 import crystal.aviation.input.SatelliteMissileInputHandler;
 import crystal.aviation.render.*;
+import crystal.world.meta.CBuildVisibility;
 import crystal.content.CUnits;
 import crystal.type.SatelliteMissile;
 
@@ -24,12 +24,28 @@ public class CrystalAviationSystemCore {
     public static Block satelliteControlCenter;
     /** 卫星扩容信标 */
     public static Block satelliteExpansionBeacon;
+    /** 卫星地图扩展块 */
+    public static Block satelliteMapExpander;
     /** 卫星太阳能阵列 */
     public static Block satelliteSolarArray;
     /** 导弹调试建筑（仅 debug 模式可见） */
     public static Block satelliteMissileDebug;
     /** 卫星升级中心 */
     public static Block satelliteUpgradeCenter;
+    /** 卫星液体仓 */
+    public static Block satelliteLiquidTank;
+    /** 卫星注入台 */
+    public static Block satelliteInjector;
+    /** 地面物品接收台 */
+    public static Block itemReceivePad;
+    /** 地面液体接收台 */
+    public static Block liquidReceivePad;
+    /** 高射炮 */
+    public static Block antiAirTurret;
+    /** 地面发射台 */
+    public static Block groundLaunchPad;
+    /** 卫星电力接收器 */
+    public static Block satellitePowerReceiver;
     public static Block spaceFloor;
     public static Block spaceCore;
 
@@ -41,11 +57,10 @@ public class CrystalAviationSystemCore {
     public static void loadAllContent() {
         if (!allow)
             return;
-        spaceCore = new CoreBlock("space-core") {
+        spaceCore = new SatelliteCoreBlock("space-core") {
             {
                 size = 4;
                 alwaysUnlocked = true;
-                itemCapacity = 6000;
                 unitType = CUnits.taichu;
             }
         };
@@ -54,6 +69,7 @@ public class CrystalAviationSystemCore {
             {
                 size = 2;
                 this.requirements(Category.units, ItemStack.with(new Object[] { Items.copper, 1 }));
+                consumeItems(launchCost);
                 this.alwaysUnlocked = true;
             }
         };
@@ -68,7 +84,17 @@ public class CrystalAviationSystemCore {
         satelliteExpansionBeacon = new SatelliteExpansionBeacon("satellite-expansion-beacon") {
             {
                 size = 2;
-                this.requirements(Category.units, ItemStack.with(new Object[] { Items.copper, 1 }));
+                this.requirements(Category.units, CBuildVisibility.satelliteOnly,
+                        ItemStack.with(new Object[] { Items.copper, 1 }));
+                this.alwaysUnlocked = true;
+            }
+        };
+
+        satelliteMapExpander = new SatelliteMapExpander("satellite-map-expander") {
+            {
+                size = 2;
+                this.requirements(Category.units, CBuildVisibility.satelliteOnly,
+                        ItemStack.with(new Object[] { Items.copper, 1 }));
                 this.alwaysUnlocked = true;
             }
         };
@@ -76,7 +102,8 @@ public class CrystalAviationSystemCore {
         satelliteSolarArray = new SatelliteSolarArray("satellite-solar-array") {
             {
                 size = 2;
-                this.requirements(Category.units, ItemStack.with(new Object[] { Items.copper, 1 }));
+                this.requirements(Category.units, CBuildVisibility.satelliteOnly,
+                        ItemStack.with(new Object[] { Items.copper, 1 }));
                 this.alwaysUnlocked = true;
             }
         };
@@ -94,6 +121,58 @@ public class CrystalAviationSystemCore {
                 this.alwaysUnlocked = true;
             }
         };
+
+        satelliteLiquidTank = new SatelliteLiquidTank("satellite-liquid-tank") {
+            {
+                size = 2;
+                this.alwaysUnlocked = true;
+            }
+        };
+
+        satelliteInjector = new SatelliteInjector("zhuruqi") {
+            {
+                size = 4;
+                this.alwaysUnlocked = true;
+                this.requirements(Category.units, CBuildVisibility.satelliteOnly,
+                        ItemStack.with(new Object[] { Items.copper, 1 }));
+            }
+        };
+
+        itemReceivePad = new ItemReceivePad("item-receive-pad") {
+            {
+                size = 2;
+                this.alwaysUnlocked = true;
+            }
+        };
+
+        liquidReceivePad = new LiquidReceivePad("liquid-receive-pad") {
+            {
+                size = 2;
+                this.alwaysUnlocked = true;
+            }
+        };
+
+        antiAirTurret = new AntiAirTurret("anti-air-turret") {
+            {
+                size = 2;
+                this.alwaysUnlocked = true;
+            }
+        };
+
+        groundLaunchPad = new GroundLaunchPad("ground-launch-pad") {
+            {
+                size = 3;
+                this.alwaysUnlocked = true;
+            }
+        };
+
+        satellitePowerReceiver = new SatellitePowerReceiver("satellite-power-receiver") {
+            {
+                size = 2;
+                this.alwaysUnlocked = true;
+            }
+        };
+
         // 初始化卫星导弹类型与自定义实体组
         SatelliteMissile.load();
         SatelliteMissileGroup.init();
@@ -104,6 +183,7 @@ public class CrystalAviationSystemCore {
         // 注册事件监听器（源码集成时 Mod 构造函数不会被自动调用）
         Events.on(ClientLoadEvent.class, e -> {
             SatelliteManager.load();
+            SatelliteSectorInfoManager.init();
             SatelliteRenderer.init();
         });
         Events.on(WorldLoadEvent.class, e -> SatelliteManager.onWorldLoaded());

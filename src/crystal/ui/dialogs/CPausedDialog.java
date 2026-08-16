@@ -4,11 +4,12 @@ import arc.*;
 import arc.scene.ui.*;
 import arc.scene.ui.layout.*;
 import arc.util.*;
-import mindustry.*;
+import mindustry.Vars;
 import mindustry.editor.*;
 import mindustry.game.*;
 import mindustry.gen.*;
 import mindustry.ui.dialogs.*;
+import crystal.CVars;
 import crystal.aviation.SatelliteManager;
 import crystal.aviation.input.SatelliteMissileInputHandler;
 
@@ -128,6 +129,12 @@ public class CPausedDialog extends BaseDialog {
 
             cont.row();
 
+            // 在卫星地图中显示科技树入口
+            if (SatelliteManager.currentSatelliteId >= 0) {
+                cont.row();
+                cont.button("@research", Icon.tree, () -> CVars.cui.cresearch.show()).colspan(2).width(dw + 10f);
+            }
+
             cont.button("@quit", Icon.exit, this::showQuitConfirm).colspan(2).width(dw + 10f)
                     .update(s -> s.setText(
                             control.saves.getCurrent() != null && control.saves.getCurrent().isAutosave() ? "@save.quit"
@@ -164,9 +171,10 @@ public class CPausedDialog extends BaseDialog {
                     ui.planet.show();
                 });
             } else if (SatelliteManager.currentSatelliteId >= 0) {
-                // 在卫星地图中：显示返回行星地图按钮，点击时先保存卫星再返回
+                // 在卫星地图中：显示科技树与返回行星地图按钮
                 cont.row();
 
+                cont.buttonRow("@research", Icon.tree, () -> CVars.cui.cresearch.show());
                 cont.buttonRow("@planetmap", Icon.map, () -> {
                     hide();
                     crystal.aviation.ui.SatelliteAccessDialog.exitToSector();

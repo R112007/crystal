@@ -14,7 +14,7 @@ public class CStat {
   public static final Stat consumeCrystalE;
   public static final Stat produceCrystal;
   public static final Stat MaxCrystalE;
-  public static final Stat insideCrystalE;;
+  public static final Stat insideCrystalE;
   public static final Stat hasCrystal;
   public static final Stat healpercent;
   public static final Stat dependbuild;
@@ -27,6 +27,20 @@ public class CStat {
   public static final Stat magicPowerRegen;
   public static final Stat storageCapacity;
   public static final Stat suckRange;
+
+  // aviation
+  public static final Stat satelliteLimit;
+  public static final Stat expansionArea;
+  public static final Stat expansionCost;
+  public static final Stat injectAmount;
+  public static final Stat requestAmount;
+  public static final Stat transferInterval;
+  public static final Stat launchCost;
+  public static final Stat missileLifetime;
+  public static final Stat splashDamage;
+  public static final Stat missileTypes;
+  public static final Stat itemCapacityIncrease;
+  public static final Stat liquidCapacityIncrease;
 
   static {
     armorMultiplier = new Stat("armorMultiplier");
@@ -52,6 +66,19 @@ public class CStat {
     magicPowerRegenTime = new Stat("magicPowerRegenTime", CStatCat.magic);
     storageCapacity = new Stat("storageCapacity", StatCat.items);
     suckRange = new Stat("suckRange");
+
+    satelliteLimit = new Stat("satelliteLimit", StatCat.function);
+    expansionArea = new Stat("expansionArea", StatCat.function);
+    expansionCost = new Stat("expansionCost", StatCat.items);
+    injectAmount = new Stat("injectAmount", StatCat.items);
+    requestAmount = new Stat("requestAmount", StatCat.items);
+    transferInterval = new Stat("transferInterval", StatCat.function);
+    launchCost = new Stat("launchCost", StatCat.items);
+    missileLifetime = new Stat("missileLifetime", StatCat.function);
+    splashDamage = new Stat("splashDamage", StatCat.function);
+    missileTypes = new Stat("missileTypes", StatCat.function);
+    itemCapacityIncrease = new Stat("itemCapacityIncrease", StatCat.items);
+    liquidCapacityIncrease = new Stat("liquidCapacityIncrease", StatCat.liquids);
   }
 
 }

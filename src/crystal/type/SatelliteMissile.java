@@ -11,6 +11,7 @@ import arc.graphics.g2d.Fill;
 import arc.graphics.g2d.TextureRegion;
 import arc.math.Mathf;
 import arc.math.geom.Vec2;
+import arc.scene.ui.layout.Table;
 import arc.util.Nullable;
 import arc.util.Time;
 import crystal.gen.SMissile;
@@ -30,6 +31,10 @@ import mindustry.gen.Sounds;
 import mindustry.gen.Teamc;
 import mindustry.gen.Timedc;
 import mindustry.graphics.Layer;
+import crystal.world.meta.CStat;
+import mindustry.world.meta.Stat;
+import mindustry.world.meta.StatUnit;
+import mindustry.world.meta.Stats;
 
 public class SatelliteMissile implements Comparable<SatelliteMissile> {
   private static final AtomicInteger maxId = new AtomicInteger(0);
@@ -76,10 +81,39 @@ public class SatelliteMissile implements Comparable<SatelliteMissile> {
   /** 生命周期结束时是否触发命中效果（类似 BulletType.despawnHit） */
   public boolean despawnHit = true;
 
+  public final Stats stats = new Stats();
+
   public SatelliteMissile(String name) {
     this.name = name;
     this.id = maxId.getAndIncrement();
     map.put(id, this);
+  }
+
+  /** 初始化该导弹的 Stat 面板（必须在子类字段赋值完成后调用）。 */
+  public void initStats() {
+    stats.add(Stat.damage, damage);
+    stats.add(CStat.splashDamage, splashDamage);
+    stats.add(Stat.range, splashDamageRadius, StatUnit.blocks);
+    stats.add(Stat.speed, speed, StatUnit.tilesSecond);
+    stats.add(CStat.missileLifetime, lifetime, StatUnit.seconds);
+  }
+
+  /** 把导弹属性渲染到指定的 Table 中（用于切换导弹界面）。 */
+  public void displayStats(Table table) {
+    if (stats.toMap().size == 0)
+      return;
+    table.add("[accent]导弹属性[]").padTop(6f).padBottom(4f).row();
+    for (var catEntry : stats.toMap().entries()) {
+      for (var statEntry : catEntry.value.entries()) {
+        table.table(row -> {
+          row.add("[lightgray]" + statEntry.key.localized() + ":[] ").left();
+          for (var value : statEntry.value) {
+            value.display(row);
+            row.add().size(8f);
+          }
+        }).left().padLeft(6f).row();
+      }
+    }
   }
 
   /** 初始化纹理（应在 atlas 加载完成后调用） */
@@ -334,6 +368,12 @@ public class SatelliteMissile implements Comparable<SatelliteMissile> {
         despawnShake = 3f;
       }
     };
+
+    // 必须在所有字段赋值完成后初始化 stats，否则匿名子类字段会覆盖默认值之前就被读取。
+    for (SatelliteMissile missile : map.values()) {
+      missile.initStats();
+    }
+
     Events.on(ClientLoadEvent.class, e -> {
       for (SatelliteMissile missile : map.values()) {
         missile.initRegion();

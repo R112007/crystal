@@ -1,3 +1,4 @@
+
 package crystal.world.time;
 
 import arc.Core;
@@ -713,6 +714,27 @@ public class TimeRewind {
         }
 
         Log.info("[CrystalRewind] 恢复建筑：核心@个，其他@个", cores.size, others.size);
+
+        // 删除快照中不存在、且不是核心的建筑（这些是快照之后新建造的）
+        IntSet snapPositions = new IntSet();
+        for (BuildingSnap s : snaps)
+            snapPositions.add(s.pos);
+
+        for (int i = 0; i < world.tiles.width * world.tiles.height; i++) {
+            Tile tile = world.tiles.geti(i);
+            if (tile == null || tile.build == null || !tile.isCenter())
+                continue;
+            Building build = tile.build;
+            if (build.block instanceof CoreBlock)
+                continue; // 核心永不删除
+            if (!snapPositions.contains(tile.pos())) {
+                try {
+                    tile.setBlock(Blocks.air);
+                } catch (Exception e) {
+                    Log.warn("[CrystalRewind] 删除快照后新建建筑失败: @ @", build.block.name, tile.pos());
+                }
+            }
+        }
 
         // 先恢复核心，确保重生点始终可用
         for (BuildingSnap s : cores)

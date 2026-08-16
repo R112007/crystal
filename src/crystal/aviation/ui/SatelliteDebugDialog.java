@@ -123,7 +123,7 @@ public class SatelliteDebugDialog extends BaseDialog {
         table.add("  移动: targetSector=" + s.targetSectorId + ", moving=" + s.moving + ", progress="
                 + Strings.fixed(s.moveProgress, 2)).left();
         table.row();
-        table.add("  太阳能=" + Strings.fixed(s.solarPower, 1) + ", 仓库条目=" + s.storage.size + ", 已扫描="
+        table.add("  太阳能=" + Strings.fixed(s.solarPower, 1) + ", 物品总数=" + s.items.total() + ", 已扫描="
                 + s.scannedSectors.size).left();
         table.row();
         table.add("  导弹库存=" + (s.missileModule != null ? s.missileModule.total() : 0)).left();

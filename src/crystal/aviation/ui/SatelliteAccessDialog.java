@@ -34,10 +34,11 @@ public class SatelliteAccessDialog extends BaseDialog {
         } else {
             for (Satellite s : list) {
                 table.table(t -> {
+                    t.image(Icon.planet).size(32f).padRight(10f);
                     t.add(s.name).padRight(20f);
                     t.add("[" + (s.planet != null ? s.planet.localizedName : "未知") + "]").padRight(20f);
                     t.button("进入", Styles.cleart, () -> {
-                                                enterSatellite(s);
+                        enterSatellite(s);
                         hide();
                     }).size(100f, 40f);
                 }).pad(4f).row();

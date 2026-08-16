@@ -11,6 +11,7 @@ import arc.util.Log;
 import arc.util.Time;
 import crystal.audio.CMusics;
 import crystal.aviation.CrystalAviationSystemCore;
+import crystal.aviation.SatelliteManager;
 import crystal.content.CBlocks;
 import crystal.content.CEnvironment;
 import crystal.content.CIcons;
@@ -184,15 +185,15 @@ public class Crystal extends Mod {
   }
 
   public void loadlog() {
-    DLog.info("density = " + Core.graphics.getDensity());
-    DLog.info("scl = " + Scl.scl());
-    DLog.info("moblie : " + Vars.mobile);
   }
 
   @Override
   public void init() {
     ClassMapLoader.load();
     CVars.cui.init();
+    // 尽早把原版 PlacementFragment 替换成带空指针防护的 SafePlacementFragment，
+    // 并把旧实例隔离到 dummy parent，防止其残留的 WorldLoadEvent/UnlockEvent 监听崩溃
+    SatelliteManager.ensureSafePlacementFragment();
     UnitInfoSystem.init();
     UnitInfoSystem.loadUnitInfo();
     MultiSectorWaveTrigger.get().init();
@@ -226,9 +227,7 @@ public class Crystal extends Mod {
     updateSector();
     updateMap();
     FaTianXiangDi.faShens.update();
-    if (timer % 60 == 0) {
-      Log.info("Camera width " + Core.camera.width);
-      Log.info("Camera height " + Core.camera.height);
+    if (timer % 60 == 0 && SatelliteManager.currentSatelliteId > -1) {
     }
   }
 
@@ -351,8 +350,8 @@ public class Crystal extends Mod {
     Events.run(Trigger.update, () -> {
       if (Vars.ui.paused.isShown()) {
         Vars.ui.paused.hide();
-        if (!CVars.cui.cpause.isShown()) {
-          CVars.cui.cpause.show();
+        if (!CVars.cui.cpaused.isShown()) {
+          CVars.cui.cpaused.show();
         }
       }
     });

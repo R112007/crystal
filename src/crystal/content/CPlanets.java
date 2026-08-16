@@ -8,6 +8,7 @@ import crystal.graphics.g3d.RingMesh2;
 import crystal.map.planet.GreenPlanetGenerator;
 import crystal.map.planet.LxPlanetGenerator;
 import crystal.type.SaturnPlanet;
+import crystal.type.heaven.Galaxy;
 import mindustry.content.Planets;
 import mindustry.game.Team;
 import mindustry.graphics.g3d.HexMesh;
@@ -23,6 +24,7 @@ import mindustry.type.Sector;
 public class CPlanets {
   public static Planet csun;
   public static Planet lx;
+  public static Galaxy milkyWay;
 
   public static void load() {
     int sectorSize = 3;
@@ -108,6 +110,21 @@ public class CPlanets {
         landCloudColor = Color.valueOf("#CB5DA8").cpy().a(0.5f);
       }
     };
-
+    milkyWay = new Galaxy("milky-way", null, 10f, Galaxy.GalaxyStyle.vivid) {
+      {
+        grid = PlanetGrid.create(sectorSize);
+        sectors.ensureCapacity(grid.tiles.length);
+        for (int i = 0; i < grid.tiles.length; i++) {
+          sectors.add(new Sector(this, grid.tiles[i]));
+        }
+        alwaysUnlocked = true;
+        accessible = true;
+        arms = 8; // 4 条旋臂
+        starCount = 8000; // 4000 颗恒星
+        spiralTightness = 1f; // 螺旋更紧
+        rotationSpeed = 1f; // 整体转速
+        thickness = 0.1f; // 星系盘更薄
+      }
+    };
   }
 }

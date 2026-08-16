@@ -447,7 +447,23 @@ public class MultipleCrafter extends Block {
                         if (_idx == idx) {
                             Draw.color(Pal.accent);
                             Lines.stroke(3f);
-                            Lines.rect(x + 1f, y + 1f, width - 2f, height - 2f);
+
+                            float bx = x + 2f, by = y + 2f;
+                            float bw = width - 4f, bh = height - 4f;
+                            float r = 4f;
+
+                            // 四边
+                            Lines.line(bx + r, by + bh, bx + bw - r, by + bh);
+                            Lines.line(bx + r, by, bx + bw - r, by);
+                            Lines.line(bx, by + r, bx, by + bh - r);
+                            Lines.line(bx + bw, by + r, bx + bw, by + bh - r);
+
+                            // 四角
+                            Lines.arc(bx + r, by + bh - r, r, 90f, 90f);
+                            Lines.arc(bx + bw - r, by + bh - r, r, 0f, 90f);
+                            Lines.arc(bx + bw - r, by + r, r, 270f, 90f);
+                            Lines.arc(bx + r, by + r, r, 180f, 90f);
+
                             Draw.reset();
                         }
                     }

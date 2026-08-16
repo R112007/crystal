@@ -198,6 +198,8 @@ public class MobileLaunchLoadoutDialog extends BaseDialog {
               continue;
             if (!type.unlocked())
               continue; // 只显示已解锁的
+            if (!type.isOnPlanet(sector.planet))
+              continue; // 只显示属于该星球的移动核心
             CoreUnit cu = (CoreUnit) type;
             t.button(b -> {
               b.left();

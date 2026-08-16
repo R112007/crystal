@@ -13,7 +13,10 @@ import arc.scene.ui.layout.Stack;
 import arc.scene.ui.layout.*;
 import arc.struct.*;
 import arc.util.*;
+import crystal.aviation.SatelliteContentFilter;
+import crystal.aviation.SatelliteManager;
 import crystal.aviation.input.SatelliteMissileInputHandler;
+import crystal.world.meta.CBuildVisibility;
 import mindustry.ai.*;
 import mindustry.ai.types.*;
 import mindustry.content.*;
@@ -44,9 +47,11 @@ import static mindustry.Vars.*;
 public class SatellitePlacementFragment extends PlacementFragment {
     final int rowWidth = 4;
 
-    Seq<Block> returnArray = new Seq<>(), returnArray2 = new Seq<>();
+    Seq<Block> returnArray = new Seq<>(), returnArray2 = new Seq<>(), returnArray3 = new Seq<>();
     Seq<Category> returnCatArray = new Seq<>();
     boolean[] categoryEmpty = new boolean[Category.all.length];
+    /** 是否正在显示卫星建筑分区。 */
+    boolean satelliteMode = false;
     ObjectMap<Category, Block> selectedBlocks = new ObjectMap<>();
     ObjectFloatMap<Category> scrollPositions = new ObjectFloatMap<>();
     @Nullable
@@ -124,14 +129,22 @@ public class SatellitePlacementFragment extends PlacementFragment {
 
     @Override
     public void rebuild() {
-        if (toggler == null || toggler.parent == null)
+        if (toggler == null || toggler.parent == null) {
+            Log.warn("[SatellitePlacementFragment] rebuild() skipped: toggler or parent is null");
             return;
-        Group group = toggler.parent;
-        int index = toggler.getZIndex();
-        toggler.remove();
-        build(group);
-        toggler.setZIndex(index);
-        lastDisplayState = null;
+        }
+        try {
+            Group group = toggler.parent;
+            int index = toggler.getZIndex();
+            toggler.remove();
+            build(group);
+            if (toggler != null) {
+                toggler.setZIndex(index);
+            }
+            lastDisplayState = null;
+        } catch (Throwable t) {
+            Log.err("[SatellitePlacementFragment] rebuild() failed", t);
+        }
     }
 
     boolean updatePick(InputHandler input) {
@@ -168,7 +181,12 @@ public class SatellitePlacementFragment extends PlacementFragment {
                 input.block = tryBlock;
                 tryBlock.lastConfig = tryConfig;
                 if (tryBlock.isVisible()) {
-                    currentCategory = input.block.category;
+                    if (tryBlock.buildVisibility == CBuildVisibility.satelliteOnly) {
+                        satelliteMode = true;
+                    } else {
+                        satelliteMode = false;
+                        currentCategory = input.block.category;
+                    }
                 }
                 tryBlock.onPicked(tile);
                 return true;
@@ -209,7 +227,9 @@ public class SatellitePlacementFragment extends PlacementFragment {
                         }
                     }
                 } else if (blockSelectEnd || Time.timeSinceMillis(blockSelectSeqMillis) > 400) {
-                    if (!getUnlockedByCategory(Category.all[i]).isEmpty()) {
+                    // 按数字键切换普通分类；卫星分区单独处理，不在这里切换
+                    if (!getNormalUnlockedBlocksByCategory(Category.all[i]).isEmpty()) {
+                        satelliteMode = false;
                         currentCategory = Category.all[i];
                         if (input.block != null) {
                             input.block = getSelectedBlock(currentCategory);
@@ -237,6 +257,7 @@ public class SatellitePlacementFragment extends PlacementFragment {
         }
 
         if (Core.input.keyTap(Binding.categoryPrev)) {
+            satelliteMode = false;
             int i = 0;
             do {
                 currentCategory = currentCategory.prev();
@@ -247,6 +268,7 @@ public class SatellitePlacementFragment extends PlacementFragment {
         }
 
         if (Core.input.keyTap(Binding.categoryNext)) {
+            satelliteMode = false;
             int i = 0;
             do {
                 currentCategory = currentCategory.next();
@@ -276,6 +298,14 @@ public class SatellitePlacementFragment extends PlacementFragment {
 
     @Override
     public void build(Group parent) {
+        if (parent == null) {
+            Log.warn("[SatellitePlacementFragment] build() called with null parent, skipping");
+            return;
+        }
+        // 如果之前已经构建过，先移除旧 toggler，防止 HUD 重建或重复安装时出现两个建筑列表
+        if (toggler != null && toggler.parent != null) {
+            toggler.remove();
+        }
         parent.fill(full -> {
             toggler = full;
             full.name = "placement-toggler";
@@ -292,7 +322,7 @@ public class SatellitePlacementFragment extends PlacementFragment {
                     ButtonGroup<ImageButton> group = new ButtonGroup<>();
                     group.setMinCheckCount(0);
 
-                    for (Block block : getUnlockedByCategory(currentCategory)) {
+                    for (Block block : getDisplayedBlocks()) {
                         if (!unlocked(block))
                             continue;
                         if (index++ % rowWidth == 0) {
@@ -726,11 +756,11 @@ public class SatellitePlacementFragment extends PlacementFragment {
                         ButtonGroup<ImageButton> group = new ButtonGroup<>();
 
                         for (Category cat : Category.all) {
-                            Seq<Block> blocks = getUnlockedByCategory(cat);
+                            Seq<Block> blocks = getNormalUnlockedBlocksByCategory(cat);
                             categoryEmpty[cat.ordinal()] = blocks.isEmpty();
                         }
 
-                        boolean needsAssign = categoryEmpty[currentCategory.ordinal()];
+                        boolean needsAssign = satelliteMode ? false : categoryEmpty[currentCategory.ordinal()];
 
                         int f = 0;
                         for (Category cat : getCategories()) {
@@ -748,13 +778,23 @@ public class SatellitePlacementFragment extends PlacementFragment {
                             }
 
                             categories.button(ui.getIcon(cat.name()), Styles.clearTogglei, () -> {
+                                satelliteMode = false;
                                 currentCategory = cat;
                                 if (control.input.block != null) {
                                     control.input.block = getSelectedBlock(currentCategory);
                                 }
                                 rebuildCategory.run();
-                            }).group(group).update(i -> i.setChecked(currentCategory == cat))
+                            }).group(group).update(i -> i.setChecked(!satelliteMode && currentCategory == cat))
                                     .name("category-" + cat.name());
+                        }
+
+                        // 在所有普通分类之后，追加一个卫星建筑分区入口图标
+                        if (!getSatelliteBlocks().isEmpty()) {
+                            categories.row();
+                            categories.button(Icon.planet, Styles.clearTogglei, () -> {
+                                satelliteMode = true;
+                                rebuildCategory.run();
+                            }).update(i -> i.setChecked(satelliteMode)).name("category-satellite");
                         }
                     }).fillY().bottom().touchable(Touchable.enabled);
                 }
@@ -793,24 +833,70 @@ public class SatellitePlacementFragment extends PlacementFragment {
                 .sort((c1, c2) -> Boolean.compare(categoryEmpty[c1.ordinal()], categoryEmpty[c2.ordinal()]));
     }
 
-    Seq<Block> getByCategory(Category cat) {
+    /** 返回所有卫星专属建筑，忽略它们原本的 Category。 */
+    Seq<Block> getSatelliteBlocks() {
         return returnArray.selectFrom(content.blocks(),
-                block -> block.category == cat && block.isVisible() && block.environmentBuildable());
-    }
-
-    Seq<Block> getUnlockedByCategory(Category cat) {
-        return returnArray2
-                .selectFrom(content.blocks(), block -> block.category == cat && block.isVisible() && unlocked(block))
+                block -> block.buildVisibility == CBuildVisibility.satelliteOnly && block.isVisible()
+                        && unlocked(block))
                 .sort((b1, b2) -> Boolean.compare(!b1.isPlaceable(), !b2.isPlaceable()));
     }
 
+    /** 返回指定普通分类的建筑（不含卫星建筑）。 */
+    Seq<Block> getNormalBlocksByCategory(Category cat) {
+        return returnArray2.selectFrom(content.blocks(),
+                block -> block.category == cat && block.isVisible() && block.environmentBuildable()
+                        && block.buildVisibility != CBuildVisibility.satelliteOnly);
+    }
+
+    /** 返回指定普通分类已解锁的建筑（不含卫星建筑）。 */
+    Seq<Block> getNormalUnlockedBlocksByCategory(Category cat) {
+        return returnArray3.selectFrom(content.blocks(),
+                block -> block.category == cat && block.isVisible() && unlocked(block)
+                        && block.buildVisibility != CBuildVisibility.satelliteOnly)
+                .sort((b1, b2) -> Boolean.compare(!b1.isPlaceable(), !b2.isPlaceable()));
+    }
+
+    /** 当前应显示的建筑列表：卫星模式下显示全部卫星建筑，否则显示当前普通分类的建筑。 */
+    Seq<Block> getDisplayedBlocks() {
+        return satelliteMode ? getSatelliteBlocks() : getNormalUnlockedBlocksByCategory(currentCategory);
+    }
+
+    Seq<Block> getByCategory(Category cat) {
+        return satelliteMode ? getSatelliteBlocks() : getNormalBlocksByCategory(cat);
+    }
+
+    Seq<Block> getUnlockedByCategory(Category cat) {
+        return satelliteMode ? getSatelliteBlocks() : getNormalUnlockedBlocksByCategory(cat);
+    }
+
     Block getSelectedBlock(Category cat) {
-        return selectedBlocks.get(cat, () -> getByCategory(cat).find(this::unlocked));
+        Block selected = selectedBlocks.get(cat);
+        if (selected != null && getByCategory(cat).contains(selected)) {
+            return selected;
+        }
+        Block fallback = getByCategory(cat).find(this::unlocked);
+        selectedBlocks.put(cat, fallback);
+        return fallback;
     }
 
     protected boolean unlocked(Block block) {
-        return block.unlocked() && block.placeablePlayer && block.environmentBuildable() &&
-                block.supportsEnv(state.rules.env);
+        boolean onSatellite = SatelliteManager.currentSatelliteId >= 0;
+        boolean campaignSource = SatelliteManager.lastSector != null;
+
+        // 只有在战役模式来源且确实位于卫星上时，才强制只显示已解锁建筑。
+        // 非战役来源或不在卫星上时，不过滤解锁状态，允许沙盒/自定义游戏使用全部建筑。
+        if (onSatellite && campaignSource) {
+            if (!block.unlocked() || !block.placeablePlayer || !block.environmentBuildable() ||
+                    !block.supportsEnv(state.rules.env))
+                return false;
+        } else {
+            if (!block.placeablePlayer || !block.environmentBuildable() ||
+                    !block.supportsEnv(state.rules.env))
+                return false;
+        }
+
+        // 卫星地图：只显示属于绑定星球的建筑
+        return SatelliteContentFilter.allowed(block);
     }
 
     boolean hasInfoBox() {

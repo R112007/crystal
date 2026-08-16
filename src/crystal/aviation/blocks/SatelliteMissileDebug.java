@@ -6,9 +6,12 @@ import mindustry.gen.*;
 import mindustry.type.Category;
 import mindustry.type.ItemStack;
 import mindustry.world.*;
+import crystal.world.meta.CStat;
+import mindustry.world.meta.Stat;
 
 import crystal.aviation.*;
 import crystal.type.SatelliteMissile;
+import crystal.world.meta.CBuildVisibility;
 
 /**
  * 导弹调试建筑。
@@ -21,7 +24,13 @@ public class SatelliteMissileDebug extends Block {
         solid = true;
         destructible = true;
         configurable = true;
-        requirements(Category.effect, new ItemStack[] {});
+        requirements(Category.effect, CBuildVisibility.satelliteOnly, new ItemStack[] {});
+    }
+
+    @Override
+    public void setStats() {
+        super.setStats();
+        stats.add(CStat.missileTypes, SatelliteMissile.map.size);
     }
 
     public class SatelliteMissileDebugBuild extends Building {
@@ -50,9 +59,8 @@ public class SatelliteMissileDebug extends Block {
             table.add("当前库存:").left().row();
 
             for (SatelliteMissile m : SatelliteMissile.map.values()) {
-                int amount = s.missileModule != null ? s.missileModule.get(m) : 0;
                 table.table(row -> {
-                    row.add(m.name + ": " + amount).left().growX();
+                    row.label(() -> m.name + ": " + (s.missileModule != null ? s.missileModule.get(m) : 0)).left().growX();
                     row.button("+10", () -> {
                         s.missileModule.add(m, 10);
                     }).size(50f, 36f);

@@ -1,7 +1,10 @@
 package crystal.ui.gal;
 
+import arc.Core;
 import arc.graphics.Color;
 import arc.scene.ui.Dialog;
+import arc.scene.ui.layout.Scl;
+import arc.util.Align;
 import mindustry.ui.Styles;
 import mindustry.ui.dialogs.BaseDialog;
 
@@ -23,7 +26,8 @@ public class ModuleReplayDialog extends BaseDialog {
         // 全黑背景
         setBackground(Styles.black);
         cont.setBackground(Styles.black);
-
+        setSize(Core.graphics.getWidth() * 0.9f, Core.graphics.getHeight() * 0.3f);
+        setPosition(Core.graphics.getWidth() / 2, scl(20f), Align.center);
         // 创建隔离的回放 Manager，不注册战役事件、不创建继续按钮
         manager = new GalgameDialogueManager(true) {
             @Override
@@ -66,6 +70,10 @@ public class ModuleReplayDialog extends BaseDialog {
             if (manager.isShowing)
                 manager.hide();
         });
+    }
+
+    public float scl(float value) {
+        return Scl.scl(value) / Core.graphics.getDensity();
     }
 
     @Override

@@ -36,7 +36,7 @@ import static crystal.CVars.debug;
 public class UI {
   public CResearchDialog cresearch;
   public CPlanetDialog cplanet;
-  public CPausedDialog cpause;
+  public CPausedDialog cpaused;
   public WorldStuffDialog stuff;
   public GongFaDialog gongFa;
   float height = 100;
@@ -56,20 +56,20 @@ public class UI {
     WorldStuffs.load();
     cresearch = new CResearchDialog();
     cplanet = new CPlanetDialog();
-    cpause = new CPausedDialog();
+    cpaused = new CPausedDialog();
     stuff = new WorldStuffDialog();
     gongFa = new GongFaDialog();
 
     setupGeneralMagicDialog();
     setupRelativeDialog();
 
-    Vars.ui.paused.shown(() -> {
-      Vars.ui.paused.cont.row();
-      Vars.ui.paused.cont.button(
+    cpaused.shown(() -> {
+      cpaused.cont.row();
+      cpaused.cont.button(
           Core.bundle.get("showgongfas"),
           Icon.bookOpen,
           gongFa::show).size(Vars.mobile ? 130f : 220f, Vars.mobile ? 130f : 55f).pad(5f).colspan(2);
-      Vars.ui.paused.cont.button(
+      cpaused.cont.button(
           "历史记录",
           Icon.book, () -> {
             GalgameDialogueManager.instance.historyUI.show();
@@ -172,8 +172,11 @@ public class UI {
     Seq<Contributor> others = Seq.with(
         new Contributor("白小惜", "会画画的老婆", false, "群主老婆，负责画画。", Core.atlas.find("crystal-bai"), "小惜老婆"),
         new Contributor("花开了吗", "会画画的基友", false, "画画外加提供猎奇想法", Core.atlas.find("crystal-hua"), "合晶"),
-        new Contributor("ZXS", "eve的父母", false, "eve真好用", Core.atlas.find("crystal-zxs"), "猫娘"),
         new Contributor("小凡", "bus", false, "天天戏弄群主的臭杂鱼~", Core.atlas.find("crystal-fan"), "小凡大人"),
+        new Contributor("ZXS", "eve的父母", false, "eve真好用", Core.atlas.find("crystal-zxs"), "猫娘"),
+        new Contributor("江某", "代码方面的帮助者", false, "帮作者解决了单位实体适配X端的问题", Core.atlas.find("crystal-jm")),
+        new Contributor("CPTPC", "借给作者代码的大佬", false, "把异形方块的码借给作者，感激不尽", Core.atlas.find("crystal-sybs")),
+        new Contributor("一只一只铼铱合金", "会画画的基友", false, "画画，并且分享猎奇东西", Core.atlas.find("crystal-hj"), "神人之神"),
         new Contributor("RC-C814", "测试伙伴", false, "群主好朋友，天天聊天，交换想法", Core.atlas.find("crystal-rc"), "望星"),
         new Contributor("CN方柠喵FNM ~喵", "可rua猫", false, "陪群主玩", Core.atlas.find("crystal-js"), "随便rua"),
         new Contributor("?!人人!?", "留有遗产的基友", false, "我直接偷吃遗产（", Core.atlas.find("crystal-qin"), "高人红红~"));

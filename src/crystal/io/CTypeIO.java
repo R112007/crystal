@@ -9,10 +9,28 @@ import crystal.entities.units.UnitEnum.XiuWei;
 import crystal.type.UnitStack;
 import ent.anno.Annotations.TypeIOHandler;
 import mindustry.Vars;
+import mindustry.ctype.ContentType;
+import mindustry.type.Liquid;
 import mindustry.world.modules.ItemModule;
 
 @TypeIOHandler
 public class CTypeIO {
+  public static void writeLiquid(Writes writes, Liquid liquid) {
+    if (liquid == null)
+      writes.i(-1);
+    else
+      writes.i(liquid.id);
+  }
+
+  public static Liquid readLiquid(Reads reads) {
+    int id = reads.i();
+    if (id == -1)
+      return null;
+    else
+      return Vars.content.getByID(ContentType.liquid, id);
+
+  }
+
   public static void writeItemModule(Writes writes, ItemModule item) {
     item.write(writes);
   }

@@ -33,6 +33,8 @@ import arc.util.Scaling;
 import arc.util.Structs;
 import java.util.Arrays;
 import mindustry.Vars;
+import crystal.aviation.Satellite;
+import crystal.aviation.SatelliteManager;
 import mindustry.content.TechTree;
 import mindustry.core.UI;
 import mindustry.game.EventType;
@@ -120,8 +122,7 @@ public class CResearchDialog extends BaseDialog {
       this.onResize(checkMargin);
       this.shown(() -> {
          checkMargin.run();
-         Planet currPlanet = Vars.ui.planet.isShown() ? Vars.ui.planet.state.planet
-               : (Vars.state.isCampaign() ? Vars.state.rules.sector.planet : null);
+         Planet currPlanet = getCurrentPlanet();
          if (currPlanet != null && currPlanet.techTree != null) {
             this.switchTree(currPlanet.techTree);
          }
@@ -227,9 +228,24 @@ public class CResearchDialog extends BaseDialog {
 
    @Nullable
    public TechTree.TechNode getPrefRoot() {
-      Planet currPlanet = Vars.ui.planet.isShown() ? Vars.ui.planet.state.planet
-            : (Vars.state.isCampaign() ? Vars.state.rules.sector.planet : null);
+      Planet currPlanet = getCurrentPlanet();
       return currPlanet == null ? null : currPlanet.techTree;
+   }
+
+   /** 获取当前应显示的科技树所属星球。优先卫星绑定星球，其次星球界面/战役区块星球。 */
+   @Nullable
+   public Planet getCurrentPlanet() {
+      // 若当前在卫星地图中，使用卫星绑定的星球
+      if (SatelliteManager.currentSatelliteId >= 0) {
+         Satellite sat = SatelliteManager.get(SatelliteManager.currentSatelliteId);
+         if (sat != null && sat.planet != null)
+            return sat.planet;
+      }
+      if (Vars.ui.planet.isShown())
+         return Vars.ui.planet.state.planet;
+      if (Vars.state.isCampaign() && Vars.state.rules.sector != null)
+         return Vars.state.rules.sector.planet;
+      return null;
    }
 
    public void switchTree(TechTree.TechNode node) {

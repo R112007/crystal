@@ -2,26 +2,28 @@ package crystal.aviation;
 
 import arc.*;
 import arc.files.*;
-import arc.scene.Element;
-import arc.scene.Group;
-import arc.scene.ui.layout.Table;
-import arc.scene.ui.layout.WidgetGroup;
+import arc.scene.*;
+import arc.scene.ui.layout.*;
 import arc.struct.*;
 import arc.util.*;
 import arc.util.io.*;
 import arc.util.serialization.*;
 import crystal.aviation.input.SatelliteMissileInputHandler;
 import crystal.aviation.ui.SatelliteAccessDialog;
+import crystal.ui.fragments.SatellitePlacementFragment;
+import mindustry.Vars;
 import mindustry.core.GameState.State;
 import mindustry.game.EventType.*;
+import mindustry.gen.*;
 import mindustry.io.*;
 import mindustry.maps.*;
 import mindustry.type.*;
 import mindustry.ui.fragments.PlacementFragment;
-import crystal.ui.fragments.SatellitePlacementFragment;
 import mindustry.world.*;
+import mindustry.world.modules.ItemModule;
 
 import java.io.*;
+import java.lang.reflect.Field;
 
 import static mindustry.Vars.*;
 
@@ -33,7 +35,7 @@ public class SatelliteManager {
     private static final String settingsKey = "crystal-aviation-satellites-v2";
     private static final String settingsKeyLegacy = "crystal-aviation-satellites";
     private static final String chunkName = "crystal-aviation";
-    private static final byte revision = 11;
+    private static final byte revision = 17;
 
     /** 所有卫星 */
     public static final ObjectMap<Integer, Satellite> satellites = new ObjectMap<>();
@@ -49,11 +51,6 @@ public class SatelliteManager {
     private static boolean enteringSatellite = false;
     /** 标记是否正在退出卫星地图（防止退出过程中 ResetEvent/StateChangeEvent 再次捕获空世界） */
     private static boolean exitingSatellite = false;
-
-    /** 进入卫星地图前备份的默认建筑列表 Fragment */
-    private static @Nullable PlacementFragment defaultPlacementFragment;
-    /** 当前是否正在使用卫星地图专用的建筑列表 */
-    private static boolean usingSatellitePlacement = false;
 
     /** 自动保存计时器（单位：tick，1 秒 ≈ 60 tick） */
     private static float autoSaveTimer = 0f;
@@ -72,20 +69,262 @@ public class SatelliteManager {
         exitingSatellite = value;
     }
 
-    /** 切换为卫星地图专用的建筑列表（仅显示已解锁建筑）。 */
-    public static void installSatellitePlacementFragment(){
-        if(usingSatellitePlacement || ui == null || ui.hudfrag == null) return;
+    /** 卫星地图专用建筑列表实例。 */
+    private static @Nullable SatellitePlacementFragment satelliteFragment;
+    /** 当前是否正在使用卫星建筑列表。 */
+    private static boolean satelliteFragmentInstalled = false;
+    /** 保存的原版 PlacementFragment，用于退出卫星地图时恢复。 */
+    private static @Nullable PlacementFragment originalFragment;
+    /** 用于“禁用”原版 fragment 事件回调的占位容器。 */
+    private static @Nullable Group dummyFragmentParent;
 
-        PlacementFragment old = ui.hudfrag.blockfrag;
-        if(old != null){
-            defaultPlacementFragment = old;
-            removeFragmentToggler(old);
+    /** PlacementFragment.toggler 字段，反射缓存。 */
+    private static @Nullable Field placementTogglerField;
+
+    private static @Nullable Field getPlacementTogglerField() {
+        if (placementTogglerField == null) {
+            // 1) 先按源码字段名查找（开发/未混淆环境）
+            try {
+                Field f = PlacementFragment.class.getDeclaredField("toggler");
+                f.setAccessible(true);
+                placementTogglerField = f;
+                return placementTogglerField;
+            } catch (Exception ignored) {
+            }
+
+            // 2) release 版字段被混淆：toggler 是唯一的、不是其它 Table 字段后代的 Table
+            try {
+                if (ui != null && ui.hudfrag != null && ui.hudfrag.blockfrag != null) {
+                    PlacementFragment current = ui.hudfrag.blockfrag;
+                    Field[] fields = PlacementFragment.class.getDeclaredFields();
+                    Seq<Field> tableFields = new Seq<>();
+                    for (Field f : fields) {
+                        if (f.getType() == Table.class) {
+                            f.setAccessible(true);
+                            tableFields.add(f);
+                        }
+                    }
+
+                    for (Field f : tableFields) {
+                        Table t = (Table) f.get(current);
+                        if (t == null)
+                            continue;
+                        boolean descendant = false;
+                        for (Field other : tableFields) {
+                            if (other == f)
+                                continue;
+                            Table ot = (Table) other.get(current);
+                            if (ot == null)
+                                continue;
+                            if (isDescendantOf(t, ot)) {
+                                descendant = true;
+                                break;
+                            }
+                        }
+                        if (!descendant) {
+                            placementTogglerField = f;
+                            return placementTogglerField;
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                Log.warn("[CrystalAviation] Failed to locate PlacementFragment.toggler via fallback: @",
+                        e.getMessage());
+            }
+        }
+        return placementTogglerField;
+    }
+
+    private static boolean isDescendantOf(Element child, Group ancestor) {
+        Element current = child;
+        while (current != null) {
+            Group parent = current.parent;
+            if (parent == ancestor)
+                return true;
+            current = parent;
+        }
+        return false;
+    }
+
+    /**
+     * 确保当前 blockfrag 是安全的（SafePlacementFragment 或 SatellitePlacementFragment），防止原版
+     * PlacementFragment 在 WorldLoadEvent/UnlockEvent 中崩溃。
+     */
+    public static void ensureSafePlacementFragment() {
+        if (ui == null || ui.hudfrag == null)
+            return;
+        PlacementFragment current = ui.hudfrag.blockfrag;
+        if (current == null)
+            return;
+        // 已经是安全实例或卫星实例，无需处理
+        if (current instanceof SafePlacementFragment || current instanceof SatellitePlacementFragment)
+            return;
+
+        replacePlacementFragment(new SafePlacementFragment());
+    }
+
+    /** 切换为卫星地图专用的建筑列表（仅显示已解锁建筑）。 */
+    public static void installSatellitePlacementFragment() {
+        if (ui == null || ui.hudfrag == null)
+            return;
+
+        // 如果当前 blockfrag 已经是卫星版，同步状态并直接返回
+        if (ui.hudfrag.blockfrag instanceof SatellitePlacementFragment) {
+            satelliteFragment = (SatellitePlacementFragment) ui.hudfrag.blockfrag;
+            satelliteFragmentInstalled = true;
+            return;
         }
 
-        SatellitePlacementFragment satelliteFrag = new SatellitePlacementFragment();
-        satelliteFrag.build(ui.hudGroup);
-        ui.hudfrag.blockfrag = satelliteFrag;
-        usingSatellitePlacement = true;
+        // 已经安装且 toggler 仍在，直接返回
+        Field togglerField = getPlacementTogglerField();
+        if (satelliteFragmentInstalled && satelliteFragment != null && togglerField != null) {
+            try {
+                Table t = (Table) togglerField.get(satelliteFragment);
+                if (t != null && t.parent != null)
+                    return;
+            } catch (Exception ignored) {
+                return;
+            }
+            // toggler 已失效，需要重新安装
+            satelliteFragmentInstalled = false;
+        }
+
+        if (satelliteFragment == null) {
+            satelliteFragment = new SatellitePlacementFragment();
+        }
+
+        // 先确保当前不是原版 PlacementFragment（原版缺少空指针防护）
+        ensureSafePlacementFragment();
+
+        replacePlacementFragment(satelliteFragment);
+        satelliteFragmentInstalled = true;
+    }
+
+    /** 恢复默认建筑列表。 */
+    public static void restoreDefaultPlacementFragment() {
+        if (ui == null || ui.hudfrag == null)
+            return;
+        if (!satelliteFragmentInstalled)
+            return;
+
+        try {
+            replacePlacementFragment(new SafePlacementFragment());
+        } catch (Exception e) {
+            Log.err("[CrystalAviation] Failed to restore default placement fragment", e);
+        } finally {
+            satelliteFragmentInstalled = false;
+            satelliteFragment = null;
+        }
+    }
+
+    /**
+     * 将 ui.hudfrag.blockfrag 替换为 newFragment，并把旧实例隔离到 dummyFragmentParent。
+     * 旧实例的 WorldLoadEvent / UnlockEvent 监听仍然保留在 Events 中，
+     * 但只要它的 toggler 还在 dummy parent 里就不会空指针崩溃。
+     */
+    private static void replacePlacementFragment(PlacementFragment newFragment) {
+        if (ui == null || ui.hudfrag == null)
+            return;
+        PlacementFragment current = ui.hudfrag.blockfrag;
+        if (current == null || current == newFragment)
+            return;
+
+        try {
+            Field togglerField = getPlacementTogglerField();
+            Table currentToggler = null;
+            Group parent = null;
+            if (togglerField != null) {
+                currentToggler = (Table) togglerField.get(current);
+                parent = currentToggler != null ? currentToggler.parent : null;
+            }
+
+            if (parent == null) {
+                Log.warn("[CrystalAviation] Cannot replace placement fragment: current toggler has no parent");
+                return;
+            }
+
+            // 先把旧实例隔离到 dummy parent，确保它残留的事件监听不会崩溃
+            isolateOldFragment(current);
+
+            // 从真实 UI 中移除旧 toggler
+            if (currentToggler != null) {
+                currentToggler.remove();
+            }
+
+            // 安装新 fragment
+            newFragment.build(parent);
+            ui.hudfrag.blockfrag = newFragment;
+            originalFragment = newFragment;
+        } catch (Exception e) {
+            Log.err("[CrystalAviation] Failed to replace placement fragment", e);
+        }
+    }
+
+    /** 把旧 fragment 隔离到一个不显示的 dummy parent 中，让它残留的监听触发时不会空指针。 */
+    private static void isolateOldFragment(PlacementFragment old) {
+        if (dummyFragmentParent == null) {
+            dummyFragmentParent = new WidgetGroup();
+        }
+
+        // 1) 先用反射给 toggler 设置一个带父节点的占位 Table（轻量、可靠）
+        try {
+            ensureDummyToggler(old);
+        } catch (Exception e) {
+            Log.warn("[CrystalAviation] ensureDummyToggler failed: @", e.getMessage());
+        }
+
+        // 2) 再调用 build(dummyParent) 作为兜底：即使反射失败/字段被混淆，
+        // 也会让 toggler 指向一个 parent 非 null 的 Table
+        try {
+            old.build(dummyFragmentParent);
+        } catch (Exception e) {
+            Log.warn("[CrystalAviation] Failed to build old fragment into dummy parent: @", e.getMessage());
+        }
+    }
+
+    /** 为指定 fragment 设置一个带父节点的占位 toggler，防止 rebuild() 时 parent 为 null。 */
+    private static void ensureDummyToggler(PlacementFragment fragment) throws IllegalAccessException {
+        if (dummyFragmentParent == null) {
+            dummyFragmentParent = new WidgetGroup();
+        }
+        Field togglerField = getPlacementTogglerField();
+        if (togglerField == null)
+            return;
+        Table dummyToggler = new Table();
+        dummyFragmentParent.addChild(dummyToggler);
+        togglerField.set(fragment, dummyToggler);
+    }
+
+    /**
+     * 带空指针防护的 PlacementFragment 包装。
+     * 不单独建文件，直接作为内部类放在 SatelliteManager 里。
+     */
+    public static class SafePlacementFragment extends PlacementFragment {
+        public SafePlacementFragment() {
+            super();
+        }
+
+        @Override
+        public void rebuild() {
+            try {
+                super.rebuild();
+            } catch (Throwable t) {
+                Log.warn("[SafePlacementFragment] rebuild() suppressed error: @", t.getMessage());
+            }
+        }
+
+        @Override
+        public void build(Group parent) {
+            if (parent == null) {
+                Log.warn("[SafePlacementFragment] build() called with null parent, skipping");
+                return;
+            }
+            try {
+                super.build(parent);
+            } catch (Throwable t) {
+                Log.err("[SafePlacementFragment] build() error", t);
+            }
+        }
     }
 
     /**
@@ -111,64 +350,8 @@ public class SatelliteManager {
                     currentSatelliteId = id;
                     s.mapData.rebindBuildings();
                     installSatellitePlacementFragment();
-                    Log.info("Recovered satellite id: @", id);
                 }
             } catch (NumberFormatException ignored) {
-            }
-        }
-    }
-
-    /** 恢复默认建筑列表。 */
-    public static void restoreDefaultPlacementFragment(){
-        if(!usingSatellitePlacement || ui == null || ui.hudfrag == null) return;
-
-        PlacementFragment old = ui.hudfrag.blockfrag;
-        removeFragmentToggler(old);
-
-        if(defaultPlacementFragment != null){
-            defaultPlacementFragment.build(ui.hudGroup);
-            ui.hudfrag.blockfrag = defaultPlacementFragment;
-        }
-        usingSatellitePlacement = false;
-    }
-
-    /**
-     * 安全移除 PlacementFragment 的 UI。
-     * 原版 PlacementFragment 在构造时注册了 WorldLoadEvent/UnlockEvent 等回调，
-     * 这些回调会调用没有空指针保护的 rebuild()；仅 remove() 掉 toggler 会导致
-     * toggler.parent == null 而在后续事件里 NPE。这里对原版 fragment 挂到一个
-     * 离屏 Group，对我们自己的 SatellitePlacementFragment 则直接置空（其 rebuild()
-     * 已做空指针保护）。
-     */
-    private static void removeFragmentToggler(PlacementFragment fragment){
-        if(fragment == null) return;
-        try{
-            java.lang.reflect.Field togglerField = PlacementFragment.class.getDeclaredField("toggler");
-            togglerField.setAccessible(true);
-            Element toggler = (Element)togglerField.get(fragment);
-            if(toggler != null && toggler.parent != null){
-                toggler.remove();
-            }
-
-            if(fragment instanceof SatellitePlacementFragment){
-                // 我们自己的 fragment rebuild() 已做空指针保护，直接置空即可
-                togglerField.set(fragment, null);
-            }else{
-                // 原版 fragment 的 rebuild() 没有空指针保护：挂到离屏 Group 防止 NPE
-                Table dummyToggler = new Table();
-                Group dummyParent = new WidgetGroup();
-                dummyParent.addChild(dummyToggler);
-                togglerField.set(fragment, dummyToggler);
-            }
-        }catch(Exception e){
-            // 反射失败时回退：遍历 hudGroup 查找 placement-toggler
-            if(ui != null && ui.hudGroup != null){
-                for(Element child : ui.hudGroup.getChildren()){
-                    if("placement-toggler".equals(child.name)){
-                        child.remove();
-                        break;
-                    }
-                }
             }
         }
     }
@@ -183,6 +366,7 @@ public class SatelliteManager {
 
     public static void load() {
         satellites.clear();
+        // 区块统计由 SatelliteSectorInfoManager.init() 统一加载，避免重复
         boolean migrated = false;
         byte[] bytes = Core.settings.getBytes(settingsKey, null);
         if (bytes == null || bytes.length == 0) {
@@ -212,7 +396,10 @@ public class SatelliteManager {
             Core.settings.put(settingsKey, data);
             Core.settings.remove(settingsKeyLegacy);
             Core.settings.forceSave();
+            // 同时保存区块卫星统计
+            SatelliteSectorInfoManager.save();
         } catch (Throwable t) {
+            Log.err("[SatelliteManager] save 失败", t);
         }
     }
 
@@ -307,6 +494,7 @@ public class SatelliteManager {
             try {
                 current.mapData.captureFromWorld();
                 save();
+                SatelliteSectorInfoManager.save();
             } catch (Throwable t) {
             }
         }
@@ -324,10 +512,12 @@ public class SatelliteManager {
 
     /**
      * 创建并注册一颗新卫星，可指定自定义地图文件、轨道高度与初始角度。
-     * @param orbitRadius 轨道半径（相对于星球半径的倍数），<=0 时使用随机默认值
+     * 
+     * @param orbitRadius   轨道半径（相对于星球半径的倍数），<=0 时使用随机默认值
      * @param orbitAngleDeg 初始轨道角度（度），<0 时使用随机默认值
      */
-    public static @Nullable Satellite launch(Planet planet, String name, @Nullable Fi mapFile, float orbitRadius, float orbitAngleDeg) {
+    public static @Nullable Satellite launch(Planet planet, String name, @Nullable Fi mapFile, float orbitRadius,
+            float orbitAngleDeg) {
         if (!canLaunchOn(planet)) {
             return null;
         }
@@ -373,6 +563,19 @@ public class SatelliteManager {
                 set.add(s.planet);
         }
         return Math.max(set.size, 1);
+    }
+
+    /** 直接统计当前世界中指定建筑类型的实体数量。 */
+    public static int countCurrentWorldBuildings(Block block) {
+        if (block == null)
+            return 0;
+        int[] count = { 0 };
+        Groups.build.each(b -> {
+            if (b != null && b.isValid() && b.block == block) {
+                count[0]++;
+            }
+        });
+        return count[0];
     }
 
     public static void rename(int id, String newName) {
@@ -432,14 +635,23 @@ public class SatelliteManager {
     }
 
     public static void update() {
+        if (Vars.state.isPaused())
+            return;
         recoverCurrentSatelliteId();
+        SatelliteSectorInfoManager.update();
         for (Satellite s : satellites.values()) {
             if (s.isDockMaster())
                 s.update();
         }
 
-        // 30 秒自动保存：仅在当前处于卫星地图中且未在捕获世界时触发
+        // 当前在卫星地图中：刷新核心容量
         if (currentSatelliteId >= 0) {
+            Satellite current = satellites.get(currentSatelliteId);
+            if (current != null) {
+                current.refreshCoreCapacity();
+            }
+
+            // 30 秒自动保存：仅在当前处于卫星地图中且未在捕获世界时触发
             autoSaveTimer += Time.delta;
             if (autoSaveTimer >= autoSaveInterval) {
                 autoSaveTimer = 0f;
@@ -459,6 +671,7 @@ public class SatelliteManager {
             try {
                 current.mapData.captureFromWorld();
                 save();
+                SatelliteSectorInfoManager.save();
             } catch (Throwable t) {
             }
         }
@@ -496,6 +709,7 @@ public class SatelliteManager {
                 try {
                     current.mapData.captureFromWorld();
                     save();
+                    SatelliteSectorInfoManager.save();
                 } catch (Throwable t) {
                 }
             }
@@ -534,7 +748,6 @@ public class SatelliteManager {
                     if (s != null) {
                         currentSatelliteId = id;
                         recovered = true;
-                        Log.info("WorldLoad recovered satellite id: @", id);
                     }
                 } catch (NumberFormatException e) {
                 }
@@ -562,14 +775,17 @@ public class SatelliteManager {
             }
         }
 
-        // 如果当前世界是卫星地图，重新绑定控制/对接建筑引用，并安装卫星专用建筑列表
+        // 如果当前世界是卫星地图，重新绑定控制/对接建筑引用，并安装卫星专用建筑列表。
+        // 通过替换原版 PlacementFragment 为 SatellitePlacementFragment 实现，不修改 mindustry 包文件。
         if (currentSatelliteId >= 0) {
             Satellite s = get(currentSatelliteId);
             if (s != null) {
-                if (recovered) {
-                    installSatellitePlacementFragment();
-                }
+                installSatellitePlacementFragment();
                 s.mapData.rebindBuildings();
+                // 读档后根据世界中实际建筑重新计算扩容仓/液体仓数量与容量，防止旧存档中的错误计数残留
+                s.recalcStorageCapacityFromWorld();
+                s.bindCoreItems();
+                s.refreshCoreCapacity();
             }
         }
     }
@@ -609,6 +825,7 @@ public class SatelliteManager {
             try {
                 control.saves.getCurrent().save();
             } catch (Throwable t) {
+                // 保存失败时静默继续，进入卫星是更高优先级操作
             }
         }
 
@@ -635,8 +852,29 @@ public class SatelliteManager {
                         lastSector != null ? lastSector.planet.name + ":" + lastSector.id : "");
                 state.map = new Map(tags);
 
+                // 进入卫星前备份卫星 items。applyToWorld() 加载的 saveData 可能包含旧核心物品，
+                // 某些情况下会把卫星 items 覆盖成存档旧值；这里保存权威值，加载后再强制恢复。
+                ItemModule itemsBackup = target.items != null ? target.items.copy() : null;
+                int itemsTotalBefore = itemsBackup != null ? itemsBackup.total() : -1;
+
                 // 加载卫星世界数据：优先使用 saveData（.msav），否则回退到 transient tiles
                 target.mapData.applyToWorld();
+
+                // 根据实际建筑重新计算扩容仓/液体仓数量与容量，防止旧计数残留
+                target.recalcStorageCapacityFromWorld();
+
+                // 同步卫星物品容量与核心，确保核心容量与物品储量一致
+                target.bindCoreItems();
+
+                // 防御性恢复：若 applyToWorld / bindCoreItems 导致卫星 items 被覆盖，强制恢复备份
+                if (itemsBackup != null && target.items != null && target.items.total() != itemsTotalBefore) {
+                    Log.warn("[SatelliteManager] 进入卫星时发现卫星 items 被修改（@ -> @），强制恢复备份",
+                            itemsTotalBefore, target.items.total());
+                    target.items.set(itemsBackup);
+                    target.bindCoreItems();
+                }
+
+                target.refreshCoreCapacity();
 
                 // 补全/覆盖地图元数据，确保宽高与名称正确
                 state.map.width = target.mapData.width;

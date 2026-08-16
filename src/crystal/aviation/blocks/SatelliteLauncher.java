@@ -11,38 +11,37 @@ import arc.util.io.*;
 import mindustry.content.*;
 import mindustry.entities.*;
 import mindustry.gen.*;
+import mindustry.graphics.Pal;
 import mindustry.type.*;
 import mindustry.ui.*;
 import mindustry.world.*;
 import mindustry.world.blocks.*;
 import mindustry.world.consumers.*;
+import crystal.world.meta.CStat;
 import mindustry.world.meta.*;
 
 import crystal.aviation.*;
+import crystal.aviation.entities.SatelliteLaunchVehicles;
 import crystal.aviation.ui.*;
 
 import static mindustry.Vars.*;
+import crystal.world.meta.CBuildVisibility;
 
 /**
  * 卫星发射台。
  * 获得足够物品后，玩家点击可输入卫星名称，播放发射特效并自毁，
  * 随后在所属星球轨道创建一颗新卫星实例。
  */
-public class SatelliteLauncher extends Block{
+public class SatelliteLauncher extends Block {
     /** 发射所需物品 */
-    public ItemStack[] launchCost = new ItemStack[]{
-        new ItemStack(Items.copper, 200),
-        new ItemStack(Items.lead, 200),
-        new ItemStack(Items.silicon, 150),
-        new ItemStack(Items.titanium, 100),
-        new ItemStack(Items.thorium, 50)
+    public ItemStack[] launchCost = new ItemStack[] {
     };
     /** 发射特效 */
     public Effect launchEffect = Fx.launch;
     /** 发射持续时间（tick） */
     public float launchDuration = 120f;
 
-    public SatelliteLauncher(String name){
+    public SatelliteLauncher(String name) {
         super(name);
         update = true;
         solid = true;
@@ -51,17 +50,23 @@ public class SatelliteLauncher extends Block{
         hasItems = true;
         itemCapacity = 400;
         buildCostMultiplier = 0.5f;
-        requirements(Category.effect, BuildVisibility.shown, launchCost);
-        consumeItems(launchCost);
     }
 
     @Override
-    public void setStats(){
+    public void setStats() {
         super.setStats();
-        stats.add(Stat.input, StatValues.items(launchDuration / 60f, launchCost));
+        stats.add(CStat.launchCost, StatValues.items(launchCost));
+        stats.add(Stat.launchTime, launchDuration / 60f, StatUnit.seconds);
     }
 
-    public class SatelliteLauncherBuild extends Building{
+    @Override
+    public void setBars() {
+        super.setBars();
+        // 自己管理物品 Bar，避免与原 Block 默认 Bar 重复
+        barMap.remove("items");
+    }
+
+    public class SatelliteLauncherBuild extends Building {
         /** 发射进度 */
         public float launchProgress = 0f;
         /** 是否正在发射 */
@@ -80,12 +85,13 @@ public class SatelliteLauncher extends Block{
         public @Nullable Satellite pendingEnterSatellite;
 
         @Override
-        public void updateTile(){
-            if(pendingKill){
+        public void updateTile() {
+            if (pendingKill) {
                 pendingKill = false;
-                if(!dead) kill();
+                if (!dead)
+                    kill();
                 // kill 完成后再跳转卫星地图，避免与 TilePreChange/MinimapRenderer 竞态
-                if(pendingEnterSatellite != null){
+                if (pendingEnterSatellite != null) {
                     Satellite s = pendingEnterSatellite;
                     pendingEnterSatellite = null;
                     Core.app.post(() -> SatelliteManager.enterSatelliteMap(s));
@@ -93,19 +99,19 @@ public class SatelliteLauncher extends Block{
                 return;
             }
 
-            if(launching){
+            if (launching) {
                 launchProgress += edelta();
-                if(launchProgress >= launchDuration){
+                if (launchProgress >= launchDuration) {
                     finishLaunch();
                 }
             }
         }
 
         @Override
-        public void draw(){
+        public void draw() {
             super.draw();
             // 绘制简单的发射进度指示
-            if(launching){
+            if (launching) {
                 float p = launchProgress / launchDuration;
                 Draw.color(Color.valueOf("ffaa00"), p);
                 Fill.circle(x, y, 8f + p * 16f);
@@ -114,24 +120,26 @@ public class SatelliteLauncher extends Block{
         }
 
         @Override
-        public void buildConfiguration(Table table){
-            if(launching) return;
+        public void buildConfiguration(Table table) {
+            if (launching)
+                return;
 
             table.button(Icon.upOpen, Styles.cleari, () -> {
                 // 检查是否满足物品
-                if(!hasLaunchItems()){
+                if (!hasLaunchItems()) {
                     ui.showInfo("资源不足");
                     return;
                 }
                 // 检查星球卫星上限
                 Planet planet = state.rules.sector != null ? state.rules.sector.planet : Planets.serpulo;
-                if(!SatelliteManager.canLaunchOn(planet)){
+                if (!SatelliteManager.canLaunchOn(planet)) {
                     ui.showInfo("该星球卫星数量已达上限");
                     return;
                 }
                 // 弹出名称输入框，可选择自定义地图文件
                 SatelliteNameDialog dialog = new SatelliteNameDialog(result -> {
-                    if(result == null || result.name == null || result.name.isEmpty()) return;
+                    if (result == null || result.name == null || result.name.isEmpty())
+                        return;
                     this.satelliteName = result.name;
                     this.selectedMapFile = result.mapFile;
                     this.launchOrbitRadius = result.orbitRadius;
@@ -143,8 +151,22 @@ public class SatelliteLauncher extends Block{
         }
 
         @Override
-        public void configured(Unit builder, Object value){
-            if(value instanceof String name && !launching){
+        public void display(Table table) {
+            super.display(table);
+            table.row();
+            table.add(new Bar("发射进度",
+                    Pal.power,
+                    () -> launching ? launchProgress / launchDuration : 0f))
+                    .height(18f).row();
+            table.add(new Bar(() -> "物品准备: " + (items == null ? 0 : items.total()) + "/" + itemCapacity,
+                    () -> Pal.items,
+                    () -> items == null ? 0f : items.total() / (float) itemCapacity))
+                    .growX().height(18f).row();
+        }
+
+        @Override
+        public void configured(Unit builder, Object value) {
+            if (value instanceof String name && !launching) {
                 satelliteName = name;
                 launching = true;
                 launchProgress = 0f;
@@ -154,30 +176,32 @@ public class SatelliteLauncher extends Block{
         }
 
         /** 是否已集齐发射所需物品 */
-        public boolean hasLaunchItems(){
-            for(ItemStack stack : launchCost){
-                if(items.get(stack.item) < stack.amount) return false;
+        public boolean hasLaunchItems() {
+            for (ItemStack stack : launchCost) {
+                if (items.get(stack.item) < stack.amount)
+                    return false;
             }
             return true;
         }
 
-        void finishLaunch(){
+        void finishLaunch() {
             launching = false;
             launchProgress = 0f;
 
             // 消耗物品
-            for(ItemStack stack : launchCost){
+            for (ItemStack stack : launchCost) {
                 items.remove(stack.item, stack.amount);
             }
 
-            // 创建卫星，传入自定义地图文件、轨道高度与角度
+            // 创建发射载体实体，实体升空 remove 后才会真正创建卫星
             Planet planet = state.rules.sector != null ? state.rules.sector.planet : Planets.serpulo;
-            Satellite satellite = SatelliteManager.launch(
+            SatelliteLaunchVehicles.launch(
                     planet,
                     satelliteName.isEmpty() ? "Satellite" : satelliteName,
                     selectedMapFile,
                     launchOrbitRadius,
-                    launchOrbitAngleDeg);
+                    launchOrbitAngleDeg,
+                    x, y, true);
             selectedMapFile = null;
             launchOrbitRadius = -1f;
             launchOrbitAngleDeg = -1f;
@@ -185,22 +209,17 @@ public class SatelliteLauncher extends Block{
             // 自毁：标记为等待下一逻辑帧在 updateTile 中执行，避免在 Android 渲染线程直接 kill
             // 导致 TilePreChangeEvent / MinimapRenderer 的竞态 NullPointerException。
             pendingKill = true;
-            final float sx = x, sy = y;
-            if(satellite != null){
-                Fx.rocketSmokeLarge.at(sx, sy);
-                ui.showInfoFade("卫星 \"" + satellite.name + "\" 已发射");
-                // 先记录待进入卫星，等 kill 完成后再跳转，避免与当前建筑的 kill/TilePreChange 事件产生竞态
-                pendingEnterSatellite = satellite;
-            }
+            Fx.rocketSmokeLarge.at(x, y);
+            ui.showInfoFade("卫星发射载体已升空");
         }
 
         @Override
-        public byte version(){
+        public byte version() {
             return 2;
         }
 
         @Override
-        public void write(Writes write){
+        public void write(Writes write) {
             super.write(write);
             write.f(launchProgress);
             write.bool(launching);
@@ -210,12 +229,12 @@ public class SatelliteLauncher extends Block{
         }
 
         @Override
-        public void read(Reads read, byte revision){
+        public void read(Reads read, byte revision) {
             super.read(read, revision);
             launchProgress = read.f();
             launching = read.bool();
             satelliteName = read.str();
-            if(revision >= 2){
+            if (revision >= 2) {
                 launchOrbitRadius = read.f();
                 launchOrbitAngleDeg = read.f();
             }

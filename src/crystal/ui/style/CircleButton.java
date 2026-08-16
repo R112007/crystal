@@ -26,6 +26,7 @@ public class CircleButton extends ImageButton {
 
   public CircleButton(Drawable icon, ImageButtonStyle style) {
     super(icon, style);
+    style.up = style.down = style.checked = style.over = null;
   }
 
   @Override
@@ -33,7 +34,10 @@ public class CircleButton extends ImageButton {
     float cx = x + getWidth() / 2f;
     float cy = y + getHeight() / 2f;
     float radius = Math.min(getWidth(), getHeight()) / 2f;
-
+    if (isPressed()) {
+      Draw.color(Color.valueOf("#000000"));
+      Fill.circle(cx, cy, radius);
+    }
     if (drawBackground) {
       Draw.color(backgroundColor);
       Fill.circle(cx, cy, radius);

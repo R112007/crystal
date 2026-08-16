@@ -6,6 +6,7 @@ import arc.math.*;
 import arc.struct.*;
 import arc.util.*;
 import arc.util.io.*;
+import arc.util.Nullable;
 import mindustry.content.*;
 import mindustry.game.*;
 import mindustry.gen.*;
@@ -15,9 +16,11 @@ import mindustry.type.*;
 import mindustry.world.*;
 import mindustry.world.blocks.environment.*;
 import mindustry.world.blocks.storage.*;
+import mindustry.world.modules.*;
 import mindustry.graphics.g3d.*;
 
 import crystal.aviation.*;
+import crystal.aviation.world.*;
 import crystal.aviation.blocks.*;
 import crystal.aviation.blocks.SatelliteUpgradeCenter;
 
@@ -66,6 +69,12 @@ public class SatelliteMapData {
 
     /** 卫星世界存档数据（SaveIO 格式的 .msav 字节流，包含地形与实体）。这是唯一的持久化地图状态。 */
     public byte[] saveData = new byte[0];
+
+    /**
+     * 建筑模块快照（items/liquids/power），键为 tile pos。
+     * 作为 SaveIO 建筑模块数据的冗余备份，确保卫星地图读档时模块不丢失。
+     */
+    private ObjectMap<Integer, ModuleSnapshot> moduleSnapshots = new ObjectMap<>();
 
     /** transient 工作缓存：由 saveData 解码或默认生成得到，不参与序列化。 */
     private transient TileEntry[][] tiles;
@@ -131,7 +140,7 @@ public class SatelliteMapData {
             for (int x = 0; x < width; x++) {
                 TileEntry e = new TileEntry();
                 boolean inside = x >= buildableLeft && x <= buildableRight
-                        && y >= buildableBottom && y <= buildableTop;
+                                 && y >= buildableBottom && y <= buildableTop;
                 e.floor = inside ? buildableFloor.name : voidFloor.name;
                 e.block = Blocks.air.name;
                 tiles[y][x] = e;
@@ -142,14 +151,15 @@ public class SatelliteMapData {
         // 在核心右侧紧邻放置一个卫星控制中心，其余建筑不生成。
         placeBuildingLocal(centerX, centerY, core, Team.sharded, 0, null);
         placeBuildingLocal(centerX + 4, centerY, CrystalAviationSystemCore.satelliteControlCenter, Team.sharded, 0,
-                null);
+                           null);
 
         rebuildBuildings();
     }
 
     /** 获取当前注册的可建造地板，优先使用 spaceCore 中定义的 spaceFloor。 */
     private Floor resolveSpaceFloor() {
-        Floor floor = CrystalAviationSystemCore.spaceFloor != null ? (Floor) CrystalAviationSystemCore.spaceFloor : null;
+        Floor floor = CrystalAviationSystemCore.spaceFloor != null ? (Floor) CrystalAviationSystemCore.spaceFloor
+                      : null;
         if (floor == null)
             floor = (Floor) content.block(CrystalAviationSystemCore.defaultSatelliteFloor);
         if (floor == null)
@@ -168,8 +178,9 @@ public class SatelliteMapData {
     }
 
     /**
-     * 将 transient tiles 中所有可建造区域内的地板强制替换为 spaceFloor。
+     * 将 transient tiles 中的旧可建造地板替换为 spaceFloor，并把可建造范围外的非 void 地板还原为 void。
      * 用于兼容旧存档中保存的 metal-floor 等旧地板，确保玩家进入卫星地图时看到的是 spaceFloor。
+     * 注意：不再根据 buildableBounds 把 void 强制转为 spaceFloor，否则会无限扩大可建造区域。
      */
     public void migrateToSpaceFloor() {
         if (tiles == null)
@@ -179,12 +190,15 @@ public class SatelliteMapData {
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 TileEntry e = tiles[y][x];
-                boolean inside = x >= buildableLeft && x <= buildableRight
-                        && y >= buildableBottom && y <= buildableTop;
                 Block floor = content.block(e.floor);
+                // 已经是 spaceFloor 或 voidFloor 的无需处理
+                if (floor == spaceFloor || floor == voidFloor)
+                    continue;
+                boolean inside = x >= buildableLeft && x <= buildableRight
+                                 && y >= buildableBottom && y <= buildableTop;
                 if (inside) {
                     e.floor = spaceFloor.name;
-                } else if (floor != voidFloor) {
+                } else {
                     e.floor = voidFloor.name;
                 }
             }
@@ -240,8 +254,8 @@ public class SatelliteMapData {
         int[] parsedSize = new int[2];
 
         try (InputStream is = new InflaterInputStream(file.read(bufferSize));
-                CounterInputStream counter = new CounterInputStream(is);
-                DataInputStream stream = new DataInputStream(counter)) {
+                    CounterInputStream counter = new CounterInputStream(is);
+                    DataInputStream stream = new DataInputStream(counter)) {
 
             SaveIO.readHeader(stream);
             int version = stream.readInt();
@@ -294,6 +308,10 @@ public class SatelliteMapData {
                     e.rotation = (byte) t.build.rotation;
                     // 保存原始配置对象，便于后续重新应用到世界
                     e.config = t.build.config();
+                    // 在 SaveIO.load 失败后的回退路径中，保留建筑 items/liquids/power
+                    e.itemBytes = writeModule(t.build.items);
+                    e.liquidBytes = writeModule(t.build.liquids);
+                    e.powerBytes = writeModule(t.build.power);
 
                     BuildingEntry be = new BuildingEntry();
                     be.lx = (short) x;
@@ -502,18 +520,35 @@ public class SatelliteMapData {
             boolean hadSaveData = saveData != null && saveData.length > 0;
 
             if (hadSaveData) {
+                Exception loadError = null;
                 try {
                     Fi temp = tempFile();
                     temp.writeBytes(saveData);
+
+                    // SaveIO.load 会重置 state.map，导致卫星标签丢失并触发污染回退。
+                    // 先保存标签，加载后立即恢复。
+                    StringMap preservedTags = (state.map != null && state.map.tags != null)
+                                              ? new StringMap(state.map.tags)
+                                              : new StringMap();
+
                     SaveIO.load(temp);
 
-                    // 污染校验：加载的存档必须是当前卫星的卫星地图，不能是区块地图。
-                    // 若 saveData 被 sector 数据覆盖，tags 会不匹配或 rules.sector 不为 null。
+                    if (state.map != null) {
+                        state.map.tags.putAll(preservedTags);
+                        // 防御：SaveIO.load 创建的 state.map 可能只含 name/width/height，
+                        // 显式补回卫星标签，避免后续校验失败导致不必要的 tiles 回退。
+                        state.map.tags.put("crystal-aviation-satellite", String.valueOf(targetId));
+                    }
+
+                    // 校验：加载的存档必须是当前卫星的卫星地图。tag 不匹配说明数据被覆盖，必须回退。
+                    // sector 非 null 时强制清空，避免把卫星地图误判为战役区块。
                     String loadedTag = state.map != null ? state.map.tags.get("crystal-aviation-satellite") : null;
-                    if (loadedTag == null || !loadedTag.equals(String.valueOf(targetId)) || state.rules.sector != null) {
-                        Log.warn("Satellite @ saveData is contaminated (tag='@', sector='@'), falling back to tiles",
-                                targetId, loadedTag, state.rules.sector);
-                        throw new IOException("Satellite saveData contaminated with sector data");
+                    if (loadedTag == null || !loadedTag.equals(String.valueOf(targetId))) {
+                        throw new IOException("Satellite saveData tag mismatch (tag='" + loadedTag
+                                              + "', expected='" + targetId + "')");
+                    }
+                    if (state.rules.sector != null) {
+                        state.rules.sector = null;
                     }
 
                     width = world.tiles.width;
@@ -524,14 +559,21 @@ public class SatelliteMapData {
                     // 强制替换存档中的旧地板为 spaceFloor
                     replaceWorldFloorsWithSpaceFloor();
 
+                    // 加载后再次兜底：移除任何残留的扩展块，防止脏存档重进后自动扩展
+                    removeMapExpandersFromWorld();
+
                     restoreSatelliteMapTags(targetId);
                     applySatelliteRules();
                     setupBackgroundRules();
                     rebindBuildings();
 
+
+                    restoreModuleSnapshots();
+
                     return;
                 } catch (Exception e) {
-                    // 加载失败或被污染时保留 saveData 以便调试，并继续走 tiles 回退
+                    loadError = e;
+                    // 加载失败时保留 saveData 以便调试，并继续走 tiles 回退
                 }
             }
 
@@ -556,14 +598,23 @@ public class SatelliteMapData {
             restoreSatelliteMapTags(targetId);
             applySatelliteRules();
             setupBackgroundRules();
+
+            // 兜底：从 tiles 回退重建时也可能残留扩展块，加载后统一移除
+            removeMapExpandersFromWorld();
+
             rebindBuildings();
-        } catch (Exception e) {
+
+
+            restoreModuleSnapshots();
+
+        } catch (Throwable t) {
+            // ignored
         }
     }
 
     /**
      * 使用 transient tiles 生成世界。
-     * 
+     *
      * @param targetId     当前卫星 ID，仅用于日志
      * @param captureAfter 为 true 时，在生成结束后调用 captureFromWorld() 把世界保存为 saveData；
      *                     为 false 时说明本次是从已有 saveData 解码而来，无需重复捕获。
@@ -574,13 +625,24 @@ public class SatelliteMapData {
             Floor buildableFloor = resolveSpaceFloor();
             Floor voidFloor = resolveVoidFloor();
 
-            // 第一步：铺设全部地板，避免多格建筑 setBlock 时相邻 tile 尚未初始化
+            // 第一步：铺设全部地板，避免多格建筑 setBlock 时相邻 tile 尚未初始化。
+            // 直接根据 tiles 缓存中的实际 floor 生成，而不是根据 buildableBounds，
+            // 避免 bounds 大于实际已转换区域时把 void 错误填充为可建造地板。
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
                     TileEntry e = tiles[y][x];
-                    boolean inside = x >= buildableLeft && x <= buildableRight
-                            && y >= buildableBottom && y <= buildableTop;
-                    Floor targetFloor = inside ? buildableFloor : voidFloor;
+                    Block floorBlock = content.block(e.floor);
+                    Floor targetFloor;
+                    if (floorBlock == buildableFloor) {
+                        targetFloor = buildableFloor;
+                    } else if (floorBlock == voidFloor) {
+                        targetFloor = voidFloor;
+                    } else {
+                        // 未知/旧地板：根据是否在 bounds 内回退判断
+                        boolean inside = x >= buildableLeft && x <= buildableRight
+                                         && y >= buildableBottom && y <= buildableTop;
+                        targetFloor = inside ? buildableFloor : voidFloor;
+                    }
 
                     genTiles.set(x, y, new Tile(x, y, targetFloor, Blocks.air, Blocks.air));
                 }
@@ -603,12 +665,38 @@ public class SatelliteMapData {
                             try {
                                 tile.build.configured(null, e.config);
                             } catch (Throwable t) {
+                                // ignored
                             }
                         }
                     }
                 }
             }
         });
+
+        // 第三步：从 tiles 缓存恢复建筑 items/liquids/power（SaveIO.load 失败后的回退路径）
+        int restoredItems = 0, restoredLiquids = 0, restoredPower = 0;
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                TileEntry e = tiles[y][x];
+                if (e == null)
+                    continue;
+                Tile tile = world.tile(x, y);
+                if (tile == null || tile.build == null)
+                    continue;
+                if (e.itemBytes != null) {
+                    readModule(tile.build.items, e.itemBytes);
+                    restoredItems++;
+                }
+                if (e.liquidBytes != null) {
+                    readModule(tile.build.liquids, e.liquidBytes);
+                    restoredLiquids++;
+                }
+                if (e.powerBytes != null) {
+                    readModule(tile.build.power, e.powerBytes);
+                    restoredPower++;
+                }
+            }
+        }
 
         // 只有从 tiles（无 saveData）回退生成时，才需要捕获为 saveData；否则已有 saveData 无需重复写入
         if (captureAfter) {
@@ -617,7 +705,11 @@ public class SatelliteMapData {
         }
     }
 
-    /** 将当前已加载世界中的可建造区域地板强制替换为 spaceFloor（兼容旧存档）。 */
+    /**
+     * 将当前已加载世界中的旧可建造地板替换为 spaceFloor，并把可建造范围外的非 void 地板还原为 void。
+     * 注意：不再根据 buildableBounds 把 void 强制转为 spaceFloor，否则当 bounds 大于实际已转换区域时，
+     * 每次加载都会把 bounds 内的 void 自动扩展为可建造地板。
+     */
     private void replaceWorldFloorsWithSpaceFloor() {
         if (world == null || world.tiles == null)
             return;
@@ -629,12 +721,44 @@ public class SatelliteMapData {
                 if (t == null)
                     continue;
                 boolean inside = x >= buildableLeft && x <= buildableRight
-                        && y >= buildableBottom && y <= buildableTop;
-                if (inside && t.floor() != spaceFloor) {
+                                 && y >= buildableBottom && y <= buildableTop;
+                // 只替换旧的/非标准的可建造地板；保留 void，避免自动扩展
+                if (inside && t.floor() != spaceFloor && t.floor() != voidFloor) {
                     t.setFloor(spaceFloor);
                 } else if (!inside && t.floor() != voidFloor) {
                     t.setFloor(voidFloor);
                 }
+            }
+        }
+    }
+
+    /** 强制移除当前世界中所有残留的 SatelliteMapExpander 建筑，防止脏存档导致重进后自动扩展。 */
+    private void removeMapExpandersFromWorld() {
+        removeMapExpandersFromWorld(false);
+    }
+
+    /**
+     * 移除当前世界中的 SatelliteMapExpander 建筑。
+     *
+     * @param onlyFinished 为 true 时只移除已经扩展完成的（expanded=true），
+     *                     用于保存时避免误删正在充能的扩展块；
+     *                     为 false 时移除所有残留扩展块，用于加载后的兜底清理。
+     */
+    private void removeMapExpandersFromWorld(boolean onlyFinished) {
+        if (world == null || world.tiles == null)
+            return;
+        int removed = 0;
+        for (int y = 0; y < world.tiles.height; y++) {
+            for (int x = 0; x < world.tiles.width; x++) {
+                Tile t = world.tile(x, y);
+                if (t == null || !(t.block() instanceof SatelliteMapExpander))
+                    continue;
+                if (onlyFinished) {
+                    if (!(t.build instanceof SatelliteMapExpander.SatelliteMapExpanderBuild build) || !build.expanded)
+                        continue;
+                }
+                t.setBlock(Blocks.air);
+                removed++;
             }
         }
     }
@@ -651,7 +775,7 @@ public class SatelliteMapData {
         state.map.tags.put("crystal-aviation-satellite", String.valueOf(targetId));
         if (SatelliteManager.lastSector != null) {
             state.map.tags.put("crystal-aviation-last-sector",
-                    SatelliteManager.lastSector.planet.name + ":" + SatelliteManager.lastSector.id);
+                               SatelliteManager.lastSector.planet.name + ":" + SatelliteManager.lastSector.id);
         }
         state.map.width = width;
         state.map.height = height;
@@ -689,7 +813,186 @@ public class SatelliteMapData {
         state.rules.cloudColor.a = 0f;
     }
 
-    /** 从当前世界读取完整状态（保存前调用），结果写入 saveData。 */
+    /** 统计当前世界中建筑数量以及带有 items/liquids/power 模块的建筑数量，用于调试。 */
+    private String countBuildingsWithModules() {
+        if (world == null || world.tiles == null)
+            return "world not ready";
+        int total = 0, withItems = 0, withLiquids = 0, withPower = 0;
+        for (int y = 0; y < world.tiles.height; y++) {
+            for (int x = 0; x < world.tiles.width; x++) {
+                Tile t = world.tile(x, y);
+                if (t == null || t.build == null)
+                    continue;
+                total++;
+                if (t.build.items != null && t.build.items.total() > 0)
+                    withItems++;
+                if (t.build.liquids != null && t.build.liquids.currentAmount() > 0.001f)
+                    withLiquids++;
+                if (t.build.power != null && t.build.power.status > 0.001f)
+                    withPower++;
+            }
+        }
+        return "total=" + total + ", withItems=" + withItems + ", withLiquids=" + withLiquids + ", withPower="
+               + withPower;
+    }
+
+    /** 从当前世界捕获所有建筑的 items/liquids/power 模块快照。 */
+    private void captureModuleSnapshots() {
+        if (world == null || world.tiles == null)
+            return;
+        moduleSnapshots.clear();
+        int captured = 0;
+        int itemCount = 0, liquidCount = 0, powerCount = 0;
+        for (int y = 0; y < world.tiles.height; y++) {
+            for (int x = 0; x < world.tiles.width; x++) {
+                Tile t = world.tile(x, y);
+                if (t == null || t.build == null)
+                    continue;
+                byte[] itemBytes = writeModule(t.build.items);
+                byte[] liquidBytes = writeModule(t.build.liquids);
+                byte[] powerBytes = writeModule(t.build.power);
+                if (itemBytes != null || liquidBytes != null || powerBytes != null) {
+                    ModuleSnapshot snap = new ModuleSnapshot();
+                    snap.itemBytes = itemBytes;
+                    snap.liquidBytes = liquidBytes;
+                    snap.powerBytes = powerBytes;
+                    moduleSnapshots.put(t.pos(), snap);
+                    captured++;
+                    if (itemBytes != null)
+                        itemCount++;
+                    if (liquidBytes != null)
+                        liquidCount++;
+                    if (powerBytes != null)
+                        powerCount++;
+                }
+            }
+        }
+    }
+
+    /** 将模块快照恢复到当前已加载的世界。 */
+    private void restoreModuleSnapshots() {
+        if (moduleSnapshots == null || moduleSnapshots.size == 0)
+            return;
+        int restored = 0;
+        int itemCount = 0, liquidCount = 0, powerCount = 0;
+        int skippedCore = 0;
+        for (var entry : moduleSnapshots.entries()) {
+            Tile t = world.tile(entry.key);
+            if (t == null || t.build == null)
+                continue;
+            ModuleSnapshot snap = entry.value;
+
+            // 卫星核心 items 与卫星 items 共用同一对象，快照是存档时的旧值；
+            // 若从快照恢复，会把发射台在两次存档之间送到卫星的物品覆盖掉。
+            boolean isCore = t.build instanceof SatelliteCoreBlock.SatelliteCoreBuild;
+            if (snap.itemBytes != null) {
+                if (isCore) {
+                    skippedCore++;
+                } else {
+                    readModule(t.build.items, snap.itemBytes);
+                    itemCount++;
+                }
+            }
+            if (snap.liquidBytes != null) {
+                readModule(t.build.liquids, snap.liquidBytes);
+                liquidCount++;
+            }
+            if (snap.powerBytes != null) {
+                readModule(t.build.power, snap.powerBytes);
+                powerCount++;
+            }
+            restored++;
+        }
+    }
+
+    /** 将 ItemModule 序列化为字节数组；为空或 null 时返回 null。 */
+    private static @Nullable byte[] writeModule(@Nullable ItemModule items) {
+        if (items == null || items.total() <= 0)
+            return null;
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            DataOutputStream dos = new DataOutputStream(baos);
+            items.write(new Writes(dos));
+            dos.close();
+            return baos.toByteArray();
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    /** 将 LiquidModule 序列化为字节数组；为空或 null 时返回 null。 */
+    private static @Nullable byte[] writeModule(@Nullable LiquidModule liquids) {
+        if (liquids == null || liquids.currentAmount() <= 0.001f)
+            return null;
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            DataOutputStream dos = new DataOutputStream(baos);
+            liquids.write(new Writes(dos));
+            dos.close();
+            return baos.toByteArray();
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    /** 将 PowerModule 序列化为字节数组；为空或 null 时返回 null。 */
+    private static @Nullable byte[] writeModule(@Nullable PowerModule power) {
+        if (power == null || power.status <= 0.001f)
+            return null;
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            DataOutputStream dos = new DataOutputStream(baos);
+            power.write(new Writes(dos));
+            dos.close();
+            return baos.toByteArray();
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    /** 从字节数组恢复 ItemModule；bytes 为 null 时不操作。 */
+    private static void readModule(@Nullable ItemModule items, @Nullable byte[] bytes) {
+        if (items == null || bytes == null || bytes.length == 0)
+            return;
+        try {
+            ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
+            DataInputStream dis = new DataInputStream(bais);
+            items.read(new Reads(dis), false);
+            dis.close();
+        } catch (Throwable t) {
+            // ignored
+        }
+    }
+
+    /** 从字节数组恢复 LiquidModule；bytes 为 null 时不操作。 */
+    private static void readModule(@Nullable LiquidModule liquids, @Nullable byte[] bytes) {
+        if (liquids == null || bytes == null || bytes.length == 0)
+            return;
+        try {
+            ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
+            DataInputStream dis = new DataInputStream(bais);
+            liquids.read(new Reads(dis), false);
+            dis.close();
+        } catch (Throwable t) {
+            // ignored
+        }
+    }
+
+    /** 从字节数组恢复 PowerModule；bytes 为 null 时不操作。 */
+    private static void readModule(@Nullable PowerModule power, @Nullable byte[] bytes) {
+        if (power == null || bytes == null || bytes.length == 0)
+            return;
+        try {
+            ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
+            DataInputStream dis = new DataInputStream(bais);
+            power.read(new Reads(dis));
+            dis.close();
+        } catch (Throwable t) {
+            // ignored
+        }
+    }
+
+    /** 将当前世界读取完整状态（保存前调用），结果写入 saveData。 */
     public void captureFromWorld() {
         if (world == null || world.tiles == null || SatelliteManager.isCapturingWorld()
                 || SatelliteManager.isExitingSatellite())
@@ -701,13 +1004,17 @@ public class SatelliteMapData {
         SatelliteManager.setCapturingWorld(true);
         try {
             applySatelliteRules();
+            // 保存前移除已经扩展完成但尚未消失的残留扩展块，避免脏数据被写入 saveData
+            removeMapExpandersFromWorld(true);
+            // 同时更新 state.map.tags 与 extraTags，确保运行时标签和存档 meta 都正确
+            StringMap tags = state.map != null && state.map.tags != null ? state.map.tags : new StringMap();
             if (satellite != null) {
-                state.map.tags.put("name", satellite.name);
-                state.map.tags.put("author", "Crystal Aviation");
-                state.map.tags.put("crystal-aviation-satellite", String.valueOf(satellite.id));
+                tags.put("name", satellite.name);
+                tags.put("author", "Crystal Aviation");
+                tags.put("crystal-aviation-satellite", String.valueOf(satellite.id));
                 if (SatelliteManager.lastSector != null) {
-                    state.map.tags.put("crystal-aviation-last-sector",
-                            SatelliteManager.lastSector.planet.name + ":" + SatelliteManager.lastSector.id);
+                    tags.put("crystal-aviation-last-sector",
+                             SatelliteManager.lastSector.planet.name + ":" + SatelliteManager.lastSector.id);
                 }
             }
             if (state.map != null && world.tiles != null) {
@@ -716,18 +1023,29 @@ public class SatelliteMapData {
             }
 
             Fi temp = tempFile();
-            SaveIO.save(temp);
+            // 使用 extraTags 把卫星标签写入 .msav meta，确保读档时 state.map 能带标签
+            SaveOptions options = new SaveOptions();
+            options.extraTags = tags;
+            String beforeSaveInfo = countBuildingsWithModules();
+
+            SaveIO.save(temp, options);
             saveData = temp.readBytes();
             width = world.tiles.width;
             height = world.tiles.height;
             centerX = width / 2;
             centerY = height / 2;
 
+            String afterSaveInfo = countBuildingsWithModules();
+
+            // 显式捕获建筑模块快照，作为 SaveIO 模块数据的冗余备份
+            captureModuleSnapshots();
+
             // 清除 transient 缓存，下次从 saveData 重新解码
             tiles = null;
             buildings.clear();
 
-        } catch (Exception e) {
+        } catch (Throwable t) {
+            // ignored
         } finally {
             SatelliteManager.setCapturingWorld(false);
         }
@@ -736,19 +1054,32 @@ public class SatelliteMapData {
     public void rebindBuildings() {
         if (world == null || world.tiles == null)
             return;
+
+        // 直接根据当前世界中实际存在的建筑数量重新计算容量与计数
+        if (satellite != null) {
+            satellite.recalcStorageCapacityFromWorld();
+        }
+
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 Tile tile = world.tile(x, y);
                 if (tile == null || tile.build == null)
                     continue;
-                if (tile.block() instanceof SatelliteControlCenter) {
+                Block block = tile.block();
+                if (block instanceof SatelliteControlCenter) {
                     ((SatelliteControlCenter.SatelliteControlCenterBuild) tile.build).satelliteId = satellite.id;
-                } else if (tile.block() instanceof SatelliteExpansionBeacon) {
+                } else if (block instanceof SatelliteExpansionBeacon) {
                     ((SatelliteExpansionBeacon.SatelliteExpansionBeaconBuild) tile.build).satelliteId = satellite.id;
-                } else if (tile.block() instanceof SatelliteSolarArray) {
+                } else if (block instanceof SatelliteSolarArray) {
                     ((SatelliteSolarArray.SatelliteSolarArrayBuild) tile.build).satelliteId = satellite.id;
-                } else if (tile.block() instanceof SatelliteUpgradeCenter) {
+                } else if (block instanceof SatelliteUpgradeCenter) {
                     ((SatelliteUpgradeCenter.SatelliteUpgradeCenterBuild) tile.build).satelliteId = satellite.id;
+                } else if (block instanceof SatelliteLiquidTank) {
+                    ((SatelliteLiquidTank.SatelliteLiquidTankBuild) tile.build).satelliteId = satellite.id;
+                } else if (block instanceof SatelliteInjector) {
+                    ((SatelliteInjector.SatelliteInjectorBuild) tile.build).satelliteId = satellite.id;
+                } else if (block instanceof SatelliteMapExpander) {
+                    ((SatelliteMapExpander.SatelliteMapExpanderBuild) tile.build).satelliteId = satellite.id;
                 }
             }
         }
@@ -808,8 +1139,8 @@ public class SatelliteMapData {
      */
     public void expand(int expandLeft, int expandRight, int expandBottom, int expandTop) {
         boolean currentlyInside = SatelliteManager.currentSatelliteId >= 0
-                && satellite != null
-                && SatelliteManager.currentSatelliteId == satellite.id;
+                                  && satellite != null
+                                  && SatelliteManager.currentSatelliteId == satellite.id;
 
         if (currentlyInside) {
             // 先保存当前世界到 saveData，确保扩展基于最新状态
@@ -856,8 +1187,8 @@ public class SatelliteMapData {
      */
     public int expandArea(int left, int bottom, int right, int top) {
         boolean currentlyInside = SatelliteManager.currentSatelliteId >= 0
-                && satellite != null
-                && SatelliteManager.currentSatelliteId == satellite.id;
+                                  && satellite != null
+                                  && SatelliteManager.currentSatelliteId == satellite.id;
 
         if (currentlyInside) {
             captureFromWorld();
@@ -897,8 +1228,8 @@ public class SatelliteMapData {
     /** 统计指定矩形区域内的 void 地板格数。 */
     public int countVoidTiles(int left, int bottom, int right, int top) {
         boolean currentlyInside = SatelliteManager.currentSatelliteId >= 0
-                && satellite != null
-                && SatelliteManager.currentSatelliteId == satellite.id;
+                                  && satellite != null
+                                  && SatelliteManager.currentSatelliteId == satellite.id;
 
         Floor voidFloor = (Floor) content.block(voidFloorName);
         if (voidFloor == null)
@@ -1055,7 +1386,7 @@ public class SatelliteMapData {
     }
 
     private void copyMap(TileEntry[][] src, TileEntry[][] dst, int srcX, int srcY, int srcW, int srcH, int dstOffX,
-            int dstOffY) {
+                         int dstOffY) {
         for (int y = 0; y < srcH; y++) {
             for (int x = 0; x < srcW; x++) {
                 int dx = dstOffX + x;
@@ -1117,6 +1448,15 @@ public class SatelliteMapData {
         for (byte b : data) {
             write.b(b);
         }
+
+        // revision 15+: 建筑模块快照
+        write.i(moduleSnapshots != null ? moduleSnapshots.size : 0);
+        if (moduleSnapshots != null) {
+            for (var entry : moduleSnapshots.entries()) {
+                write.i(entry.key);
+                entry.value.write(write);
+            }
+        }
     }
 
     public void read(Reads read, byte revision) {
@@ -1162,6 +1502,18 @@ public class SatelliteMapData {
             }
             tiles = null;
             buildings.clear();
+
+            // revision 15+: 建筑模块快照
+            moduleSnapshots.clear();
+            if (revision >= 15) {
+                int snapCount = read.i();
+                for (int i = 0; i < snapCount; i++) {
+                    int pos = read.i();
+                    ModuleSnapshot snap = new ModuleSnapshot();
+                    snap.read(read);
+                    moduleSnapshots.put(pos, snap);
+                }
+            }
         } else {
             // 旧格式：读取自定义 tiles/buildings/unitData，并保留为 transient tiles 供回退
             saveData = new byte[0];
@@ -1197,6 +1549,12 @@ public class SatelliteMapData {
         public byte rotation = 0;
         /** 建筑配置对象；从 .msav 解码得到的是原始对象，旧格式读取为 String。 */
         public Object config;
+        /**
+         * 建筑模块序列化数据（items/liquids/power）。
+         * 仅用于 SaveIO.load 失败后的 tiles 回退路径；saveData 字节流本身已包含这些信息。
+         * 不参与旧格式 write/read（旧格式不再作为权威数据源）。
+         */
+        public @Nullable byte[] itemBytes, liquidBytes, powerBytes;
 
         public TileEntry copy() {
             TileEntry e = new TileEntry();
@@ -1205,6 +1563,9 @@ public class SatelliteMapData {
             e.team = team;
             e.rotation = rotation;
             e.config = config;
+            e.itemBytes = itemBytes != null ? java.util.Arrays.copyOf(itemBytes, itemBytes.length) : null;
+            e.liquidBytes = liquidBytes != null ? java.util.Arrays.copyOf(liquidBytes, liquidBytes.length) : null;
+            e.powerBytes = powerBytes != null ? java.util.Arrays.copyOf(powerBytes, powerBytes.length) : null;
             return e;
         }
 
@@ -1250,6 +1611,48 @@ public class SatelliteMapData {
             team = read.b();
             rotation = read.b();
             config = read.str();
+        }
+    }
+
+    /** 建筑模块快照：保存单个建筑的 items/liquids/power 序列化数据。 */
+    public static class ModuleSnapshot {
+        public @Nullable byte[] itemBytes;
+        public @Nullable byte[] liquidBytes;
+        public @Nullable byte[] powerBytes;
+
+        public void write(Writes write) {
+            writeByteArray(write, itemBytes);
+            writeByteArray(write, liquidBytes);
+            writeByteArray(write, powerBytes);
+        }
+
+        public void read(Reads read) {
+            itemBytes = readByteArray(read);
+            liquidBytes = readByteArray(read);
+            powerBytes = readByteArray(read);
+        }
+
+        private static void writeByteArray(Writes write, @Nullable byte[] bytes) {
+            if (bytes == null) {
+                write.i(-1);
+            } else {
+                write.i(bytes.length);
+                for (byte b : bytes) {
+                    write.b(b);
+                }
+            }
+        }
+
+        private static @Nullable byte[] readByteArray(Reads read) {
+            int len = read.i();
+            if (len < 0) {
+                return null;
+            }
+            byte[] bytes = new byte[len];
+            for (int i = 0; i < len; i++) {
+                bytes[i] = read.b();
+            }
+            return bytes;
         }
     }
 }
