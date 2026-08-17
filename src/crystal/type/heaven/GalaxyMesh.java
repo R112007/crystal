@@ -1,10 +1,9 @@
-// GalaxyMesh.java
 package crystal.type.heaven;
 
 import arc.graphics.*;
 import arc.graphics.g3d.VertexBatch3D;
 import arc.graphics.gl.*;
-import arc.math.Mathf;
+import arc.math.*;
 import arc.math.geom.*;
 import arc.util.*;
 import mindustry.graphics.g3d.PlanetMesh;
@@ -14,39 +13,30 @@ public class GalaxyMesh extends PlanetMesh {
     private final Galaxy galaxy;
     private VertexBatch3D batch;
     private Shader pointShader;
-    private Galaxy.GalaxyStyle cachedStyle;
 
     public GalaxyMesh(Galaxy galaxy) {
         super(galaxy, null, null);
         this.galaxy = galaxy;
     }
 
-    /** 若 style 变化或首次调用，重建 Shader 与 Batch */
     private void ensureInit() {
-        if (batch != null && cachedStyle == galaxy.style)
-            return;
-        if (batch != null) {
-            batch.dispose();
-        }
-        this.cachedStyle = galaxy.style;
+        if (batch != null) return;
         this.pointShader = createPointShader();
-        this.batch = new VertexBatch3D(Math.min(galaxy.starCount, 8000), true, true, 0, pointShader);
+        this.batch = new VertexBatch3D(Math.min(galaxy.starCount, 12000), false, true, 0, pointShader);
     }
 
-    private Shader createPointShader() {
-        boolean vivid = galaxy.style == Galaxy.GalaxyStyle.vivid;
-
+    private static Shader createPointShader() {
         String vert = "attribute vec3 a_position;\n" +
                 "attribute vec4 a_color;\n" +
-                "attribute vec3 a_normal;\n" +
                 "uniform mat4 u_proj;\n" +
                 "varying vec4 v_col;\n" +
                 "varying float v_size;\n" +
                 "void main() {\n" +
                 "   gl_Position = u_proj * vec4(a_position, 1.0);\n" +
-                "   gl_PointSize = " + (vivid ? "2.4" : "2.0") + " + a_normal.x * " + (vivid ? "6.0" : "5.0") + ";\n" +
-                "   v_col = a_color;\n" +
-                "   v_size = a_normal.x;\n" +
+                "   // 点大小 3~13 像素，大星星更大\n" +
+                "   gl_PointSize = 3.0 + a_color.a * 10.0;\n" +
+                "   v_col = vec4(a_color.rgb, 1.0);\n" +
+                "   v_size = a_color.a;\n" +
                 "}\n";
 
         String frag = "varying vec4 v_col;\n" +
@@ -55,13 +45,12 @@ public class GalaxyMesh extends PlanetMesh {
                 "   vec2 coord = gl_PointCoord - vec2(0.5);\n" +
                 "   float dist = length(coord);\n" +
                 "   if(dist > 0.5) discard;\n" +
-                // 大恒星 glow 更集中锐利，小恒星更柔和
                 "   float glow = 1.0 - smoothstep(0.0, 0.5, dist);\n" +
-                "   glow = pow(glow, " + (vivid ? "0.8" : "1.0") + " + v_size * " + (vivid ? "0.5" : "0.4") + ");\n" +
-                // 核心白点，增强眩光
-                "   float core = 1.0 - smoothstep(0.0, 0.08 + v_size * 0.03, dist);\n" +
-                "   vec3 rgb = v_col.rgb + vec3(core * " + (vivid ? "0.8" : "0.6") + ");\n" +
-                "   gl_FragColor = vec4(rgb, v_col.a * glow);\n" +
+                "   // 大星星中心更锐利、整体更亮\n" +
+                "   glow = pow(glow, 1.0 + v_size * 0.8);\n" +
+                "   // 额外提亮，避免 additive 下太暗\n" +
+                "   glow *= 1.2;\n" +
+                "   gl_FragColor = vec4(v_col.rgb, glow);\n" +
                 "}\n";
 
         return new Shader(vert, frag);
@@ -72,27 +61,23 @@ public class GalaxyMesh extends PlanetMesh {
         ensureInit();
         batch.proj(projection);
         float time = Time.globalTime;
+
         int count = Math.min(galaxy.stars.size, batch.getMaxVertices());
-        boolean vivid = galaxy.style == Galaxy.GalaxyStyle.vivid;
 
         for (int i = 0; i < count; i++) {
             GalaxyStar star = galaxy.stars.get(i);
             Vec3 pos = star.getPosition(Tmp.v31, time);
             Mat3D.prj(pos, transform);
 
-            float boost;
-            if (star.starType == 0)
-                boost = vivid ? 1.3f : 1.2f;
-            else if (star.starType == 1)
-                boost = vivid ? 1.15f : 1.05f;
-            else if (star.starType == 3)
-                boost = vivid ? 0.6f : 0.5f;
-            else
-                boost = 0.8f;
+            // 亮度：中心更亮，大星星更亮，整体提亮 30%
+            float centerGlow = 1f + (1f - star.distance) * 0.8f;
+            float brightness = (0.9f + star.size * 0.1f) * centerGlow * 1.3f;
+            Tmp.c1.set(star.color).mul(brightness, brightness, brightness, 1f);
 
-            Tmp.c1.set(star.color).mul(boost, boost, boost, 1f);
-            batch.color(Tmp.c1);
-            batch.normal(Mathf.clamp(star.size / 6f, 0f, 1f), 0, 0);
+            // alpha 通道编码点大小 [0,1]
+            float sizeNorm = Mathf.clamp((star.size - 1.0f) / 5.0f, 0f, 1f);
+
+            batch.color(Tmp.c1.r, Tmp.c1.g, Tmp.c1.b, sizeNorm);
             batch.vertex(pos.x, pos.y, pos.z);
         }
 
@@ -107,7 +92,6 @@ public class GalaxyMesh extends PlanetMesh {
         if (batch != null) {
             batch.dispose();
             batch = null;
-            pointShader = null;
         }
     }
 }

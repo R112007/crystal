@@ -1,6 +1,7 @@
 package crystal.content;
 
 import arc.graphics.Color;
+import crystal.ai.type.OrbitalCommandAI;
 import crystal.entities.abilities.AddWeaponAbility;
 import crystal.entities.abilities.ContinueRepairField;
 import crystal.entities.shentong.FaTianXiangDi;
@@ -165,7 +166,10 @@ public class CUnits {
         this.rotateSpeed = 5f;
         this.itemCapacity = 10;
         this.constructor = MagicUnit::create;
-        this.controller = UnitTypes.flare.controller;
+        this.controller = u -> new OrbitalCommandAI();
+        playerControllable = false; // ← 必须！否则 aiController 被忽
+        aiController = OrbitalCommandAI::new;
+
         this.canDrown = false;
         this.circleTarget = true;
         this.forceMultiTarget = true;

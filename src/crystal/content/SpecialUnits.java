@@ -16,6 +16,7 @@ import mindustry.entities.abilities.EnergyFieldAbility;
 import mindustry.entities.bullet.BulletType;
 import mindustry.entities.bullet.EmpBulletType;
 import mindustry.gen.Crawlc;
+import mindustry.gen.Mechc;
 import mindustry.gen.Sounds;
 import mindustry.gen.Unitc;
 import mindustry.graphics.Drawf;
@@ -31,6 +32,7 @@ public class SpecialUnits {
 
   public static @EntityDef({ Unitc.class, Corec.class, Crawlc.class }) CoreUnitType moveCore1;
   public static @EntityDef({ Unitc.class, Corec.class, RetractableLegsc.class }) CoreUnitType moveCore2;
+  public static @EntityDef({ Unitc.class, Corec.class, Mechc.class }) CoreUnitType movecore2;
 
   public static void load() {
     moveCore1 = new CoreUnitType("moveCore1") {

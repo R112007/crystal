@@ -9,6 +9,7 @@ import crystal.map.planet.GreenPlanetGenerator;
 import crystal.map.planet.LxPlanetGenerator;
 import crystal.type.SaturnPlanet;
 import crystal.type.heaven.Galaxy;
+import crystal.type.heaven.Galaxy.GalaxyStyle;
 import mindustry.content.Planets;
 import mindustry.game.Team;
 import mindustry.graphics.g3d.HexMesh;
@@ -110,7 +111,7 @@ public class CPlanets {
         landCloudColor = Color.valueOf("#CB5DA8").cpy().a(0.5f);
       }
     };
-    milkyWay = new Galaxy("milky-way", null, 10f, Galaxy.GalaxyStyle.vivid) {
+    milkyWay = new Galaxy("milky-way", null, 10f) {
       {
         grid = PlanetGrid.create(sectorSize);
         sectors.ensureCapacity(grid.tiles.length);
@@ -119,12 +120,8 @@ public class CPlanets {
         }
         alwaysUnlocked = true;
         accessible = true;
-        arms = 8; // 4 条旋臂
-        starCount = 8000; // 4000 颗恒星
-        spiralTightness = 1f; // 螺旋更紧
-        rotationSpeed = 1f; // 整体转速
-        thickness = 0.1f; // 星系盘更薄
       }
     };
+    milkyWay.setStyle(GalaxyStyle.artistic);
   }
 }
