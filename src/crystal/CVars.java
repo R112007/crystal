@@ -7,6 +7,7 @@ import crystal.core.UI;
 import crystal.entities.units.UnitEnum.JingJie;
 import crystal.entities.units.UnitEnum.XiuWei;
 import crystal.type.GongFa;
+import crystal.util.PlotBundle;
 
 public class CVars {
   public static int maxVersion = 159;
@@ -16,6 +17,7 @@ public class CVars {
   public static String modName = "crystal";
   public static String[] threats = new String[] { "low", "medium", "high", "extreme", "eradication", "lianyu", "diyu",
       "school", "daoshu" };
+  public static PlotBundle plot;
   public static String playerName;
   public static ObjectSet<GongFa> gongfaHave = new ObjectSet<>();
 

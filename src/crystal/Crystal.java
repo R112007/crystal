@@ -51,6 +51,7 @@ import crystal.ui.Hints;
 import crystal.ui.dialogs.CPlanetDialog;
 import crystal.ui.dialogs.MobileLaunchLoadoutDialog;
 import crystal.util.DLog;
+import crystal.util.PlotBundle;
 import crystal.world.blocks.payloads.UnitLaunchPayload;
 import crystal.world.blocks.stroage.MoveBlockSystem;
 import crystal.world.blocks.stroage.MoveCoreSystem;
@@ -142,6 +143,7 @@ public class Crystal extends Mod {
     if (CSettings.instance.hasPlayerName()) {
       CVars.playerName = CSettings.instance.getPlayerName();
     }
+    CVars.plot = PlotBundle.load(modDirectory.child(CVars.modName));
     Storys.inst.init();
     Hints.load();
     checkAndShowNameInputDialog();

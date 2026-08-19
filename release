@@ -3,5 +3,5 @@ sed -i 's/public static boolean debug = true;/public static boolean debug = fals
 ./gradlew dex
 cp build/libs/Crystal.jar /storage/emulated/0/Download
 rm -rf /storage/emulated/0/Download/gen
-cp -r build/generated/source/kapt/main/crystal/gen /storage/emulated/0/Download
+cp -r build/generated/sources/annotationProcessor/java/main/crystal/gen/ /storage/emulated/0/Download
 cp -r ~/crystal/src /storage/emulated/0/Download/crystal

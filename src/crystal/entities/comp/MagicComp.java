@@ -17,6 +17,7 @@ import crystal.type.MagicUnitType;
 import ent.anno.Annotations;
 import ent.anno.Annotations.EntityComponent;
 import ent.anno.Annotations.Import;
+import ent.anno.Annotations.Remove;
 import ent.anno.Annotations.Replace;
 import mindustry.content.Fx;
 import mindustry.entities.units.StatusEntry;
@@ -86,6 +87,7 @@ abstract class MagicComp implements Unitc, Magicc, MindustryXc {
   public void killed() {
   }
 
+  @Remove(MindustryXc.class)
   @Replace
   public void rawDamage(float amount) {
     boolean hadShields = shield > 1.0E-4F;
@@ -118,17 +120,18 @@ abstract class MagicComp implements Unitc, Magicc, MindustryXc {
       }
     }
     amount = 0;
+    healthChanged();
   }
 
   public float xiuWeiMultiplier(XiuWei xiuWei) {
-      return switch (xiuWei) {
-          case fan -> 1f;
-          case shen -> 2f;
-          case sheng -> 4f;
-          case xian -> 6f;
-          case dijun -> 10f;
-          default -> 0f;
-      };
+    return switch (xiuWei) {
+      case fan -> 1f;
+      case shen -> 2f;
+      case sheng -> 4f;
+      case xian -> 6f;
+      case dijun -> 10f;
+      default -> 0f;
+    };
   }
 
   @Override

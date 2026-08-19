@@ -4,7 +4,6 @@ import arc.scene.ui.layout.Table;
 import arc.struct.ObjectSet;
 import arc.struct.Queue;
 import arc.struct.Seq;
-import crystal.util.Collections;
 import mindustry.Vars;
 import mindustry.game.Team;
 import mindustry.gen.Building;
@@ -22,7 +21,7 @@ public class LinkWall extends Wall {
   }
 
   public class LinkWallBuild extends Building {
-    public Seq<LinkWallBuild> links = Collections.seqFromObj(this);
+    public Seq<LinkWallBuild> links = new Seq<>();
     private boolean isUpdating = false;
     protected int seqSize;
 

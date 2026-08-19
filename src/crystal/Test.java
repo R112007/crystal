@@ -519,7 +519,7 @@ public class Test {
                 size = 2;
                 this.requirements(Category.defense, ItemStack.with(new Object[] { Items.copper, 1 }));
                 this.alwaysUnlocked = true;
-                floors.add(Blocks.grass, Blocks.stone, Blocks.hotrock, Blocks.oreCopper);
+                addData(Blocks.ice, ItemStack.with(Items.copper, 5, Items.lead, 10));
             }
         };
         tower = new Tower("tower") {

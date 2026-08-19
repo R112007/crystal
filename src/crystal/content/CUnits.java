@@ -1,12 +1,16 @@
 package crystal.content;
 
+import arc.Events;
 import arc.graphics.Color;
+import arc.util.Log;
 import crystal.ai.type.OrbitalCommandAI;
 import crystal.entities.abilities.AddWeaponAbility;
 import crystal.entities.abilities.ContinueRepairField;
 import crystal.entities.shentong.FaTianXiangDi;
+import crystal.gen.CrawlMagicUnit;
 import crystal.gen.MagicUnit;
 import crystal.gen.Magicc;
+import crystal.gen.MechMagicUnit;
 import crystal.gen.ShieldBlockc;
 import crystal.gen.ShieldBuilderUnit;
 import crystal.gen.ShieldBuilderc;
@@ -19,8 +23,10 @@ import mindustry.content.StatusEffects;
 import mindustry.content.UnitTypes;
 import mindustry.entities.abilities.ForceFieldAbility;
 import mindustry.entities.bullet.*;
+import mindustry.entities.part.RegionPart;
 import mindustry.entities.pattern.ShootAlternate;
 import mindustry.entities.pattern.ShootPattern;
+import mindustry.game.EventType.ClientLoadEvent;
 import mindustry.gen.Crawlc;
 import mindustry.gen.Mechc;
 import mindustry.gen.Sounds;
@@ -153,6 +159,59 @@ public class CUnits {
                 this.hitEffect = Fx.flakExplosion;
                 this.homingPower = 2.0f;
                 this.trailChance = 0.4f;
+              }
+            };
+          }
+        });
+      }
+    };
+    papa1 = new MagicUnitType("papa1") {
+      {
+        speed = 1f;
+        constructor = MechMagicUnit::create;
+        hitSize = 8f;
+        health = 150;
+        mechSideSway = 0.25f;
+        drawCell = true;
+        stepSound = Sounds.walkerStepTiny;
+        stepSoundVolume = 0.2f;
+        weapons.add(new Weapon("crystal-") {
+          {
+            top = false;
+            x = y = 0;
+            rotate = false;
+            mirror = false;
+            reload = 120f;
+            recoil = 4f;
+            layerOffset = groundLayer - 0.1f;
+            parts.add(new RegionPart() {
+              {
+                progress = PartProgress.warmup;
+                mirror = true;
+                under = true;
+                top = false;
+                moveX = 0f;
+                moveY = 0f;
+                moveRot = -30f;
+                x = 4f;
+                y = 0f;
+                recoil = 3;
+                suffix = "-blade";
+                // layer = groundLayer - 0.1f;
+              }
+            });
+            shoot = new ShootPattern() {
+              {
+                this.shots = 8;
+                this.shotDelay = 0;
+              }
+            };
+            inaccuracy = 10f;
+            bullet = new BasicBulletType() {
+              {
+                damage = 32;
+                lifetime = 70f;
+                speed = 5;
               }
             };
           }
