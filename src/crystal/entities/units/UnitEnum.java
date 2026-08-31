@@ -4,6 +4,7 @@ import arc.func.Boolp;
 import arc.graphics.Color;
 import arc.struct.Seq;
 import crystal.CVars;
+import crystal.core.PlayerXiuWeiSystem;
 import crystal.type.DuJieCondition;
 import crystal.type.GongFa;
 import mindustry.content.SectorPresets;
@@ -83,46 +84,48 @@ public class UnitEnum {
     shenming(bundle.get("shenming"), 31000, true, false, xinZun, false, null),
     shenzun(bundle.get("shenzun"), 50000, true, false, xinZun, false, null),
 
-    // 新路神境：每个境界绑定独立渡劫条件（示例可自行修改）
+    // 新路神境：每个境界绑定独立渡劫条件。
+    // 文本走 bundle.get(key, 默认值)：默认可直接用，要改文案/翻译就在 bundle 里加对应 key 覆盖
     kaiyang(bundle.get("kaiyang"), 5000, true, true, guHuang, true,
         new DuJieCondition(
-            "灵力达到6500并习得古皇功法",
+            bundle.get("dujie.cond.kaiyang", "灵力达到6500并习得古皇功法"),
             () -> CVars.playerMagicPower >= 6500 && CVars.gongfaHave.contains(guHuang),
             () -> CVars.playerMagicPower < 100// 失败条件示例：灵力跌破100则失败
         )),
     shentu(bundle.get("shentu"), 7500, true, true, guHuang, true,
         new DuJieCondition(
-            "灵力达到9000并击杀100个敌方单位",
-            () -> true,
+            bundle.get("dujie.cond.shentu", "灵力达到9000并击杀100个敌方单位"),
+            // 原来是 () -> true 占位，与文本不符；现接入 PlayerXiuWeiSystem 的渡劫击杀计数
+            () -> CVars.playerMagicPower >= 9000 && PlayerXiuWeiSystem.getDuJieKillCount() >= 100,
             () -> CVars.playerMagicPower < 200)),
     canghai(bundle.get("canghai"), 11000, true, true, guHuang, true,
         new DuJieCondition(
-            "灵力达到13000",
+            bundle.get("dujie.cond.canghai", "灵力达到13000"),
             () -> CVars.playerMagicPower >= 13000,
             () -> CVars.playerMagicPower < 500)),
     tianqiao(bundle.get("tianqiao"), 14500, true, true, guHuang, true,
         new DuJieCondition(
-            "灵力达到17000",
+            bundle.get("dujie.cond.tianqiao", "灵力达到17000"),
             () -> CVars.playerMagicPower >= 17000,
             () -> CVars.playerMagicPower < 1000)),
     wanling(bundle.get("wanling"), 19000, true, true, guZun, true,
         new DuJieCondition(
-            "灵力达到22000并习得古尊功法",
+            bundle.get("dujie.cond.wanling", "灵力达到22000并习得古尊功法"),
             () -> CVars.playerMagicPower >= 22000 && CVars.gongfaHave.contains(guZun),
             () -> CVars.playerMagicPower < 2000)),
     sixiang(bundle.get("sixiang"), 25000, true, true, guZun, true,
         new DuJieCondition(
-            "灵力达到29000",
+            bundle.get("dujie.cond.sixiang", "灵力达到29000"),
             () -> CVars.playerMagicPower >= 29000,
             () -> CVars.playerMagicPower < 3000)),
     shengong(bundle.get("shengong"), 31000, true, true, guZun, true,
         new DuJieCondition(
-            "灵力达到36000",
+            bundle.get("dujie.cond.shengong", "灵力达到36000"),
             () -> CVars.playerMagicPower >= 36000,
             () -> CVars.playerMagicPower < 5000)),
     zunzhu(bundle.get("zunzhu"), 50000, true, true, guZun, true,
         new DuJieCondition(
-            "灵力达到58000",
+            bundle.get("dujie.cond.zunzhu", "灵力达到58000"),
             () -> CVars.playerMagicPower >= 58000,
             () -> CVars.playerMagicPower < 10000)),
 
@@ -159,8 +162,9 @@ public class UnitEnum {
     public static final JingJie[] all = values();
     public static final Seq<JingJie> fajing = new Seq<>(
         new JingJie[] { kaiqiao, zhenyuan, huayuan, tianren, shenhai, hualong });
+    // 修正顺序：shenjun(19000) 原来插在 zhenshen(7500) 与 shenwang(11000) 之间，与灵力递增顺序不符
     public static final Seq<JingJie> shenOldRoad = new Seq<>(
-        new JingJie[] { weishen, zhenshen, shenjun, shenwang, shenhuang, shenling, shenming, shenzun });
+        new JingJie[] { weishen, zhenshen, shenwang, shenhuang, shenjun, shenling, shenming, shenzun });
     public static final Seq<JingJie> shenNewRoad = new Seq<>(
         new JingJie[] { kaiyang, shentu, canghai, tianqiao, wanling, sixiang, shengong, zunzhu });
     public static final Seq<JingJie> shenjing = new Seq<>();

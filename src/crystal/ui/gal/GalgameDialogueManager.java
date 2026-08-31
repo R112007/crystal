@@ -136,7 +136,7 @@ public class GalgameDialogueManager {
       continuePlayTable.bottom().left();
       Table buttonContainer = new Table();
       buttonContainer.background(Tex.pane);
-      buttonContainer.button(Core.bundle.get("contineStory"), Styles.flatt, () -> {
+      buttonContainer.button(CVars.plot.getOrBundle("contineStory"), Styles.flatt, () -> {
         DialogueModule target = getModule(currentModuleId);
         if (target == null) {
           for (DialogueModule m : modules) {
@@ -165,8 +165,9 @@ public class GalgameDialogueManager {
     }
     String nextModuleId = waitingModuleIds.remove(0);
     DialogueModule nextModule = getModule(nextModuleId);
-    if (nextModule == null || nextModule.isCompleted) {
-      DLog.err("等待队列模块无效或已完成，自动跳过：" + nextModuleId);
+    // 不再跳过已完成模块：playModule 内部会重置进度后重播
+    if (nextModule == null) {
+      DLog.err("等待队列模块无效，自动跳过：" + nextModuleId);
       saveWaitingQueue();
       processWaitingQueue();
       return;
@@ -249,7 +250,8 @@ public class GalgameDialogueManager {
     }
     DLog.info("即将尝试播放模块 " + module.moduleId);
     if (isPlayingModule) {
-      if (module.isCompleted || waitingModuleIds.contains(module.moduleId))
+      // 已完成模块也允许排队等待再次播放，仅按 ID 去重
+      if (waitingModuleIds.contains(module.moduleId))
         return;
       waitingModuleIds.add(module.moduleId);
       saveWaitingQueue();
@@ -259,6 +261,11 @@ public class GalgameDialogueManager {
       hide();
       isPlayingModule = true;
       module.loadModuleData();
+      // 【修改】播放完的模块可以再次播放：重置进度、恢复原始主线节点并清空已触发分支，
+      // 之后从头播放（分支可重新选择）。重置会写存档，播完会重新标记完成。
+      if (module.isCompleted) {
+        module.resetProgress();
+      }
       currentLine = null;
       lastPlayedCharacterId = null;
       isAutoPlay = false;
@@ -424,7 +431,7 @@ public class GalgameDialogueManager {
           || !Vars.state.isCampaign()) {
         return;
       }
-      Vars.ui.showConfirm(Core.bundle.format("havewaittingmodule", getModule(waitingModuleIds.first()).moduleName),
+      Vars.ui.showConfirm(CVars.plot.formatOrBundle("havewaittingmodule", getModule(waitingModuleIds.first()).moduleName),
           () -> processWaitingQueue());
     });
   }

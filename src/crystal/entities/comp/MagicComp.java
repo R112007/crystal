@@ -144,7 +144,9 @@ abstract class MagicComp implements Unitc, Magicc, MindustryXc {
       this.xiuWei = magic.xiuWei();
       this.maxMagicPower = magic.magicPower();
       this.magicPowerRegen = magic.magicPowerRegen();
-      this.magicPowerRegenTime = magic.magicPowerRegen();
+      // 【修复】原来误写成 magic.magicPowerRegen()：把回复速率赋给了回复间隔，
+      // 导致所有 MagicUnit 约每 1 tick 回一次灵（设计值 120 tick），回灵速度快了上百倍
+      this.magicPowerRegenTime = magic.magicPowerRegenTime();
       if (!this.shenTongs.equals(magic.shenTongs())) {
         this.shenTongs = new Seq<>();
         for (var s : magic.shenTongs()) {
@@ -174,7 +176,8 @@ abstract class MagicComp implements Unitc, Magicc, MindustryXc {
   }
 
   public void consumeMagic(float magic) {
-    this.magicPower -= magic;
+    // 钳制下限，防止灵力出现负值（healMagic 已钳上限，对称处理）
+    this.magicPower = Math.max(0f, this.magicPower - magic);
   }
 
   public void healMagic(float magic) {

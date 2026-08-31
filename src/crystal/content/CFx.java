@@ -10,6 +10,7 @@ import arc.math.Interp;
 import arc.math.Mathf;
 import arc.math.Rand;
 import arc.math.geom.Position;
+import arc.math.geom.Vec2;
 import arc.util.Tmp;
 import arc.util.noise.Simplex;
 import crystal.entities.effect.MultiEffect;
@@ -23,38 +24,30 @@ import mindustry.graphics.Drawf;
 import mindustry.graphics.Layer;
 import mindustry.graphics.Pal;
 import mindustry.world.Block;
-
 import static arc.graphics.g2d.Draw.*;
 import static arc.graphics.g2d.Lines.*;
 import static arc.math.Angles.*;
+import static crystal.graphics.CPal.*;
 import static mindustry.Vars.*;
 
 public class CFx {
   public static final Rand rand = new Rand();
+  public static final Vec2 v = new Vec2();
   public static Effect spawn1 = new Effect(120f, e -> {
     color(CPal.blue1);
     Drawf.flame(e.x, e.y, 5, 360, 50, 50, 5);
-    // Lines.arc(e.x, e.y, 50f, 10f);
-    // Fill.circle(e.x, e.y, 80f);
     color(CPal.dark_blue2);
-    // Fill.square(e.x, e.y, 60f);
-    // Lines.line(e.x + block.offset, e.y + block.offset, 100, 100);
     color(CPal.dark_sharedyellow);
-    // Fill.arc(e.x, e.y, 50f, 10f, 90f, 6);
   });
   public static Effect straightLine = new Effect(5f, 300f, e -> {
     if (!(e.data instanceof Position p))
       return;
 
-    // 基础参数计算：起点、目标坐标、直线距离
     float startX = e.x, startY = e.y;
     float targetX = p.getX(), targetY = p.getY();
     float totalDst = Mathf.dst(startX, startY, targetX, targetY);
-
-    // 归一化方向向量（仅保留方向，长度为1）
     Tmp.v1.set(targetX - startX, targetY - startY).nor();
     float dirX = Tmp.v1.x, dirY = Tmp.v1.y;
-
     Lines.stroke(1.5f); // 线宽从2.5f→0（生命周期内逐渐变细）
     Draw.color(Color.white, e.color, e.fin()); // 颜色从白色→自定义颜色（渐变）
 
@@ -853,5 +846,31 @@ public class CFx {
     Draw.blend();
     Draw.reset();
   }).layer(Layer.effect + 0.1f);
+  public static final Effect lvgangf1work = new Effect(120f, e -> {
+    randLenVectors(e.id, e.fin(), 8, 14f, (x, y, fin, fout) -> {
+      color(CPal.light_blue1, CPal.blue1, fin);
+      alpha((0.6f - Math.abs(fin - 0.5f)) * 1.5f);
+      Fill.circle(e.x + x, e.y + y, 0.8f + fout * 3.5f);
+    });
 
+    // 闪烁微光
+    rand.setSeed(e.id + 1);
+    for (int i = 0; i < 6; i++) {
+      float angle = rand.random(360f);
+      float dist = rand.random(2f, 12f) * e.finpow();
+      float size = rand.random(0.5f, 1.5f) * e.fout();
+      v.trns(angle, dist);
+      color(Color.white, CPal.light_blue1, e.fin());
+      alpha(e.fslope() * rand.random(0.5f, 1f));
+      Fill.circle(e.x + v.x, e.y + v.y, size);
+    }
+
+    // 缓慢扩散环
+    color(Pal.plastaniumBack);
+    alpha(e.fout() * 0.3f);
+    stroke(e.fout() * 0.8f);
+    Lines.circle(e.x, e.y, e.finpow() * 10f);
+
+    Drawf.light(e.x, e.y, e.fout() * 25f, Pal.plastaniumFront, 0.5f);
+  });
 }

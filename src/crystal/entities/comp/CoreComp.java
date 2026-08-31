@@ -9,6 +9,7 @@ import arc.graphics.g2d.Lines;
 import arc.math.Angles;
 import arc.math.Mathf;
 import arc.math.geom.Geometry;
+import arc.math.geom.Vec2;
 import arc.math.geom.QuadTree;
 import arc.scene.ui.layout.Table;
 import arc.struct.ObjectSet;
@@ -17,16 +18,12 @@ import arc.util.Nullable;
 import arc.util.Strings;
 import arc.util.Time;
 import arc.util.Tmp;
-import crystal.CVars;
-import crystal.Crystal;
 import crystal.content.CUnitCommands;
-import crystal.entities.mindustryX.MindustryXAdapter;
-import crystal.entities.mindustryX.MindustryXUnitc;
 import crystal.gen.Corec;
 import crystal.gen.MindustryXc;
 import crystal.type.CoreUnit;
 import crystal.type.CoreUnitType;
-import crystal.util.DLog;
+import crystal.util.FleePathfinder;
 import crystal.world.blocks.stroage.CoreInjector;
 import crystal.world.blocks.stroage.MoveCoreSystem;
 import ent.anno.Annotations;
@@ -36,6 +33,7 @@ import ent.anno.Annotations.MethodPriority;
 import ent.anno.Annotations.Remove;
 import ent.anno.Annotations.Replace;
 import mindustry.Vars;
+import mindustry.ai.Astar;
 import mindustry.ai.Pathfinder;
 import mindustry.ai.UnitCommand;
 import mindustry.ai.types.CommandAI;
@@ -73,7 +71,7 @@ import mindustry.world.meta.StatUnit;
 import mindustry.world.modules.ItemModule;
 
 import static mindustry.Vars.*;
-
+import static crystal.Crystal.timer;
 import java.lang.reflect.Field;
 
 @EntityComponent
@@ -109,6 +107,16 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
   boolean dead;
   public float idleTimer = 0f;
   public boolean autoSwitched = false;
+
+  // ========== 逃离AI字段 ==========
+  public float fleeDetectRange = 300f;
+  public float fleeSafeRange = 400f;
+  public float fleeDst = 150f; // 步长更短，避免撞墙
+  public int fleeSamples = 36; // 更密集采样
+  public boolean fleeing = false;
+  public float fleeRetargetTimer = 0f;
+  public float fleeStuckTimer = 0f;
+  public transient Vec2 fleeTarget = new Vec2();
   public Corec corec = self();
 
   @Override
@@ -309,7 +317,7 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
       proxy.x = x();
       proxy.y = y();
       // 定期补注册，防止 WorldLoadEvent 等清空索引
-      if (Crystal.timer % 90f < Time.delta) {
+      if (timer % 90f < Time.delta) {
         refreshEnemyCoreFields(team);
         ensureProxyIndexed(team());
       }
@@ -319,7 +327,7 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
       deltaX(0);
       deltaY(0);
     }
-    if (Crystal.timer % 60 == 0 && proxy != null && proxy.items != null) {
+    if (timer % 60 == 0 && proxy != null && proxy.items != null) {
       savedItems.set(proxy.items);
     }
     if (proxy != null) {
@@ -346,7 +354,7 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
         }
       }
     }
-    if (Crystal.timer % 60 == 0) {
+    if (timer % 60 == 0) {
       updateClosestCore();
     }
     if (corec.elevation() > 0 && onSolid() == false) {
@@ -442,6 +450,15 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
     }
     updateCatchItemFromPlayer();
     updateAutoCommand();
+
+    // === 逃跑时强制移动 ===
+    if (fleeing && fleeTarget.x != 0 && fleeTarget.y != 0) {
+      float dist = Mathf.dst(x(), y(), fleeTarget.x, fleeTarget.y);
+      if (dist > tilesize * 0.5f) {
+        float angle = Mathf.atan2(fleeTarget.x - x(), fleeTarget.y - y()) * Mathf.radDeg;
+        moveAt(Tmp.v1.trns(angle, type.speed));
+      }
+    }
   }
 
   @Override
@@ -458,6 +475,7 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
     Fx.smokePuff.at(this);
   }
 
+  @Remove(MindustryXc.class)
   @Replace
   public void rawDamage(float amount) {
     boolean hadShields = shield > 1.0E-4F;
@@ -484,6 +502,7 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
       }
     }
     amount = 0;
+    healthChanged();
   }
 
   @Replace
@@ -679,8 +698,76 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
   }
 
   public void updateAutoCommand() {
+    // === 步骤1：威胁检测 ===
+    Unit nearestThreat = Units.closestEnemy(team, x(), y(), fleeDetectRange,
+        u -> u.isValid() && u.targetable(team));
+
+    float threatDst = nearestThreat != null ? Mathf.dst(x(), y(), nearestThreat.x, nearestThreat.y) : Float.MAX_VALUE;
+    boolean inDanger = nearestThreat != null && threatDst < fleeSafeRange;
+
+    // === 步骤2：逃离模式 ===
+    if (inDanger) {
+      // 到达当前目标后才重新选点（或首次无目标）
+      boolean needNewTarget = fleeTarget.x == 0 && fleeTarget.y == 0
+          || Mathf.dst(x(), y(), fleeTarget.x, fleeTarget.y) < tilesize * 1f;
+
+      // 定期重选：防止敌人移动导致旧目标不再合理
+      if (!needNewTarget && fleeing && fleeRetargetTimer <= 0) {
+        needNewTarget = true;
+      }
+
+      // 卡死检测：正在逃跑但长时间没向目标移动
+      if (!needNewTarget && fleeing) {
+        if (vel().len() < type.speed * 0.1f) {
+          fleeStuckTimer += Time.delta;
+          if (fleeStuckTimer > 45f) {
+            needNewTarget = true;
+            fleeStuckTimer = 0f;
+          }
+        } else {
+          fleeStuckTimer = 0f;
+        }
+      }
+
+      if (needNewTarget) {
+        Vec2 target = FleePathfinder.inst.findFleeTarget(
+            self(), team, fleeDetectRange, fleeSafeRange, fleeSamples);
+        if (target != null) {
+          fleeTarget.set(target);
+        }
+        fleeRetargetTimer = 60f;
+        fleeStuckTimer = 0f;
+      }
+      fleeRetargetTimer -= Time.delta;
+
+      // 逃跑时由 CoreComp 直接控制移动，不依赖 CommandAI 的 moveCommand
+      if (controller() instanceof CommandAI ai) {
+        if (ai.command != UnitCommand.moveCommand) {
+          ai.command = UnitCommand.moveCommand;
+        }
+        ai.targetPos = null;
+      }
+
+      fleeing = true;
+      idleTimer = 0f;
+      return;
+    }
+
+    // === 步骤3：退出逃离模式 ===
+    if (fleeing) {
+      fleeing = false;
+      fleeTarget.set(0, 0);
+      fleeRetargetTimer = 0f;
+      fleeStuckTimer = 0f;
+      if (controller() instanceof CommandAI ai) {
+        ai.command = UnitCommand.moveCommand;
+        ai.targetPos = null;
+      }
+    }
+
+    // === 步骤4：原来的 idle 逻辑 ===
     if (vel().len() < 0.1f) {
-      idleTimer += Math.min(Time.delta, 10f); // 最多一帧加 10，防止跳帧
+      idleTimer += Math.min(Time.delta, 10f);
       if (idleTimer >= 300f && !autoSwitched) {
         if (controller() instanceof CommandAI ai) {
           if (ai.command != CUnitCommands.coreAuxiliaryCommand) {
@@ -704,31 +791,5 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
       return false;
     float targetAngle = angleTo(mineTile.worldx(), mineTile.worldy());
     return Math.abs(Angles.angleDist(rotation(), targetAngle)) <= 4f;
-  }
-
-  @Override
-  public void draw() {
-    if (CVars.debug) {
-      float half = hitSize() / 2f + tilesize * 2; // 查询范围半宽
-      Draw.color(Color.scarlet); // 红色 = 查询范围
-      Draw.alpha(0.3f);
-      Fill.rect(x(), y(), half * 2, half * 2);
-      Draw.color(Color.scarlet);
-      Draw.alpha(1f);
-      Lines.rect(x() - half, y() - half, half * 2, half * 2);
-      // ====== 调试绘制：单位自身碰撞箱 ======
-      float hitHalf = hitSize() / 2f;
-      Draw.color(Color.lime); // 绿色 = 自身碰撞箱
-      Draw.alpha(0.5f);
-      Lines.rect(x() - hitHalf, y() - hitHalf, hitHalf * 2, hitHalf * 2);
-      // ====== 调试绘制：高亮检测到的建筑 ======
-      Draw.color(Color.gold); // 金色 = 检测到的建筑
-      Draw.alpha(0.5f);
-      for (Building build : nearbyBuilds()) {
-        float bSize = build.block.size * tilesize;
-        Fill.rect(build.x, build.y, bSize, bSize);
-      }
-      Draw.reset();
-    }
   }
 }

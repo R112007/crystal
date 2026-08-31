@@ -120,7 +120,7 @@ public class Storys {
     // 初始化角色
     private void initCharacters() {
         player = new Character("player", CVars.playerName);
-        yi = new Character("yi", Core.bundle.get("yi"));
+        yi = new Character("yi", CVars.plot.getOrBundle("yi"));
         background = new Character("background", "");
         player.addExpression(Expression.normal, Icon.players);
         yi.addExpression(Expression.normal, Core.atlas.getDrawable("crystal-yi-normal"));
@@ -137,7 +137,7 @@ public class Storys {
         yi.addExpression(Expression.shy, Core.atlas.getDrawable("crystal-yi-shy"));
         yi.addExpression(Expression.abashed, Core.atlas.getDrawable("crystal-yi-abashed"));
         background.addExpression(Expression.normal, Core.atlas.getDrawable("crystal-background"));
-        core = new Character("core", Core.bundle.get("character.core")) {
+        core = new Character("core", CVars.plot.getOrBundle("character.core")) {
             @Override
             public void init() {
                 Events.on(CoreChangeEvent.class, e -> {
@@ -166,7 +166,7 @@ public class Storys {
     }
 
     public void initModels() {
-        jianglindian_lanuch = new DialogueModule("jianglindian_lanuch", Core.bundle.get("gal.jianglindian_lanuch"))
+        jianglindian_lanuch = new DialogueModule("jianglindian_lanuch", CVars.plot.getOrBundle("gal.jianglindian_lanuch"))
                 .addNode(new Seq<>(new DialogueLine[] {
                         new DialogueLine(background, normal, "@jianglindian_lanuch-1"), // 科技文明与修仙文明，不过是宇宙在漫长遗忘中，偶然翻涌起的两朵浪花。
                         new DialogueLine(background, normal, "@jianglindian_lanuch-2"), // 科技文明在无尽的征服与建造中，试图用物质的堆积来唤醒那沉睡的完整
@@ -192,16 +192,16 @@ public class Storys {
                         new DialogueLine(player, normal, yi, normal, Side.right, "@jianglindian_lanuch-22"), // 额，没事没事，慢慢想，总会想起来的，反正有时间
                         new DialogueLine(player, normal, yi, normal, Side.right, "@jianglindian_lanuch-23"), // 讲了那么久，还没自我介绍呢，我叫安亦雨，你呢
                         new DialogueLine(player, normal, yi, normal, Side.left,
-                                Core.bundle.format("jianglindian_lanuch-24", player.getName())), // 我，应该叫{0}吧
+                                CVars.plot.formatOrBundle("jianglindian_lanuch-24", player.getName())), // 我，应该叫{0}吧
                         new DialogueLine(player, normal, yi, surprise, Side.right,
-                                Core.bundle.format("jianglindian_lanuch-25", player.getName())), // 那{0}，我们先离开这里吧，这里可不太平。要不是在这矿洞里，我俩早被"净墟"碾成渣了。
+                                CVars.plot.formatOrBundle("jianglindian_lanuch-25", player.getName())), // 那{0}，我们先离开这里吧，这里可不太平。要不是在这矿洞里，我俩早被"净墟"碾成渣了。
                         new DialogueLine(player, confused, yi, normal, Side.left, "@jianglindian_lanuch-26"), // 净墟…是什么？
                         new DialogueLine(player, normal, yi, normal, Side.right, "@jianglindian_lanuch-27"), // 它们是附近的一股小魇铸体势力，他们自我标榜净化世界的废墟，但是手段狠辣，以屠戮生物为乐
                         new DialogueLine(player, normal, yi, normal, Side.left, "@jianglindian_lanuch-28"), // 那我们现在跑路吗？
                         new DialogueLine(player, normal, yi, confused, Side.right, "@jianglindian_lanuch-29"), // 嗯…等等，你身上的气息有点奇怪，似乎混杂着一些其他东西
                         new DialogueLine(player, normal, yi, normal, Side.right, "@jianglindian_lanuch-30"), // (释放出一点灵力触碰那股异样的气息)咦？
                         new DialogueLine(background, normal,
-                                Core.bundle.format("jianglindian_lanuch-31", player.getName())), // 那股气息接触到灵力后开始暴涨，从{0}身上散发出几十条光束牵引着周围的金属，然后…金属融合变成了一个看似精密的机械
+                                CVars.plot.formatOrBundle("jianglindian_lanuch-31", player.getName())), // 那股气息接触到灵力后开始暴涨，从{0}身上散发出几十条光束牵引着周围的金属，然后…金属融合变成了一个看似精密的机械
                         new DialogueLine(player, normal, yi, surprise, Side.right, "@jianglindian_lanuch-32"), // 什么？！科技核心？(退后半步，倒吸一口凉气)你到底是什么来头？
                         new DialogueLine(player, normal, yi, normal, Side.left, "@jianglindian_lanuch-33"), // 怎么了？这个东西是什么不详之物吗？
                         new DialogueLine(player, normal, yi, normal, Side.right, "@jianglindian_lanuch-34"), // 你身上有着修行文明的气息，却又诞生了科技核心，这明明是魇铸体的特征，从来没有一个人族同时拥有这两种力量，就算是科技文明的人也只是使用外部的科技而不会拥有科技核心。
@@ -238,7 +238,7 @@ public class Storys {
                         // 那个机甲发射了几枚子弹，但随着剑光一闪，子弹被弹开，机甲核心已被洞穿
                         new DialogueLine(player, normal, yi, normal, Side.right, "@jianglindian_lanuch-40"), // (甩了甩剑上的机油，目光扫过机甲残骸)还好这个比较弱，咦？
                         new DialogueLine(background, wuyu,
-                                Core.bundle.format("jianglindian_lanuch-41", player.getName())), // 几缕光点从被击毁的核心中飞出，融入了科技核心，随后安亦雨感知到{0}的气息似乎变强了一点
+                                CVars.plot.formatOrBundle("jianglindian_lanuch-41", player.getName())), // 几缕光点从被击毁的核心中飞出，融入了科技核心，随后安亦雨感知到{0}的气息似乎变强了一点
                         new DialogueLine(player, normal, yi, normal, Side.right, "@jianglindian_lanuch-42"), // 你能吸收它们的能量来增加修为？不对，现在不是说这个的时候，我们快走吧
                         new DialogueLine(player, normal, yi, normal, Side.left, "@jianglindian_lanuch-43"), // 嗯，先离开这里再说
                         new DialogueLine(background, normal, "@jianglindian_lanuch-44"), // （远处传来金属摩擦地面的刺耳声响）
@@ -249,11 +249,11 @@ public class Storys {
                         new DialogueLine(player, normal, yi, normal, Side.left, "@jianglindian_lanuch-49"), // （深吸一口气，手掌触地，一股奇异的吸力从掌心涌出，周围的废铁、矿石、甚至岩层中的金属元素都被抽离出来，融入了核心之中）
                         new DialogueLine(player, normal, yi, surprise, Side.right, "@jianglindian_lanuch-50"), // 竟然真的行…
                         new DialogueLine(player, normal, yi, normal, Side.left,
-                                Core.bundle.format("jianglindian_lanuch-51", player.getName())), // "它"告诉我科技文明的战斗方式不是逃跑，是建立据点、扩张、占领。你在我身后待着，不要乱跑。接下来就看我的表演吧
+                                CVars.plot.formatOrBundle("jianglindian_lanuch-51", player.getName())), // "它"告诉我科技文明的战斗方式不是逃跑，是建立据点、扩张、占领。你在我身后待着，不要乱跑。接下来就看我的表演吧
                         new DialogueLine(player, normal, yi, normal, Side.right,
-                                Core.bundle.format("jianglindian_lanuch-52", player.getName())) // 我…我知道了。注意安全，{0}。
+                                CVars.plot.formatOrBundle("jianglindian_lanuch-52", player.getName())) // 我…我知道了。注意安全，{0}。
                 }));
-        jianglindian_teach = new DialogueModule("jianglindian_teach", Core.bundle.get("gal.jianglindian_teach"))
+        jianglindian_teach = new DialogueModule("jianglindian_teach", CVars.plot.getOrBundle("gal.jianglindian_teach"))
                 .addNode(
                         new DialogueLine(player, normal, yi, normal, Side.left, "@jianglindian_teach-1"),
                         new DialogueLine(player, normal, yi, normal, right, "@jianglindian_teach-2"),
@@ -267,7 +267,7 @@ public class Storys {
                         new DialogueLine(player, normal, core, normal, right, "@jianglindian_teach-10"),
                         new DialogueLine(player, normal, core, normal, Side.left, "@jianglindian_teach-11"));
         jianglindian_gongfa = new DialogueModule("jianglindian_gongfa",
-                Core.bundle.get("gal.jianglindian_gongfa"))
+                CVars.plot.getOrBundle("gal.jianglindian_gongfa"))
                 .addNode(new Seq<>(new DialogueLine[] {
                         new DialogueLine(player, normal, yi, normal, Side.right, "@jianglindian_gongfa-1"),
                         new DialogueLine(player, normal, yi, normal, Side.right, "@jianglindian_gongfa-2"),
@@ -283,10 +283,10 @@ public class Storys {
                         )
                 }));
         jianglindian_fatian = new DialogueModule("jianglindian_fatian",
-                Core.bundle.get("gal.jianglindian_fatian"))
+                CVars.plot.getOrBundle("gal.jianglindian_fatian"))
                 .addNode(new Seq<>(new DialogueLine[] {
                         new DialogueLine(player, normal, yi, normal, Side.right,
-                                Core.bundle.format("jianglindian_fatian-1",
+                                CVars.plot.formatOrBundle("jianglindian_fatian-1",
                                         player.getName())),
                         new DialogueLine(player, confused, yi, normal, Side.left, "@jianglindian_fatian-2"),
                         new DialogueLine(player, normal, yi, normal, Side.right, "@jianglindian_fatian-3"),
@@ -297,10 +297,10 @@ public class Storys {
                         new DialogueLine(player, normal, yi, relax, Side.right, "@jianglindian_fatian-8"),
                         new DialogueLine(player, normal, yi, normal, Side.left, "@jianglindian_fatian-9")
                 }));
-        jianglindian_capture = new DialogueModule("jianglindian_capture", Core.bundle.get("gal.jianglindian_capture"))
+        jianglindian_capture = new DialogueModule("jianglindian_capture", CVars.plot.getOrBundle("gal.jianglindian_capture"))
                 .addNode(new Seq<>(new DialogueLine[] {
                         new DialogueLine(player, normal, yi, happy, Side.right,
-                                Core.bundle.format("jianglindian_capture-1", player.getName())),
+                                CVars.plot.formatOrBundle("jianglindian_capture-1", player.getName())),
                         new DialogueLine(player, normal, yi, normal, Side.left, "@jianglindian_capture-2"),
                         new DialogueLine(player, angry, yi, normal, Side.left, "@jianglindian_capture-3"),
                         new DialogueLine(player, normal, yi, normal, Side.right, "@jianglindian_capture-4"),
@@ -314,14 +314,15 @@ public class Storys {
                         new DialogueLine(player, normal, yi, normal, Side.left, "@jianglindian_capture-12"),
                         new DialogueLine(player, normal, yi, happy, Side.right, "@jianglindian_capture-13")
                 }));
+        // 注意：区块名属于游戏内容语言包（bundles/bundle_*.properties），不是剧情文本，保持 Core.bundle 不变
         jingliuduanxia_launch = new DialogueModule("jingliuduanxia",
                 Core.bundle.get("sector.crystal-jingliuduanxia.name"))
                 .addNode(new Seq<>(new DialogueLine[] {
                         new DialogueLine(player, normal, yi, normal, Side.right,
-                                Core.bundle.format("jingliuduanxia_launch-1", player.getName())), // {0},穿过这边，再走一段路就能到了，路上可能会遇到净墟的单位，要随时准备好战斗
+                                CVars.plot.formatOrBundle("jingliuduanxia_launch-1", player.getName())), // {0},穿过这边，再走一段路就能到了，路上可能会遇到净墟的单位，要随时准备好战斗
                         new DialogueLine(player, normal, yi, normal, Side.left, "@jingliuduanxia_launch-2"), // ……它们已经在前面了
                         new DialogueLine(player, normal, yi, wuyu, Side.right,
-                                Core.bundle.format("jingliuduanxia_launch-3", player.getName())), // 这么倒霉吗？居然是陆空混合编队，{0}你要注意它们的空军
+                                CVars.plot.formatOrBundle("jingliuduanxia_launch-3", player.getName())), // 这么倒霉吗？居然是陆空混合编队，{0}你要注意它们的空军
                         new DialogueLine(player, normal, yi, normal, Side.right, "@jingliuduanxia_launch-4"), // 它们在遭受一定的攻击后会有一些变化
                         new DialogueLine(player, normal, yi, normal, Side.left, "@jingliuduanxia_launch-5") // 明白了，你退后，我要攻击了
                 }));

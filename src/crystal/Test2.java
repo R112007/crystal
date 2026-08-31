@@ -7,6 +7,7 @@ import arc.util.Log;
 import crystal.content.CFx;
 import crystal.entities.abilities.AddWeaponFieldAbility;
 import crystal.entities.abilities.PayloadFieldAbility;
+import crystal.entities.abilities.SpawnUnitShieldAbility;
 import crystal.entities.bullet.ContinuousSectorLaserBulletType;
 import crystal.entities.bullet.HealUnitBulletType;
 import crystal.entities.bullet.SectorLaserBulletType;
@@ -19,6 +20,7 @@ import crystal.world.blocks.defence.turrets.HealingPowerTurret;
 import crystal.world.blocks.payloads.DronePayloadAssembler;
 import crystal.world.blocks.payloads.PayloadAssembler;
 import crystal.world.blocks.production.MultipleCrafter;
+import crystal.world.blocks.unit.DeployUnitShieldBlock;
 import ent.anno.Annotations.EntityDef;
 import mindustry.Vars;
 import mindustry.content.Fx;
@@ -26,9 +28,13 @@ import mindustry.content.Items;
 import mindustry.content.StatusEffects;
 import mindustry.content.UnitTypes;
 import mindustry.entities.Effect;
+import mindustry.entities.abilities.ShieldArcAbility;
+import mindustry.entities.bullet.BasicBulletType;
 import mindustry.entities.bullet.BulletType;
+import mindustry.entities.bullet.ContinuousLaserBulletType;
 import mindustry.entities.bullet.EmpBulletType;
 import mindustry.entities.bullet.LaserBulletType;
+import mindustry.entities.pattern.ShootPattern;
 import mindustry.game.Team;
 import mindustry.gen.MechUnit;
 import mindustry.gen.Mechc;
@@ -37,6 +43,7 @@ import mindustry.gen.Payloadc;
 import mindustry.gen.Sounds;
 import mindustry.gen.Unit;
 import mindustry.gen.UnitEntity;
+import mindustry.gen.UnitTetherc;
 import mindustry.gen.Unitc;
 import mindustry.graphics.Drawf;
 import mindustry.graphics.Pal;
@@ -57,9 +64,9 @@ import static mindustry.type.ItemStack.*;
 
 public class Test2 {
 
-  public static boolean allow = false;
-  public static Block payloadAssembler, dronePayloadAssembler, healbulletturret;
-  public static UnitType u1, u2, u3, u4, u5;
+  public static boolean allow = true;
+  public static Block payloadAssembler, dronePayloadAssembler, healbulletturret, DeployUnitShieldBlock;
+  public static UnitType u1, u2, u3, u4, u5, u7;
   public static UnitType eastWind;
   public static @EntityDef(value = { Unitc.class, Rammingc.class, Mechc.class }) UnitType u6;
   public static UnitType healUnit;
@@ -68,6 +75,57 @@ public class Test2 {
   public static void load() {
     if (!allow)
       return;
+    u7 = new UnitType("u7") {
+      {
+        useUnitCap = false;
+        flying = true;
+        lowAltitude = true;
+        health = 5000f;
+        this.constructor = UnitEntity::create;
+        weapons.add(new Weapon() {
+          {
+            top = false;
+            x = y = 0;
+            rotate = true;
+            mirror = false;
+            reload = 40f;
+            recoil = 4f;
+            shoot = new ShootPattern() {
+              {
+                this.shots = 2;
+                this.shotDelay = 0;
+              }
+            };
+            inaccuracy = 10f;
+            bullet = new BasicBulletType() {
+              {
+                damage = 32;
+                lifetime = 40f;
+                speed = 4;
+              }
+            };
+          }
+        });
+        abilities.add(new ShieldArcAbility() {
+          {
+            whenShooting = false;
+            width = 20;
+            max = 4000f;
+            angle = 100f;
+            cooldown = 360f;
+            radius = 50;
+            y = -5;
+          }
+        });
+      }
+    };
+    DeployUnitShieldBlock = new DeployUnitShieldBlock("部署环绕盾") {
+      {
+        requirements(Category.turret, with(Items.copper, 80, Items.silicon, 60, Items.titanium, 40));
+        size = 2;
+        droneType = u7;
+      }
+    };
     mu = new MultipleCrafter("mu") {
       {
         requirements(Category.crafting, with(Items.copper, 60, Items.silicon, 40, Items.metaglass, 30));
@@ -269,26 +327,23 @@ public class Test2 {
         x = y = 0;
         reload = 100f;
         recoil = 0f;
-
-        cooldownTime = 100f;
+        continuous = true;
+        cooldownTime = 130f;
 
         shoot.firstShotDelay = Fx.greenLaserCharge.lifetime;
         parentizeEffects = true;
 
-        bullet = new LaserBulletType() {
+        bullet = new ContinuousLaserBulletType() {
           {
             length = 200f;
             damage = 560f;
-            width = 25f;
+            width = 12f;
 
-            lifetime = 65f;
+            lifetime = 130f;
 
-            lightningSpacing = 35f;
             lightningLength = 5;
-            lightningDelay = 1.1f;
             lightningLengthRand = 15;
             lightningDamage = 50;
-            lightningAngleRand = 40f;
             largeHit = true;
             lightColor = lightningColor = Pal.heal;
 
@@ -296,10 +351,6 @@ public class Test2 {
 
             healPercent = 25f;
             collidesTeam = true;
-
-            sideAngle = 15f;
-            sideWidth = 0f;
-            sideLength = 0f;
             colors = new Color[] { Pal.heal.cpy().a(0.4f), Pal.heal, Color.white };
           }
         };
@@ -327,7 +378,8 @@ public class Test2 {
         this.engineOffset = 45f;
         this.armor = 25;
         this.constructor = UnitEntity::create;
-        this.abilities.add(new AddWeaponFieldAbility(200, 180, 360, w));
+        // this.abilities.add(new AddWeaponFieldAbility(200, 180, 360, w));
+        abilities.add(new SpawnUnitShieldAbility(u7, 6, 300f, 80f, 0.6f));
       }
     };
     u2 = new UnitType("u2") {
@@ -548,14 +600,14 @@ public class Test2 {
     };
     eastWind = new UnitType("eastWind") {
       {
-        health = 4000;
+        health = 400000;
         hitSize = 30;
         flying = true;
         lowAltitude = true;
         accel = 0.08f;
         drag = 0.03f;
         rotateSpeed = 1f;
-        payloadCapacity = (4 * 4) * Vars.tilePayload;
+        payloadCapacity = (4 * 4 * 6) * Vars.tilePayload;
         constructor = PayloadUnit::create;
         controller = UnitTypes.quad.controller;
         engineSize = 7.5f;

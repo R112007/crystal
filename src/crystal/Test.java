@@ -23,6 +23,7 @@ import crystal.entities.units.UnitEnum.XiuWei;
 import crystal.gen.FaShenc;
 import crystal.gen.Magicc;
 import crystal.graphics.CPal;
+import crystal.test.TestLoad;
 import crystal.gen.*;
 import crystal.type.CoreUnitType;
 import crystal.type.MagicUnitType;
@@ -46,11 +47,14 @@ import crystal.world.blocks.environment.SpawnBossFloor;
 import crystal.world.blocks.liquid.LiquidRangeBridge;
 import crystal.world.blocks.payloads.UnitLaunchPad;
 import crystal.world.blocks.payloads.UnitReceivePad;
+import crystal.world.blocks.production.DrillTurret;
 import crystal.world.blocks.stroage.MoveBlock;
+import crystal.world.blocks.unit.MoveUpgradeFactory;
 import ent.anno.Annotations.EntityDef;
 import mindustry.content.Blocks;
 import mindustry.content.Fx;
 import mindustry.content.Items;
+import mindustry.content.Liquids;
 import mindustry.content.StatusEffects;
 import mindustry.content.TechTree;
 import mindustry.content.UnitTypes;
@@ -74,6 +78,7 @@ import mindustry.gen.Unitc;
 import mindustry.graphics.Pal;
 import mindustry.type.Category;
 import mindustry.type.ItemStack;
+import mindustry.type.LiquidStack;
 import mindustry.type.UnitType;
 import mindustry.type.Weapon;
 import mindustry.world.Block;
@@ -82,6 +87,7 @@ import mindustry.world.blocks.defense.turrets.PowerTurret;
 import mindustry.world.blocks.environment.Floor;
 import mindustry.world.meta.BlockFlag;
 import mindustry.world.meta.BuildVisibility;
+import static mindustry.type.ItemStack.*;
 
 public class Test {
     public static Block t;
@@ -117,8 +123,43 @@ public class Test {
     public static ScrambleUnitLanding scrambleUnitLanding;
     public static MoveBlock moveBlock;
     public static CoreUnitType aaaaaaa;
+    public static Block turretdrill1;
 
     public static void load() {
+        TestLoad.load();
+        turretdrill1 = new DrillTurret("turretdrill1") {
+            {
+                this.mineSpeed = 0.5f;
+                this.range = 50f;
+                this.itemCapacity = 25;
+                this.requirements(Category.production, ItemStack.with(new Object[] {}));
+            }
+        };
+        // 假设你已经有了 item1, liquid1, unitA, unitB
+        MoveUpgradeFactory factory = new MoveUpgradeFactory("move-upgrade-factory") {
+            {
+                requirements(Category.units, with(Items.silicon, 120, Items.titanium, 80));
+                size = 3;
+                hasPower = true;
+                hasItems = true;
+                droneConstructTime = 60f * 2f;
+
+                upgrades.add(new MoveUpgradeFactory.Upgrade(
+                        UnitTypes.flare, UnitTypes.horizon,
+                        60f * 5f,
+                        ItemStack.with(Items.silicon, 30, Items.titanium, 20),
+                        LiquidStack.with(Liquids.water, 10f)));
+
+                upgrades.add(new MoveUpgradeFactory.Upgrade(
+                        UnitTypes.mono, UnitTypes.poly,
+                        60f * 8f,
+                        ItemStack.with(Items.silicon, 50, Items.thorium, 30),
+                        LiquidStack.with(Liquids.cryofluid, 15f)));
+                addUpgrade(UnitTypes.scepter, UnitTypes.reign, 60 * 10f, with(Items.silicon, 100, Items.thorium, 80),
+                        10);
+            }
+        };
+
         aaaaaaa = new CoreUnitType("aaaaaaa") {
             {
                 speed = 4f;
@@ -629,10 +670,6 @@ public class Test {
                 buildVisibility = BuildVisibility.shown;
                 category = Category.effect;
                 requirements = ItemStack.with(Items.copper, 2);
-            }
-        };
-        spfloor = new SpawnBossFloor("spfloor") {
-            {
             }
         };
         t = new LiquidRangeBridge("t") {

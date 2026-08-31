@@ -158,13 +158,22 @@ public class DialogueLine {
     public void init() {
     }
 
-    /** 解析文本：处理 bundle 与图片标签移除。 */
+    /**
+     * 解析文本：处理 plot bundle（{@code @key} 优先从 CVars.plot 读取，缺失时回退 Core.bundle）与图片标签移除。
+     */
     public static String parseText(String str) {
         if (str == null)
             return "";
         String parsed = str;
-        if (parsed.startsWith("@") && Core.bundle.has(parsed.substring(1))) {
-            parsed = Core.bundle.get(parsed.substring(1));
+        // 剧情文本统一优先走 CVars.plot（plot.properties），plot 未加载/缺 key 时回退游戏语言包，
+        // 避免把原始 @key 直接显示给玩家
+        if (parsed.startsWith("@")) {
+            String key = parsed.substring(1);
+            if (CVars.plot != null && CVars.plot.has(key)) {
+                parsed = CVars.plot.get(key);
+            } else if (Core.bundle.has(key)) {
+                parsed = Core.bundle.get(key);
+            }
         }
         return IMG_TAG.matcher(parsed).replaceAll("").trim();
     }

@@ -101,7 +101,7 @@ public class CoreUnitType extends UnitType implements CoreUnit {
         throw new RuntimeException(name + "has not entity,please add entity for it");
     }
     super.init();
-    commands.add(CUnitCommands.coreAuxiliaryCommand);
+    commands.add(CUnitCommands.coreAuxiliaryCommand, CUnitCommands.fleeCommand);
     /*
      * weapons.add(new Weapon() {
      * {

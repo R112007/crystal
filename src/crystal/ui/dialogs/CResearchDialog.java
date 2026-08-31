@@ -33,6 +33,7 @@ import arc.util.Scaling;
 import arc.util.Structs;
 import java.util.Arrays;
 import mindustry.Vars;
+import crystal.CVars;
 import crystal.aviation.Satellite;
 import crystal.aviation.SatelliteManager;
 import mindustry.content.TechTree;
@@ -183,6 +184,10 @@ public class CResearchDialog extends BaseDialog {
          this.hide();
          Vars.ui.database.show();
       }).size(210.0F, 64.0F).name("database");
+      this.buttons.button("神武技能", Icon.bookOpen, () -> {
+         this.hide();
+         CVars.cui.shenwu.show();
+      }).size(210f, 64f);
       this.addListener(new InputListener() {
          public boolean scrolled(InputEvent event, float x, float y, float amountX, float amountY) {
             CResearchDialog.this.view.setScale(Mathf.clamp(

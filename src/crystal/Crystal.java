@@ -5,7 +5,6 @@ import arc.Events;
 import arc.graphics.Color;
 import arc.math.Mathf;
 import arc.scene.ui.layout.Scl;
-import arc.struct.ObjectMap;
 import arc.struct.Seq;
 import arc.util.Log;
 import arc.util.Time;
@@ -22,6 +21,7 @@ import crystal.content.CUnitCommands;
 import crystal.content.CUnits;
 import crystal.content.CWeather;
 import crystal.content.CrystalTechTree;
+import crystal.content.FaBaos;
 import crystal.content.GongFas;
 import crystal.content.LxMaps;
 import crystal.content.MuchLoadUnit;
@@ -29,6 +29,7 @@ import crystal.content.SpecialUnits;
 import crystal.content.hzr.HZRBlocks;
 import crystal.core.Affection;
 import crystal.core.CSettings;
+import crystal.core.FaBaoSystem;
 import crystal.core.PlayerXiuWeiSystem;
 import crystal.core.Storys;
 import crystal.core.UnitInfoSystem;
@@ -38,7 +39,6 @@ import crystal.entities.shentong.ShenTong;
 import crystal.entities.units.MultiStageMechUnit;
 import crystal.entities.units.SummonUnit;
 import crystal.entities.units.UnitEnum.JingJie;
-import crystal.entities.units.UnitEnum.XiuWei;
 import crystal.game.MultiSectorWaveTrigger;
 import crystal.game.CEventType.MapChangeEvent;
 import crystal.game.CEventType.SectorChangeEvent;
@@ -47,6 +47,7 @@ import crystal.graphics.BlackHoleRenderer;
 import crystal.mod.ClassMapLoader;
 import crystal.net.CCall;
 import crystal.ui.CStyles;
+import crystal.ui.FaBaoHUD;
 import crystal.ui.Hints;
 import crystal.ui.dialogs.CPlanetDialog;
 import crystal.ui.dialogs.MobileLaunchLoadoutDialog;
@@ -67,13 +68,11 @@ import mindustry.game.EventType.ClientLoadEvent;
 import mindustry.game.EventType.StateChangeEvent;
 import mindustry.game.EventType.TapEvent;
 import mindustry.game.EventType.Trigger;
-import mindustry.game.EventType.UnitChangeEvent;
 import mindustry.gen.Building;
 import mindustry.gen.EntityMapping;
-import mindustry.gen.Player;
-import mindustry.gen.Unit;
 import mindustry.maps.Map;
 import mindustry.mod.Mod;
+import mindustry.mod.Mods.LoadedMod;
 import mindustry.type.Sector;
 import mindustry.ui.dialogs.BaseDialog;
 import mindustry.ui.dialogs.PlanetDialog;
@@ -106,6 +105,7 @@ public class Crystal extends Mod {
     CCall.load();
     Affection.affection.load();
     GongFas.load();
+    FaBaos.load();
     EntityRegistry.register();
     CStyles.load();
     CItems.load();
@@ -143,7 +143,24 @@ public class Crystal extends Mod {
     if (CSettings.instance.hasPlayerName()) {
       CVars.playerName = CSettings.instance.getPlayerName();
     }
-    CVars.plot = PlotBundle.load(modDirectory.child(CVars.modName));
+    // 【修复】plot 读取 bug：modDirectory 是 Vars.modDirectory（游戏 mods 文件夹），
+    // child(modName) 指向的是 mods/crystal 这个条目——zip 安装时根本不存在（实际是 crystal.zip），
+    // 文件夹安装时它是目录而非文件，PlotBundle.load 对一个目录调 reader() 直接失败，
+    // 两种情况都会得到一个空 bundle，所有 key 返回 ???xxx???。
+    // 正确做法：从 Vars.mods 取 LoadedMod.root（zip/文件夹安装都有效），交给 loadFromMod 找 plot/plot.properties。
+    LoadedMod cmod = Vars.mods.getMod(CVars.modName);
+    if (cmod == null) {
+      // 按主类兜底，避免 mod.json 的 name 与 CVars.modName 不一致导致找不到
+      cmod = Vars.mods.getMod(Crystal.class);
+    }
+    if (cmod != null) {
+      Log.info("[Crystal] 找到 mod: name=@, root=@", cmod.name, cmod.root.absolutePath());
+      CVars.plot = PlotBundle.loadFromMod(cmod.root);
+    } else {
+      Log.err("[Crystal] Vars.mods 中找不到 crystal mod，plot 文本将从游戏语言包兜底");
+      CVars.plot = PlotBundle.loadFromMod(modDirectory.child(CVars.modName));
+    }
+    Log.info("[Crystal] plot bundle 加载完成: " + CVars.plot);
     Storys.inst.init();
     Hints.load();
     checkAndShowNameInputDialog();
@@ -154,25 +171,11 @@ public class Crystal extends Mod {
     checkGongFa();
   }
 
-  ObjectMap<Player, Unit> lastUnit = new ObjectMap<>();
-
-  public void events() {
-    Events.on(UnitChangeEvent.class, e -> {
-      increase();
-      Unit p = lastUnit.get(e.player);
-      lastUnit.put(e.player, e.unit);
-      p.setType(p.type);
-    });
-  }
-
-  public void increase() {
-    float f = Math.max(XiuWei.xiuWeiMultiplier(CVars.playerXiuWei) + 1, 1f);
-    player.unit().health *= f;
-    player.unit().maxHealth *= f;
-    for (var w : player.unit().mounts) {
-      w.weapon.bullet.damage *= f;
-    }
-  }
+  // 【已删除】events()/increase()/lastUnit 整条单位属性加成管线：
+  // 1) events() 从未被调用，是死代码；
+  // 2) 首次 UnitChangeEvent 时 lastUnit 必为空，p.setType() 直接 NPE；
+  // 3) w.weapon.bullet.damage *= f 篡改的是内容注册表里的共享 BulletType 单例，
+  //    每次换单位复利叠加且影响敌方同类型单位，setType 不会重置它。
 
   public void checkGongFa() {
     if ((LxMaps.jianglindian.sector.info.wasCaptured || CVars.playerMagicPower >= JingJie.kaiqiao.amount - 0.1f)
@@ -203,6 +206,8 @@ public class Crystal extends Mod {
     UnitInfoSystem.saveUnitInfo();
     BlackHoleRenderer.init();
     PlayerXiuWeiSystem.init();
+    FaBaoSystem.init();
+    FaBaoHUD.init();
     Events.on(ClientLoadEvent.class, e -> {
       constructor();
     });
@@ -226,6 +231,11 @@ public class Crystal extends Mod {
   public void update() {
     timer += Time.delta;
     UnitInfoSystem.update();
+    // checkGongFa 原来只在 ClientLoadEvent 调一次，局内灵力达标永远不会触发解锁；
+    // 改为每 120 tick 轮询一次（与 UnitInfoSystem 的节流约定一致）
+    if (timer % 120 == 1) {
+      checkGongFa();
+    }
     updateSector();
     updateMap();
     FaTianXiangDi.faShens.update();

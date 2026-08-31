@@ -261,6 +261,11 @@ public class SatelliteInjector extends Block {
     }
 
     @Override
+    public TextureRegion[] icons() {
+        return new TextureRegion[] { region, left1, right1, left2, right2 };
+    }
+
+    @Override
     public void setStats() {
         super.setStats();
         stats.add(CStat.injectAmount, defaultAmount, StatUnit.items);

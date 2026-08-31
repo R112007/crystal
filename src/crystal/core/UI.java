@@ -21,6 +21,7 @@ import crystal.ui.dialogs.CResearchDialog;
 import crystal.ui.dialogs.GongFaDialog;
 import crystal.ui.dialogs.MagicWaveDialog;
 import crystal.ui.dialogs.RelativeDialog;
+import crystal.ui.dialogs.ShenWuSkillTreeDialog;
 import crystal.ui.dialogs.WorldStuffDialog;
 import crystal.ui.gal.GalgameDialogueManager;
 import crystal.world.time.TimeRewindEvent;
@@ -42,6 +43,7 @@ public class UI {
   float height = 100;
   public BaseDialog generalMagicDialog;
   public RelativeDialog relativeDialog;
+  public ShenWuSkillTreeDialog shenwu;
 
   public Button timeButton(float time) {
     Button but = new TextButton(time + "");
@@ -59,7 +61,7 @@ public class UI {
     cpaused = new CPausedDialog();
     stuff = new WorldStuffDialog();
     gongFa = new GongFaDialog();
-
+    shenwu = new ShenWuSkillTreeDialog();
     setupGeneralMagicDialog();
     setupRelativeDialog();
 

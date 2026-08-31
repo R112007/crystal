@@ -80,19 +80,21 @@ public class CEventType {
     }
   }
 
-  public static class XiuWeiChange {
-    public JingJie jingJie;
+  /** 境界已变化，需要重算修为档位。载荷：当前境界（原 XiuWeiChange，名字与载荷错位已修正） */
+  public static class XiuWeiRecalc {
+    public final JingJie jingJie;
 
-    public XiuWeiChange(JingJie jingJie) {
+    public XiuWeiRecalc(JingJie jingJie) {
       this.jingJie = jingJie;
     }
   }
 
-  public static class JingJieChange {
-    public float amount;
+  /** 灵力已变化，需要重算境界。载荷：当前灵力值，不是境界（原 JingJieChange，名字与载荷错位已修正） */
+  public static class JingJieRecalc {
+    public final float magicPower;
 
-    public JingJieChange(float amount) {
-      this.amount = amount;
+    public JingJieRecalc(float magicPower) {
+      this.magicPower = magicPower;
     }
   }
 

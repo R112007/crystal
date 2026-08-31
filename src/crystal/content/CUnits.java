@@ -183,9 +183,9 @@ public class CUnits {
             mirror = false;
             reload = 120f;
             recoil = 4f;
-            layerOffset = groundLayer - 0.1f;
             parts.add(new RegionPart() {
               {
+                layer = groundLayer;
                 progress = PartProgress.warmup;
                 mirror = true;
                 under = true;
@@ -210,8 +210,8 @@ public class CUnits {
             bullet = new BasicBulletType() {
               {
                 damage = 32;
-                lifetime = 70f;
-                speed = 5;
+                lifetime = 40f;
+                speed = 4;
               }
             };
           }

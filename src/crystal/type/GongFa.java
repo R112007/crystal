@@ -91,6 +91,7 @@ public class GongFa {
   }
 
   public boolean unlockedHost() {
-    return Vars.net.client() ? unlocked : unlocked;
+    // 原来写成 Vars.net.client() ? unlocked : unlocked，三元两边相同，是死代码
+    return unlocked;
   }
 }

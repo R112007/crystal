@@ -14,6 +14,7 @@ import arc.util.Strings;
 import arc.util.Time;
 import arc.util.Tmp;
 import crystal.world.meta.CStatValues;
+import mindustry.audio.SoundLoop;
 import mindustry.content.Fx;
 import mindustry.entities.Effect;
 import mindustry.entities.Predict;
@@ -26,7 +27,6 @@ import mindustry.gen.Healthc;
 import mindustry.gen.Teamc;
 import mindustry.gen.Unit;
 import mindustry.graphics.Drawf;
-import mindustry.graphics.Pal;
 import mindustry.type.Weapon;
 
 public class AddWeaponFieldAbility extends Ability {
@@ -271,6 +271,7 @@ public class AddWeaponFieldAbility extends Ability {
 
   /**
    * 从单位移除武器
+   * 关键：必须先关闭 shoot 标记并停止 SoundLoop，否则持续音效会永远播放
    */
   private void removeWeaponFromUnit(Unit unit) {
     WeaponMount[] old = unit.mounts;
@@ -288,6 +289,17 @@ public class AddWeaponFieldAbility extends Ability {
     if (removeIndex < 0)
       return;
 
+    WeaponMount mount = old[removeIndex];
+
+    // ========== 关键修复：停止持续音效 ==========
+    // 1. 先关闭射击标记，防止 weapon.update 里再触发新音效
+    mount.shoot = false;
+
+    // 2. 停止 WeaponMount 内部挂着的 SoundLoop
+    // 连续射击武器（激光、火焰喷射器等）会在 mount.sound 上持有一个循环音效
+    stopMountSound(mount);
+    // ============================================
+
     WeaponMount[] mounts = new WeaponMount[old.length - 1];
     System.arraycopy(old, 0, mounts, 0, removeIndex);
     System.arraycopy(old, removeIndex + 1, mounts, removeIndex, old.length - removeIndex - 1);
@@ -296,9 +308,39 @@ public class AddWeaponFieldAbility extends Ability {
   }
 
   /**
+   * 安全停止 WeaponMount 上的持续音效。
+   * 先尝试直接访问字段，失败则退到反射，保证不同 Mindustry 版本的兼容性。
+   */
+  private static void stopMountSound(WeaponMount mount) {
+    // 尝试 1：直接访问（如果字段是 public 或同包可见）
+    try {
+      if (mount.sound != null) {
+        mount.sound.stop();
+        mount.sound = null;
+        return;
+      }
+    } catch (Exception ignored) {
+      // 字段不可见，走反射
+    }
+
+    // 尝试 2：反射兜底
+    try {
+      java.lang.reflect.Field f = WeaponMount.class.getDeclaredField("sound");
+      f.setAccessible(true);
+      Object s = f.get(mount);
+      if (s instanceof SoundLoop sl) {
+        sl.stop();
+        f.set(mount, null);
+      }
+    } catch (Exception ignored) {
+      // 该版本没有 sound 字段，无需处理
+    }
+  }
+
+  /**
    * 仿照 AddWeaponAbility.updateWeapons() 为单个单位更新武器瞄准和射击
    * 使用武器自身射程，不受 unit.range() / type.maxRange 限制
-   * 
+   *
    * 开火逻辑：
    * - 非玩家控制时：武器自主索敌并开火
    * - 玩家控制但未输入开火指令时：武器自主索敌并开火
@@ -423,7 +465,7 @@ public class AddWeaponFieldAbility extends Ability {
 
   /**
    * 绘制向外扩散的波纹
-   * 
+   *
    * @param x     中心X
    * @param y     中心Y
    * @param fin   0~1 完成度
