@@ -1,5 +1,6 @@
 package crystal.ui.dialogs;
 
+import crystal.core.CultivationState;
 import arc.Core;
 import arc.graphics.Color;
 import arc.math.Mathf;
@@ -22,7 +23,7 @@ import mindustry.ui.dialogs.BaseDialog;
  * 修为面板 v2：分区卡片式布局。
  * 头部（修为/境界/道号）→ 灵力进度条 → 渡劫目标 → 功法 → 法宝槽位 → 神武槽位。
  * 法宝已实装：槽位内容从 FaBaoSystem 读取（图标 + 名字 + 持有数）。
- * 神武仍为预留位：内容从 CVars.shenwuHave 读取，系统实装后只需往里填数据。
+ * 神武仍为预留位：内容从 CultivationState.shenwuHave 读取，系统实装后只需往里填数据。
  */
 public class XiuWeiDialog extends BaseDialog {
   /** 法宝/神武各预留的槽位数 */
@@ -48,19 +49,19 @@ public class XiuWeiDialog extends BaseDialog {
       buildDuJie(t);
       buildGongFa(t);
       buildFaBaoSlots(t);
-      buildSlots(t, Core.bundle.get("shenwu", "神武"), CVars.shenwuHave, SHENWU_SLOTS,
+      buildSlots(t, Core.bundle.get("shenwu", "神武"), CultivationState.shenwuHave, SHENWU_SLOTS,
           Core.bundle.get("shenwu.empty", "尚未炼化任何神武"));
     }).growX().width(CONTENT_WIDTH + 20f);
   }
 
   /** 头部：修为标签 + 大号境界名（随修为档位变色）+ 道号 */
   private void buildHeader(Table t) {
-    JingJie cur = CVars.playerJingJie == null ? JingJie.fan : CVars.playerJingJie;
-    Color rankColor = CVars.playerXiuWei == null ? Color.white : CVars.playerXiuWei.color;
+    JingJie cur = CultivationState.playerJingJie == null ? JingJie.fan : CultivationState.playerJingJie;
+    Color rankColor = CultivationState.playerXiuWei == null ? Color.white : CultivationState.playerXiuWei.color;
 
     t.table(Styles.black6, head -> {
       head.add(Core.bundle.get("stat.xiuwei") + " · " +
-          (CVars.playerXiuWei == null ? "" : CVars.playerXiuWei.str))
+          (CultivationState.playerXiuWei == null ? "" : CultivationState.playerXiuWei.str))
           .color(rankColor).padTop(4f);
       head.row();
       head.add(cur.str).color(rankColor).get().setFontScale(2.2f);
@@ -75,7 +76,7 @@ public class XiuWeiDialog extends BaseDialog {
 
   /** 灵力进度条：当前境界到下一境界的进度，颜色取修为档位色 */
   private void buildPowerBar(Table t) {
-    JingJie cur = CVars.playerJingJie == null ? JingJie.fan : CVars.playerJingJie;
+    JingJie cur = CultivationState.playerJingJie == null ? JingJie.fan : CultivationState.playerJingJie;
     JingJie next = PlayerXiuWeiSystem.getNextJingJie();
     float from = cur.amount;
     float to = next.amount;
@@ -83,10 +84,10 @@ public class XiuWeiDialog extends BaseDialog {
 
     t.table(Styles.black6, p -> {
       Bar bar = new Bar(
-          () -> String.format("%.1f", CVars.playerMagicPower) + " / " + (maxed ? "MAX" : String.valueOf((long) to)),
-          () -> (CVars.playerXiuWei == null ? Color.white : CVars.playerXiuWei.color)
+          () -> String.format("%.1f", CultivationState.playerMagicPower) + " / " + (maxed ? "MAX" : String.valueOf((long) to)),
+          () -> (CultivationState.playerXiuWei == null ? Color.white : CultivationState.playerXiuWei.color)
               .cpy().lerp(Color.white, 0.2f),
-          () -> maxed ? 1f : Mathf.clamp((CVars.playerMagicPower - from) / (to - from)));
+          () -> maxed ? 1f : Mathf.clamp((CultivationState.playerMagicPower - from) / (to - from)));
       bar.blink(Color.white);
       p.add(bar).growX().height(46f).pad(6f);
       p.row();
@@ -101,10 +102,10 @@ public class XiuWeiDialog extends BaseDialog {
     String text = null;
     Color color = Color.gold;
 
-    if (CVars.isInDuJie && CVars.pendingDuJieJingJie != null
-        && CVars.pendingDuJieJingJie.duJieCondition != null) {
+    if (CultivationState.isInDuJie && CultivationState.pendingDuJieJingJie != null
+        && CultivationState.pendingDuJieJingJie.duJieCondition != null) {
       text = Core.bundle.get("dujie.ing", "[渡] 当前目标") + "："
-          + CVars.pendingDuJieJingJie.duJieCondition.str;
+          + CultivationState.pendingDuJieJingJie.duJieCondition.str;
       color = Color.scarlet;
     } else {
       JingJie next = PlayerXiuWeiSystem.getNextJingJie();
@@ -120,7 +121,7 @@ public class XiuWeiDialog extends BaseDialog {
     t.table(Styles.black6, d -> {
       d.add(ftext).color(fcolor).wrap().width(CONTENT_WIDTH - 20f).pad(6f);
       // 神途渡劫：实时击杀进度（条件为"击杀100个敌方单位"）
-      if (CVars.isInDuJie && CVars.pendingDuJieJingJie == JingJie.shentu) {
+      if (CultivationState.isInDuJie && CultivationState.pendingDuJieJingJie == JingJie.shentu) {
         d.row();
         d.add(Core.bundle.get("dujie.kills", "击杀进度") + "："
             + PlayerXiuWeiSystem.getDuJieKillCount() + "/100")
@@ -134,7 +135,7 @@ public class XiuWeiDialog extends BaseDialog {
   private void buildGongFa(Table t) {
     sectionTitle(t, Core.bundle.get("gongfahave"));
 
-    Seq<GongFa> list = CVars.gongfaHave.toSeq().select(g -> g != GongFas.none).sort(g -> g.id);
+    Seq<GongFa> list = CultivationState.gongfaHave.toSeq().select(g -> g != GongFas.none).sort(g -> g.id);
     t.table(Styles.black6, g -> {
       if (list.isEmpty()) {
         g.add(Core.bundle.get("gongfa.empty", "尚未习得功法")).color(EMPTY_COLOR).pad(8f);

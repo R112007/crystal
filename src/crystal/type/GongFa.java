@@ -5,7 +5,7 @@ import arc.Events;
 import arc.graphics.g2d.TextureRegion;
 import arc.struct.ObjectMap;
 import arc.util.Nullable;
-import crystal.CVars;
+import crystal.core.CultivationState;
 import crystal.ui.dialogs.GongFaDialog;
 import mindustry.Vars;
 import mindustry.game.EventType.ClientLoadEvent;
@@ -31,7 +31,7 @@ public class GongFa {
         // 游戏加载完成后，预加载所有功法图标
         gongFa.loadIcon();
         if (gongFa.unlocked) {
-          CVars.gongfaHave.add(gongFa);
+          CultivationState.gongfaHave.add(gongFa);
         }
       }
     });
@@ -75,7 +75,7 @@ public class GongFa {
     this.unlocked = true;
     Core.settings.put(name + "-unlocked", true);
     Core.settings.manualSave();
-    CVars.gongfaHave.add(this);
+    CultivationState.gongfaHave.add(this);
     Events.fire(new GongFaDialog.GongFaUnlockEvent(this));
   }
 
@@ -83,7 +83,7 @@ public class GongFa {
     this.unlocked = false;
     Core.settings.put(name + "-unlocked", false);
     Core.settings.manualSave();
-    CVars.gongfaHave.remove(this);
+    CultivationState.gongfaHave.remove(this);
   }
 
   public boolean unlocked() {

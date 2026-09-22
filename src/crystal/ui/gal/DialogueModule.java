@@ -19,6 +19,8 @@ public class DialogueModule {
   public Seq<DialogueLine> dialogueNodes = new Seq<>();
   // 是否已完成
   public boolean isCompleted = false;
+  // 前置模块ID：该模块必须等前置模块完成后才能播放，null表示无前置
+  public String prerequisiteModuleId = null;
   // 已播放到的节点索引
   public int progressIndex = 0;
   // 已触发分支 ID
@@ -130,7 +132,19 @@ public class DialogueModule {
     if (progressIndex < dialogueNodes.size) {
       progressIndex++;
     }
-    isCompleted = progressIndex >= dialogueNodes.size;
+  }
+
+  /** 检查前置模块是否已完成（无前置直接返回true） */
+  public boolean prerequisiteMet() {
+    if (prerequisiteModuleId == null || prerequisiteModuleId.isEmpty()) return true;
+    DialogueModule pre = GalgameDialogueManager.instance.getModule(prerequisiteModuleId);
+    return pre != null && pre.isCompleted;
+  }
+
+  /** 链式设置前置模块 */
+  public DialogueModule withPrerequisite(String moduleId) {
+    this.prerequisiteModuleId = moduleId;
+    return this;
   }
 
   /** 重置模块进度。 */
@@ -183,8 +197,11 @@ public class DialogueModule {
     }
     rebuildDialogueNodes();
     this.progressIndex = Core.settings.getInt("gal_module_progress_" + this.moduleId, 0);
-    this.isCompleted = Core.settings.getBool("gal_module_completed_" + this.moduleId, false);
-    this.isCompleted = this.progressIndex >= this.dialogueNodes.size;
+    // 完成状态以存档标记为准，并且要求进度确实走完。
+    // 不能只比 progressIndex >= size：停在"选项节点"时进度也等于节点数，
+    // 但分支还没选、后面的分支节点也还没追加，只比大小会把没选分支的模块误判成已完成。
+    boolean savedCompleted = Core.settings.getBool("gal_module_completed_" + this.moduleId, false);
+    this.isCompleted = savedCompleted && this.progressIndex >= this.dialogueNodes.size;
 
     if (isCompleted) {
       for (DialogueLine d : dialogueNodes) {

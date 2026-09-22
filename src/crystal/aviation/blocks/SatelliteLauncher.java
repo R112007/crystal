@@ -40,6 +40,7 @@ public class SatelliteLauncher extends Block {
     public Effect launchEffect = Fx.launch;
     /** 发射持续时间（tick） */
     public float launchDuration = 120f;
+    public TextureRegion pad;
 
     public SatelliteLauncher(String name) {
         super(name);
@@ -64,6 +65,12 @@ public class SatelliteLauncher extends Block {
         super.setBars();
         // 自己管理物品 Bar，避免与原 Block 默认 Bar 重复
         barMap.remove("items");
+    }
+
+    @Override
+    public void load() {
+        super.load();
+        pad = Core.atlas.find(name + "-pad");
     }
 
     public class SatelliteLauncherBuild extends Building {
@@ -201,7 +208,7 @@ public class SatelliteLauncher extends Block {
                     selectedMapFile,
                     launchOrbitRadius,
                     launchOrbitAngleDeg,
-                    x, y, true);
+                    x, y, true, pad);
             selectedMapFile = null;
             launchOrbitRadius = -1f;
             launchOrbitAngleDeg = -1f;

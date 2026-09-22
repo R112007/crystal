@@ -1,5 +1,6 @@
 package crystal;
 
+import crystal.core.CultivationState;
 import arc.Core;
 import arc.Events;
 import arc.graphics.Color;
@@ -147,7 +148,8 @@ public class Crystal extends Mod {
     // child(modName) 指向的是 mods/crystal 这个条目——zip 安装时根本不存在（实际是 crystal.zip），
     // 文件夹安装时它是目录而非文件，PlotBundle.load 对一个目录调 reader() 直接失败，
     // 两种情况都会得到一个空 bundle，所有 key 返回 ???xxx???。
-    // 正确做法：从 Vars.mods 取 LoadedMod.root（zip/文件夹安装都有效），交给 loadFromMod 找 plot/plot.properties。
+    // 正确做法：从 Vars.mods 取 LoadedMod.root（zip/文件夹安装都有效），交给 loadFromMod 找
+    // plot/plot.properties。
     LoadedMod cmod = Vars.mods.getMod(CVars.modName);
     if (cmod == null) {
       // 按主类兜底，避免 mod.json 的 name 与 CVars.modName 不一致导致找不到
@@ -175,10 +177,11 @@ public class Crystal extends Mod {
   // 1) events() 从未被调用，是死代码；
   // 2) 首次 UnitChangeEvent 时 lastUnit 必为空，p.setType() 直接 NPE；
   // 3) w.weapon.bullet.damage *= f 篡改的是内容注册表里的共享 BulletType 单例，
-  //    每次换单位复利叠加且影响敌方同类型单位，setType 不会重置它。
+  // 每次换单位复利叠加且影响敌方同类型单位，setType 不会重置它。
 
   public void checkGongFa() {
-    if ((LxMaps.jianglindian.sector.info.wasCaptured || CVars.playerMagicPower >= JingJie.kaiqiao.amount - 0.1f)
+    if ((LxMaps.jianglindian.sector.info.wasCaptured
+        || CultivationState.playerMagicPower >= JingJie.kaiqiao.amount - 0.1f)
         && !GongFas.taiXuanTianGong1.unlocked()) {
       GongFas.taiXuanTianGong1.unlock();
     }

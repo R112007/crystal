@@ -15,9 +15,9 @@ import arc.scene.ui.ScrollPane;
 import arc.scene.ui.TextButton;
 import arc.scene.ui.layout.Scl;
 import arc.scene.ui.layout.Table;
+import arc.scene.ui.layout.Cell;
 import arc.struct.Seq;
 import arc.util.Align;
-import arc.util.Log;
 import arc.util.Scaling;
 import crystal.ui.gal.DialogueLine.DialogueOption;
 import mindustry.Vars;
@@ -36,6 +36,8 @@ public class GalgameDialogueUI extends Table {
     public final Table inlineImageTable;
     public final Table optionTable;
     public final TextButton autoPlayBtn, historyBtn, fastForwardBtn, fastSkipBtn, forceSkipBtn;
+    /** 左右立绘的布局单元：面板/窗口尺寸变化时要重新收敛。 */
+    protected Cell<Image> leftSpriteCell, rightSpriteCell;
 
     /** 驱动本 UI 的 Manager。不再硬编码单例，可被独立对话框复用。 */
     public final GalgameDialogueManager manager;
@@ -55,7 +57,7 @@ public class GalgameDialogueUI extends Table {
     public GalgameDialogueUI(GalgameDialogueManager manager) {
         this.manager = manager;
         setBackground(Tex.pane);
-        setSize(Core.graphics.getWidth() * 0.9f, Core.graphics.getHeight() * 0.3f);
+        setSize(Core.graphics.getWidth() * 0.9f, panelHeight());
         setPosition(Core.graphics.getWidth() / 2, scl(20f), Align.bottom);
         touchable = Touchable.childrenOnly;
         setTransform(true);
@@ -109,10 +111,22 @@ public class GalgameDialogueUI extends Table {
 
         buildLayout();
 
-        clicked(() -> {
-            if (optionTable.visible)
-                return;
-            manager.nextLine();
+        // 点击对话框推进剧情。按钮（自动播放/历史/快进等）的事件会冒泡到这里
+        // （arc 的 Button 不会 stop 事件），必须识别出"这次点击是从按钮来的"，
+        // 否则按一次按钮会既执行按钮功能、又顺手推进一句剧情。
+        addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                if (optionTable.visible)
+                    return;
+                for (arc.scene.Element e = event.targetActor; e != null; e = e.parent) {
+                    if (e instanceof Button)
+                        return;
+                    if (e == GalgameDialogueUI.this)
+                        break;
+                }
+                manager.nextLine();
+            }
         });
 
         update(() -> {
@@ -132,9 +146,32 @@ public class GalgameDialogueUI extends Table {
         });
 
         resized(() -> {
-            setSize(Core.graphics.getWidth() * 0.9f, Core.graphics.getHeight() * 0.3f);
+            setSize(Core.graphics.getWidth() * 0.9f, panelHeight());
             setPosition(Core.graphics.getWidth() / 2, scl(20f), Align.bottom);
+            applyLayoutMetrics();
         });
+    }
+
+    /**
+     * 面板高度：屏幕高度的 30% 起，但要保证"立绘 + 选项行 + 按钮行"都装得下。
+     * 手机（密度高，scl 数值小）维持原来的 30%；桌面（密度 1）立绘 360 会撑爆 30%，
+     * 之前选项按钮和底部按钮行叠在一起、还被屏幕底边裁掉。
+     */
+    public float panelHeight() {
+        return Math.max(Core.graphics.getHeight() * 0.3f, scl(420f));
+    }
+
+    /** 立绘边长：不超过面板给立绘留出的空间（其余要留给选项行和按钮行）。 */
+    public float spriteSize() {
+        return Math.max(scl(96f), Math.min(scl(360f), panelHeight() - scl(200f)));
+    }
+
+    public void applyLayoutMetrics() {
+        float size = spriteSize();
+        if (leftSpriteCell != null)
+            leftSpriteCell.size(size);
+        if (rightSpriteCell != null)
+            rightSpriteCell.size(size);
     }
 
     public void buildLayout() {
@@ -142,20 +179,25 @@ public class GalgameDialogueUI extends Table {
         margin(scl(8f));
 
         // 左侧立绘
-        add(leftSprite).size(scl(360)).left().padRight(scl(12f));
+        leftSpriteCell = add(leftSprite).size(spriteSize()).left().padRight(scl(12f));
 
         // 中间文本容器
         Table textContainer = new Table();
         textContainer.left().top();
+        // Table 默认 touchable=childrenOnly，而里面的 Label/空行都不吃点击，
+        // 于是"点对话框文字区推进"会完全没有反应；让这一块自己可点。
+        textContainer.touchable = Touchable.enabled;
         textContainer.add(nameLabel).left().padBottom(scl(4f)).row();
         textContainer.add(contentLabel).grow().left().top().row();
         textContainer.add(inlineImageTable).growX().left().padTop(scl(8f)).row();
-        textContainer.add(optionTable).growX().left().padTop(scl(10f)).row();
         add(textContainer).grow().left().top().padLeft(scl(12f)).padRight(scl(12f));
 
         // 右侧立绘
-        add(rightSprite).size(scl(360)).right().padLeft(scl(12f));
+        rightSpriteCell = add(rightSprite).size(spriteSize()).right().padLeft(scl(12f));
         row();
+
+        // 选项单独占一行：塞在文字列里会被立绘撑高的行推到面板外面
+        add(optionTable).colspan(3).growX().left().padTop(scl(6f)).row();
 
         // 底部按钮：统一大小并居中，避免分布不均
         Table buttonTable = new Table();
@@ -302,11 +344,8 @@ public class GalgameDialogueUI extends Table {
     public void showOptions(DialogueOption[] options) {
         optionTable.clear();
         optionTable.visible = true;
-        Log.info("[GalgameOptions] 显示选项: 共@个, 当前队列长度@", options.length, manager.dialogueQueue.size);
         for (int idx = 0; idx < options.length; idx++) {
             DialogueOption option = options[idx];
-            Log.info("[GalgameOptions] 选项@: text=@ branch=@ onSelect=@", idx, option.optionText,
-                    option.branch != null ? option.branch.id : "null", option.onSelect != null);
             TextButton btn = new TextButton(option.optionText, Styles.flatBordert);
             btn.getLabel().setWrap(true);
             btn.addListener(new ClickListener() {
@@ -317,9 +356,6 @@ public class GalgameDialogueUI extends Table {
                     optionTable.clear();
                     boolean restore = manager.cachedAutoPlayBeforeOption;
                     manager.cachedAutoPlayBeforeOption = false;
-                    Log.info("[GalgameOptions] 点击选项: text=@ branch=@ replay=@", option.optionText,
-                            option.branch != null ? option.branch.id : "null", manager.isReplayManager);
-                    Log.info("[GalgameOptions] 点击前队列长度@", manager.dialogueQueue.size);
                     if (option.branch != null) {
                         String selectedId = option.branch.id;
                         // 先清理未选中的其它分支节点，避免同时播放多个分支
@@ -331,7 +367,6 @@ public class GalgameDialogueUI extends Table {
                             manager.dialogueQueue
                                     .removeAll(line -> line.branchId != null && line.branchId.equals(selectedId));
                             Seq<DialogueLine> copies = option.branch.createReplayCopies();
-                            Log.info("[GalgameReplay] 选择分支: @ (节点数: @)", option.branch.id, copies.size);
                             for (int i = copies.size - 1; i >= 0; i--) {
                                 manager.dialogueQueue.insert(0, copies.get(i));
                             }
@@ -343,12 +378,13 @@ public class GalgameDialogueUI extends Table {
                     if (option.onSelect != null) {
                         option.onSelect.get(option);
                     }
-                    Log.info("[GalgameOptions] 点击后队列长度@", manager.dialogueQueue.size);
-                    if (!manager.isTyping && !manager.dialogueQueue.isEmpty()) {
+                    // 选完选项时当前这句可能还在打字：先补完整句再进入分支，
+                    // 否则会出现"选项点完了、界面却不动，要玩家再点一下"的卡顿
+                    if (manager.isTyping) {
+                        finishTyping();
+                    }
+                    if (!manager.dialogueQueue.isEmpty()) {
                         Core.app.post(manager::nextLine);
-                    } else {
-                        Log.info("[GalgameOptions] 未触发nextLine: isTyping=@ queueEmpty=@", manager.isTyping,
-                                manager.dialogueQueue.isEmpty());
                     }
                     if (restore) {
                         manager.isAutoPlay = true;
@@ -422,6 +458,12 @@ public class GalgameDialogueUI extends Table {
     }
 
     public float scl(float value) {
-        return Scl.scl(value) / Core.graphics.getDensity();
+        // Mindustry 的 Scl.scl 本身已经包含 UI 缩放；再除一次屏幕密度时，
+        // 某些环境（离屏渲染、SDL 拿不到 DPI 的设备）getDensity() 会返回 0，
+        // 结果整个面板的位置/尺寸变成 Infinity —— 对话面板飞出屏幕，看不见也点不到。
+        float density = Core.graphics.getDensity();
+        if (!(density > 0f) || Float.isInfinite(density))
+            return Scl.scl(value);
+        return Scl.scl(value) / density;
     }
 }

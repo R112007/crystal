@@ -3,6 +3,7 @@ package crystal.aviation.entities;
 import arc.Core;
 import arc.files.Fi;
 import arc.graphics.g2d.Draw;
+import arc.graphics.g2d.TextureRegion;
 import arc.math.Mathf;
 import arc.util.Nullable;
 import arc.util.Time;
@@ -36,7 +37,7 @@ public class SatelliteLaunchVehicles {
         public float lifetime;
         @Import
         public float time;
-
+        public TextureRegion pad;
         /** 卫星名称 */
         public String satelliteName = "Satellite";
         /** 所属星球 */
@@ -95,7 +96,7 @@ public class SatelliteLaunchVehicles {
             Draw.z(Layer.flyingUnit + 3f);
             Draw.color(mindustry.graphics.Pal.accent);
             Draw.alpha(alpha);
-            Draw.rect("launch-pod", x, y, 18f * scale, 26f * scale, 0f);
+            Draw.rect(pad, x, y, 18f * scale, 26f * scale, 0f);
             Draw.color();
             Draw.z(0f);
         }
@@ -104,7 +105,7 @@ public class SatelliteLaunchVehicles {
     /** 从地面发射台发射一颗新卫星。 */
     public static void launch(Planet planet, String name, Fi mapFile,
             float orbitRadius, float orbitAngleDeg,
-            float x, float y, boolean autoEnter) {
+            float x, float y, boolean autoEnter, TextureRegion pad) {
         SatelliteLaunchVehicle vehicle = SatelliteLaunchVehicle.create();
         vehicle.set(x, y);
         vehicle.lifetime = 150f;
@@ -116,6 +117,7 @@ public class SatelliteLaunchVehicles {
         vehicle.launchX = x;
         vehicle.launchY = y;
         vehicle.autoEnter = autoEnter;
+        vehicle.pad = pad;
         vehicle.add();
         Fx.launch.at(x, y);
     }

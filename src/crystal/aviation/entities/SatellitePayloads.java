@@ -4,6 +4,7 @@ import arc.graphics.Color;
 import arc.graphics.g2d.Draw;
 import arc.graphics.g2d.Fill;
 import arc.graphics.g2d.Lines;
+import arc.graphics.g2d.TextureRegion;
 import arc.math.Angles;
 import arc.math.Mathf;
 import arc.util.Nullable;
@@ -44,6 +45,7 @@ public class SatellitePayloads {
         public float time;
         @Import
         public int id;
+        public TextureRegion pad;
 
         /** 携带的物品 */
         public ItemStack[] itemPayload = new ItemStack[0];
@@ -185,7 +187,7 @@ public class SatellitePayloads {
             // 绘制上升的发射舱（箭头向上）
             Draw.color(Pal.accent);
             Draw.alpha(alpha);
-            Draw.rect("launch-pod", x, y, w, h, 90f);
+            Draw.rect(pad, x, y, w, h, 90f);
             Draw.color();
 
             // 绘制引擎尾焰
@@ -223,7 +225,7 @@ public class SatellitePayloads {
     }
 
     /** 创建并发射一个直接送往指定卫星的载荷（物品）。 */
-    public static void launchItems(Satellite satellite, float x, float y, ItemStack[] items) {
+    public static void launchItems(Satellite satellite, float x, float y, ItemStack[] items, TextureRegion pad) {
         if (satellite == null || items == null || items.length == 0)
             return;
 
@@ -232,7 +234,7 @@ public class SatellitePayloads {
         payload.lifetime = 120f;
         payload.itemPayload = items;
         payload.targetSatelliteId = satellite.id;
-
+        payload.pad = pad;
         // 立即交付，避免依赖实体生命周期；失败则直接销毁
         boolean ok = payload.deliverToSatellite(satellite);
         if (ok) {
@@ -245,7 +247,8 @@ public class SatellitePayloads {
     }
 
     /** 创建并发射一个直接送往指定卫星的载荷（液体）。 */
-    public static void launchLiquid(Satellite satellite, float x, float y, Liquid liquid, float amount) {
+    public static void launchLiquid(Satellite satellite, float x, float y, Liquid liquid, float amount,
+            TextureRegion pad) {
         if (satellite == null || liquid == null || amount <= 0f)
             return;
 
@@ -255,7 +258,7 @@ public class SatellitePayloads {
         payload.setLiquidPayload(liquid);
         payload.liquidAmount = amount;
         payload.targetSatelliteId = satellite.id;
-
+        payload.pad = pad;
         // 立即交付，避免依赖实体生命周期；失败则直接销毁
         boolean ok = payload.deliverToSatellite(satellite);
         if (ok) {

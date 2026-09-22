@@ -1,5 +1,6 @@
 package crystal.content;
 
+import crystal.core.CultivationState;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 
@@ -41,7 +42,7 @@ public class MuchLoadUnit {
   }
 
   public static MagicUnitType getPlayerCurrentXiuWeiUnit(MagicUnitType source) {
-    return getUnitByXiuWei(source, CVars.playerXiuWei);
+    return getUnitByXiuWei(source, CultivationState.playerXiuWei);
   }
 
   public static void load() throws IllegalAccessException {

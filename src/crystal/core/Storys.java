@@ -254,6 +254,7 @@ public class Storys {
                                 CVars.plot.formatOrBundle("jianglindian_lanuch-52", player.getName())) // 我…我知道了。注意安全，{0}。
                 }));
         jianglindian_teach = new DialogueModule("jianglindian_teach", CVars.plot.getOrBundle("gal.jianglindian_teach"))
+                .withPrerequisite("jianglindian_lanuch")
                 .addNode(
                         new DialogueLine(player, normal, yi, normal, Side.left, "@jianglindian_teach-1"),
                         new DialogueLine(player, normal, yi, normal, right, "@jianglindian_teach-2"),
@@ -268,6 +269,7 @@ public class Storys {
                         new DialogueLine(player, normal, core, normal, Side.left, "@jianglindian_teach-11"));
         jianglindian_gongfa = new DialogueModule("jianglindian_gongfa",
                 CVars.plot.getOrBundle("gal.jianglindian_gongfa"))
+                .withPrerequisite("jianglindian_teach")
                 .addNode(new Seq<>(new DialogueLine[] {
                         new DialogueLine(player, normal, yi, normal, Side.right, "@jianglindian_gongfa-1"),
                         new DialogueLine(player, normal, yi, normal, Side.right, "@jianglindian_gongfa-2"),
@@ -284,6 +286,7 @@ public class Storys {
                 }));
         jianglindian_fatian = new DialogueModule("jianglindian_fatian",
                 CVars.plot.getOrBundle("gal.jianglindian_fatian"))
+                .withPrerequisite("jianglindian_gongfa")
                 .addNode(new Seq<>(new DialogueLine[] {
                         new DialogueLine(player, normal, yi, normal, Side.right,
                                 CVars.plot.formatOrBundle("jianglindian_fatian-1",
@@ -298,6 +301,7 @@ public class Storys {
                         new DialogueLine(player, normal, yi, normal, Side.left, "@jianglindian_fatian-9")
                 }));
         jianglindian_capture = new DialogueModule("jianglindian_capture", CVars.plot.getOrBundle("gal.jianglindian_capture"))
+                .withPrerequisite("jianglindian_fatian")
                 .addNode(new Seq<>(new DialogueLine[] {
                         new DialogueLine(player, normal, yi, happy, Side.right,
                                 CVars.plot.formatOrBundle("jianglindian_capture-1", player.getName())),
@@ -361,7 +365,6 @@ public class Storys {
                         }))
                 .addNode(new DialogueLine(player, normal, yi, abashed, Side.right, "@jianglindian_gongfa-branch2-3")
                         .withSpriteAction(() -> {
-                            DLog.info("选项2shake");
                             CharacterActions.shySteam(ui);
                         }))
                 .addNode(new DialogueLine(player, normal, yi, angry, Side.right, "@jianglindian_gongfa-branch2-4")

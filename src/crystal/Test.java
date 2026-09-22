@@ -127,6 +127,7 @@ public class Test {
 
     public static void load() {
         TestLoad.load();
+
         turretdrill1 = new DrillTurret("turretdrill1") {
             {
                 this.mineSpeed = 0.5f;
@@ -711,7 +712,7 @@ public class Test {
                 // 80, 500, false));
             }
         };
-        t1 = new LinkWall("t1") {
+        t1 = new LinkWall("链接墙") {
             {
                 size = 1;
                 this.requirements(Category.units, ItemStack.with(new Object[] { Items.copper, 1 }));

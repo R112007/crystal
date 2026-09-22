@@ -1,8 +1,10 @@
 package crystal.aviation.blocks;
 
+import arc.Core;
 import arc.func.Floatp;
 import arc.func.Prov;
 import arc.graphics.Color;
+import arc.graphics.g2d.TextureRegion;
 import arc.scene.ui.TextButton;
 import arc.scene.ui.layout.Table;
 import arc.struct.Seq;
@@ -55,6 +57,7 @@ public class GroundLaunchPad extends Block {
     public float liquidLaunchAmount = 200f;
     /** 发射间隔（秒）。 */
     public float launchInterval = 5f;
+    public TextureRegion pad;
 
     public GroundLaunchPad(String name) {
         super(name);
@@ -82,6 +85,12 @@ public class GroundLaunchPad extends Block {
         stats.add(Stat.output, itemLaunchAmount, StatUnit.items);
         stats.add(Stat.output, StatValues.number(liquidLaunchAmount, StatUnit.liquidUnits));
         stats.add(Stat.launchTime, launchInterval, StatUnit.seconds);
+    }
+
+    @Override
+    public void load() {
+        super.load();
+        pad = Core.atlas.find(name + "-pad");
     }
 
     @Override
@@ -147,7 +156,7 @@ public class GroundLaunchPad extends Block {
                         for (ItemStack stack : arr) {
                             items.remove(stack.item, stack.amount);
                         }
-                        SatellitePayloads.launchItems(target, x, y, arr);
+                        SatellitePayloads.launchItems(target, x, y, arr, pad);
                         SatelliteSectorInfoManager.recordItemLaunch(state.rules.sector, target, arr);
                         Log.info("[GroundLaunchPad] launched items to sat @: @ stacks", target.id, arr.length);
                         launched = true;
@@ -161,7 +170,7 @@ public class GroundLaunchPad extends Block {
                 if (target.liquidCapacity > 0.001f
                         && target.getLiquid(launchLiquid) + liquidLaunchAmount <= target.liquidCapacity + 0.001f) {
                     liquids.remove(launchLiquid, liquidLaunchAmount);
-                    SatellitePayloads.launchLiquid(target, x, y, launchLiquid, liquidLaunchAmount);
+                    SatellitePayloads.launchLiquid(target, x, y, launchLiquid, liquidLaunchAmount, pad);
                     SatelliteSectorInfoManager.recordLiquidLaunch(state.rules.sector, target, launchLiquid,
                             liquidLaunchAmount);
                     Log.info("[GroundLaunchPad] launched liquid @ to sat @", launchLiquid.name, target.id);

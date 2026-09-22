@@ -132,8 +132,10 @@ public class UI {
       Vars.ui.hudGroup.fill(null, table -> {
         table.table(null, t -> {
           t.button("对话", () -> {
-            GalgameDialogueManager.instance.getModule("main").resetProgress();
-            GalgameDialogueManager.instance.playModule("main");
+            // 以前写死的模块 ID "main" 根本不存在（剧情模块叫 jianglindian_*），
+            // 点一下就是 NPE 崩在这里
+            GalgameDialogueManager.instance.getModule("jianglindian_lanuch").resetProgress();
+            GalgameDialogueManager.instance.playModule("jianglindian_lanuch");
           }).size(100, 70);
         }).size(100, 70);
         table.center().left().update(() -> {

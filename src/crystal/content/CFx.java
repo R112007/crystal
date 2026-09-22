@@ -873,4 +873,71 @@ public class CFx {
 
     Drawf.light(e.x, e.y, e.fout() * 25f, Pal.plastaniumFront, 0.5f);
   });
+
+  /**
+   * 轨道打击起爆闪光：中心白光炸开 + 橙色火球。
+   * 对标"导弹从天上砸到地面"的那一瞬间 —— 先是一下全白爆闪，紧跟着橙红色火球铺开。
+   * e.rotation 传爆炸半径。
+   */
+  public static final Effect orbitalStrikeFlash = new Effect(40f, 300f, e -> {
+    float radius = Math.max(e.rotation, 12f);
+    float fin = e.fin();
+    float white = e.fout(Interp.pow4Out);
+    float fire = e.fout(Interp.pow2Out);
+
+    Draw.blend(Blending.additive);
+
+    // 1) 白色爆闪：扩散快、消失也快，只留最亮的那几帧
+    color(Color.white, white * 0.9f);
+    Fill.light(e.x, e.y, 36, radius * (0.3f + 1.1f * fin), Color.white, Color.clear);
+    Fill.circle(e.x, e.y, radius * (0.2f + 0.5f * fin) * 0.55f);
+
+    // 2) 橙色火球：慢半拍地膨胀，随后转暗
+    color(Pal.lightOrange, Pal.darkFlame, fin);
+    alpha(fire * 0.85f);
+    Fill.circle(e.x, e.y, radius * (0.25f + 1.2f * fin));
+    color(Pal.lighterOrange, 0.6f * fire);
+    Fill.circle(e.x, e.y, radius * (0.12f + 0.75f * fin));
+
+    // 3) 四散的火星
+    color(Pal.lightOrange, Pal.lightFlame, fin);
+    alpha(fire);
+    Angles.randLenVectors(e.id, 14, radius * (0.4f + 1.1f * fin), (x, y) -> {
+      Fill.circle(e.x + x, e.y + y * 0.8f, 0.6f + 2.6f * e.fout());
+    });
+
+    Drawf.light(e.x, e.y, radius * (0.8f + 1.6f * fin), Pal.lightOrange, 0.9f * fire);
+
+    Draw.blend();
+    Draw.reset();
+  }).layer(Layer.effect + 1f);
+
+  /**
+   * 轨道打击落地尘环：贴地被压扁的椭圆冲击波，靠短轴表示"这是地面"而不是球面。
+   * e.rotation 传爆炸半径。
+   */
+  public static final Effect orbitalImpactRing = new Effect(52f, 420f, e -> {
+    float radius = Math.max(e.rotation, 12f);
+    float fin = e.fin(Interp.pow3Out);
+    float fout = e.fout(Interp.pow2Out);
+
+    // 主尘环：越铺越远、越铺越淡
+    stroke(4.5f * fout + 0.5f);
+    color(Color.white, e.color, fin);
+    alpha(fout * 0.75f);
+    Lines.ellipse(e.x, e.y, radius * (0.3f + 1.05f * fin), 1f, 0.45f, 0f);
+
+    // 第二圈细环，跟在后面
+    stroke(2f * fout + 0.3f);
+    color(e.color, 0.5f * fout);
+    Lines.ellipse(e.x, e.y, radius * (0.15f + 0.75f * fin), 1f, 0.45f, 0f);
+
+    // 贴地扬尘：往四周铺开，y 方向压扁
+    color(Color.gray, 0.55f * fout);
+    Angles.randLenVectors(e.id, 16, radius * (0.25f + 1f * fin), (x, y) -> {
+      Fill.circle(e.x + x, e.y + y * 0.45f, 0.5f + 3.4f * e.fout());
+    });
+
+    Draw.reset();
+  }).layer(Layer.effect + 0.5f);
 }

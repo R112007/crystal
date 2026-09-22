@@ -1,5 +1,6 @@
 package crystal.magic;
 
+import crystal.core.CultivationState;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import arc.Core;
@@ -118,7 +119,7 @@ public abstract class FaBao {
    * （yong×1.1 / fan×2 / shen×3 / sheng×5 / xian×7 / dijun×11）
    */
   protected float powerScale() {
-    return effectedByXiuWei ? XiuWei.xiuWeiMultiplier(CVars.playerXiuWei) + 1f : 1f;
+    return effectedByXiuWei ? XiuWei.xiuWeiMultiplier(CultivationState.playerXiuWei) + 1f : 1f;
   }
 
   /** 懒加载图标（构造时 atlas 未就绪），atlas 键 fabao-<fullName>，缺失用通用图标兜底 */

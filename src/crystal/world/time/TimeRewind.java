@@ -642,10 +642,18 @@ public class TimeRewind {
         Groups.bullet.clear();
         Groups.sync.clear();
         Groups.draw.clear();
-        Groups.fire.clear();
-        Groups.puddle.clear();
         Groups.weather.clear();
-        Groups.label.clear();
+        // 160.x 起 Fire / Puddle / WorldLabel 不再有独立的 Groups 组：
+        // WorldLabel、Puddle 本身就是 Entityc，已随 Groups.all/draw 一起清掉；
+        // Fire、Puddle 还额外挂在瓦片上（Tiles.fires/puddles），这里把引用一并抹掉，
+        // 否则回溯后旧火/旧水洼会残留在瓦片上并被判定为“仍在燃烧”。
+        if (world != null && world.tiles != null) {
+            int total = world.tiles.width * world.tiles.height;
+            for (int i = 0; i < total; i++) {
+                world.tiles.setFire(i, null);
+                world.tiles.setPuddle(i, null);
+            }
+        }
     }
 
     /**

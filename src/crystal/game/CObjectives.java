@@ -2,7 +2,7 @@ package crystal.game;
 
 import arc.Core;
 import arc.func.Boolp;
-import crystal.CVars;
+import crystal.core.CultivationState;
 import crystal.entities.units.UnitEnum.JingJie;
 import crystal.entities.units.UnitEnum.XiuWei;
 import mindustry.ctype.UnlockableContent;
@@ -41,7 +41,7 @@ public class CObjectives {
 
     @Override
     public boolean complete() {
-      return CVars.playerJingJie.amount >= this.jingJie.amount;
+      return CultivationState.playerJingJie.amount >= this.jingJie.amount;
     }
 
     @Override

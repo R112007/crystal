@@ -73,7 +73,11 @@ public class ModuleReplayDialog extends BaseDialog {
     }
 
     public float scl(float value) {
-        return Scl.scl(value) / Core.graphics.getDensity();
+        // 同 GalgameDialogueUI：密度为 0 时不能做除数，否则面板位置变成 Infinity
+        float density = Core.graphics.getDensity();
+        if (!(density > 0f) || Float.isInfinite(density))
+            return Scl.scl(value);
+        return Scl.scl(value) / density;
     }
 
     @Override

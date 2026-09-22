@@ -46,6 +46,9 @@ import mindustry.type.Sector;
 import mindustry.ui.Styles;
 import mindustry.ui.dialogs.BaseDialog;
 import mindustry.ui.fragments.PlacementFragment;
+import crystal.gen.SMissile;
+import mindustry.game.Team;
+import mindustry.gen.Entityc;
 
 import static mindustry.Vars.*;
 
@@ -75,6 +78,8 @@ public class SatelliteMissileInputHandler extends InputHandler {
     private float lastConsecutiveTime = -consecutiveCooldown;
     /** 下次发射是否从左侧炮管发出，实现左右交替 */
     private boolean fireLeftSideNext = true;
+    /** 齐射时落点散布半径（世界单位），让一片弹雨从天上压下来而不是全砸同一点 */
+    private static final float salvoSpread = 10f;
     /** 轨道打击模式下允许的最大缩放倍率（限制缩得太小/太大） */
     private static final float strikeMaxZoom = 8f;
     private float savedMaxZoomInGame = -1f;
@@ -773,6 +778,30 @@ public class SatelliteMissileInputHandler extends InputHandler {
 
     private static Vec2 origin = new Vec2();
 
+    /**
+     * 出射点：相机视口左右两侧边缘（side = -1 左炮管 / +1 右炮管），和 HUD 两侧的炮管板对应。
+     * 高度不体现在这里 —— 俯视视角下"从高处射向地面"由弹体自己的高度差表现
+     * （见 SatelliteMissile.draw：本体相对地面投影抬高 + 地面留影子 + 越飞越大）。
+     */
+    public static Vec2 sideEntry(float side, Vec2 out) {
+        float hw = Core.camera == null ? 440f : Core.camera.width / 2f + 8f;
+        out.set(Core.camera == null ? 0f : Core.camera.position.x, Core.camera == null ? 0f : Core.camera.position.y);
+        out.x += Mathf.sign(side) * hw;
+        out.y += Mathf.range(-24f, 24f);
+        out.x = Mathf.clamp(out.x, 6f, Math.max(world.unitWidth() - 6f, 6f));
+        out.y = Mathf.clamp(out.y, 6f, Math.max(world.unitHeight() - 6f, 6f));
+        return out;
+    }
+
+    /**
+     * 从两侧炮管发射一枚轨道打击导弹（fireOne 与验证探针共用同一条路径）。
+     * 炮口在画面左右两侧，导弹从那里出射、一路下坠到准星上。
+     */
+    public static SMissile launchAt(float tx, float ty, SatelliteMissile type, Entityc owner, Team team, float side) {
+        sideEntry(side, origin);
+        return type.create(owner, team, origin.x, origin.y, tx, ty);
+    }
+
     /** 连续发射 10 枚导弹，每枚间隔 0.05 秒；发射后进入 10 秒冷却。 */
     private void consecutive() {
         Satellite s = activeSatellite();
@@ -805,35 +834,38 @@ public class SatelliteMissileInputHandler extends InputHandler {
                     return;
                 if (!sat.missileModule.has(selected, 1))
                     return;
-                fireOne(sat, selected);
+                // 齐射落点略有散布：像一片弹雨落在准星周围
+                fireOne(sat, selected, Mathf.range(-salvoSpread, salvoSpread), Mathf.range(-salvoSpread, salvoSpread));
             });
         }
     }
 
     /** 发射单枚导弹（不检查冷却，供 fire() 与 consecutive() 复用）。 */
     private void fireOne(Satellite s, SatelliteMissile missile) {
+        fireOne(s, missile, 0f, 0f);
+    }
+
+    /**
+     * 发射单枚导弹。
+     * 导弹从准星正上方的高空加速砸向落点，不再是横着从屏幕两侧飞进来。
+     */
+    private void fireOne(Satellite s, SatelliteMissile missile, float offsetX, float offsetY) {
         if (s == null || s.missileModule == null || !s.missileModule.has(missile, 1))
             return;
 
-        float tx = Core.camera.position.x;
-        float ty = Core.camera.position.y;
+        float tx = Core.camera.position.x + offsetX;
+        float ty = Core.camera.position.y + offsetY;
 
         s.missileModule.remove(missile, 1);
         updateSelectedDisplay();
 
-        // 导弹从相机视口两侧飞出，向准星位置飞去。
-        float cx = Core.camera.position.x;
-        float cy = Core.camera.position.y;
-        float sx = fireLeftSideNext
-                ? cx - (Core.camera.width / 2f + 8f)
-                : cx + (Core.camera.width / 2f + 8f);
-        float sy = cy + Mathf.random(-24f, 24f);
-
-        launchMissile(s, sx, sy, tx, ty, missile);
+        // 出射点：左右炮管交替（画面左右两侧边缘），导弹从那一路下坠到准星
+        float side = fireLeftSideNext ? -1f : 1f;
         fireLeftSideNext = !fireLeftSideNext;
+        launchAt(tx, ty, missile, player.unit(), player.team(), side);
 
-        // 发射时屏幕轻微震动
-        Effect.shake(10f, 40f, tx, ty);
+        // 高空发射：只有轻微震动，真正的冲击感留给落地那一下
+        Effect.shake(3f, 12f, tx, ty);
     }
 
     private void fire() {
@@ -858,12 +890,6 @@ public class SatelliteMissileInputHandler extends InputHandler {
 
         fireOne(s, selected);
         lastFireTime = Time.time;
-    }
-
-    /** 从指定位置向目标点发射一枚导弹，生命周期刚好让它在目标点命中 */
-    private void launchMissile(Satellite s, float sx, float sy, float tx, float ty, SatelliteMissile type) {
-        // 使用 SatelliteMissile.create 统一创建，仿 BulletType.create
-        crystal.gen.SMissile m = type.create(player.unit(), player.team(), sx, sy, tx, ty);
     }
 
     /**

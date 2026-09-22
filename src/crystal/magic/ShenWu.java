@@ -1,5 +1,6 @@
 package crystal.magic;
 
+import crystal.core.CultivationState;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import arc.Core;
@@ -220,7 +221,7 @@ public abstract class ShenWu {
 
     /** 是否可用：已解锁 + 冷却完毕 + 灵力足够 */
     public boolean ready() {
-      return unlocked() && cooldownTimer <= 0 && CVars.availableMagicPower >= cost();
+      return unlocked() && cooldownTimer <= 0 && CultivationState.availableMagicPower >= cost();
     }
 
     /** 尝试使用 */
@@ -229,7 +230,7 @@ public abstract class ShenWu {
         return false;
       if (!instance(owner, x, y))
         return false;
-      CVars.availableMagicPower -= cost();
+      CultivationState.availableMagicPower -= cost();
       cooldownTimer = cooldown();
       activate(owner, x, y, angle);
       return true;

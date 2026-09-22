@@ -268,6 +268,9 @@ public class SatelliteMapData {
             if (version >= 12)
                 ver.skipChunk(stream);
             ver.skipChunk(stream);
+            // 版本 11 的 patches 区块排在 content 之后（见 MapIO.generatePreview），不跳过就会错位
+            if (version == 11)
+                ver.skipChunk(stream);
 
             WorldContext ctx = new WorldContext() {
                 @Override
@@ -379,7 +382,9 @@ public class SatelliteMapData {
                 }
             };
 
-            ver.readRegion("map", stream, counter, in -> ver.readMap(in, ctx));
+            // 160.x 起 readMap/readRegion 走 SaveReadState（内部只用到 context 字段）
+            SaveReadState readState = new SaveReadState(ctx);
+            ver.readRegion("map", stream, counter, in -> ver.readMap(in, readState));
         } catch (Exception e) {
             throw new IOException("Failed to read map region from " + file, e);
         }

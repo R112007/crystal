@@ -5,17 +5,21 @@ import java.util.concurrent.atomic.AtomicInteger;
 import arc.Core;
 import arc.Events;
 import arc.audio.Sound;
+import arc.graphics.Blending;
 import arc.graphics.Color;
 import arc.graphics.g2d.Draw;
 import arc.graphics.g2d.Fill;
+import arc.graphics.g2d.Lines;
 import arc.graphics.g2d.TextureRegion;
 import arc.math.Mathf;
 import arc.math.geom.Vec2;
 import arc.scene.ui.layout.Table;
 import arc.util.Nullable;
 import arc.util.Time;
+import arc.util.Tmp;
 import crystal.gen.SMissile;
 import crystal.gen.SMissilec;
+import crystal.content.CFx;
 import ent.anno.Annotations.EntityComponent;
 import ent.anno.Annotations.EntityDef;
 import ent.anno.Annotations.Import;
@@ -30,6 +34,7 @@ import mindustry.gen.Icon;
 import mindustry.gen.Sounds;
 import mindustry.gen.Teamc;
 import mindustry.gen.Timedc;
+import mindustry.graphics.Drawf;
 import mindustry.graphics.Layer;
 import crystal.world.meta.CStat;
 import mindustry.world.meta.Stat;
@@ -72,6 +77,19 @@ public class SatelliteMissile implements Comparable<SatelliteMissile> {
   public Effect hitEffect = Fx.explosion;
   public Effect smokeEffect = Fx.smoke;
   public Effect trailEffect = Fx.missileTrail;
+  /** 从高空落到地面的总时长（tick）。与落点距离无关，保证"砸下来"而不是"慢慢飘"。 */
+  public float descentTime = 42f;
+  /** 高空尾迹补烟的间隔（tick）。 */
+  public float smokeInterval = 3f;
+  /**
+   * 出射时相对地面投影的高度（世界单位）。俯视视角下"从两边射向地面"的观感全靠它：
+   * 出射时弹体画得比地面影子高这么多，落地时归零。
+   */
+  public float liftHeight = 120f;
+
+  /** 高空物体的大气色：越远越偏灰蓝，用来表现"还在天上"。 */
+  public static final Color hazeColor = Color.valueOf("93a4bb");
+  private static final Color tmpColor = new Color();
 
   // 命中 / 销毁相关（仿 BulletType）
   public Sound hitSound = Sounds.none;
@@ -124,8 +142,19 @@ public class SatelliteMissile implements Comparable<SatelliteMissile> {
   }
 
   /**
-   * 绘制导弹本体，仿 BasicBulletType.draw(Bullet b)。
-   * 子类可覆盖以实现自定义外观。
+   * 高空下落曲线：起步慢、越接近地面越快（重力感）。p 为时间进度 0~1。
+   */
+  public static float fallCurve(float p) {
+    p = Mathf.clamp(p, 0f, 1f);
+    return p * (0.25f + 0.75f * p);
+  }
+
+  /**
+   * 绘制导弹本体。
+   * 视角是高空俯瞰，所以"从两边射向地面"只能靠高度差来表现：
+   * 1) 弹体画在**地面投影 + 高度**的位置上，地面那一点留一个影子（两者间距 = 当前高度）；
+   * 2) 高度随行程降到 0，投影一路从出射侧滑到准星，影子越贴越近 = 落到地面上；
+   * 3) 本体随之从小变大、颜色脱离大气色（远处发灰蓝），准星上给一圈落点环。
    */
   public void draw(SMissile missile) {
     if (missile == null)
@@ -133,21 +162,104 @@ public class SatelliteMissile implements Comparable<SatelliteMissile> {
 
     Draw.reset();
 
-    // 伪 3D：从高空飞向地面，随进度从小变大、高度降低
-    float progress = Mathf.clamp(missile.time / missile.lifetime, 0f, 1f);
-    float scale = 0.45f + progress * 0.55f;
+    // 地面轨迹进度直接用位置反推，永远和本体所在的位置一致（不受帧率影响）
+    float total = Mathf.dst(missile.startX, missile.startY, missile.targetX, missile.targetY);
+    float remain = Mathf.dst(missile.x, missile.y, missile.targetX, missile.targetY);
+    float e = total <= 0.001f ? 1f : Mathf.clamp(1f - remain / total, 0f, 1f);
+    float alt = 1f - e;
 
+    // 高度：出射时最高，砸到准星时为 0
+    float lift = liftHeight * alt;
+    float px = missile.x;
+    float py = missile.y + lift;
+    // 弹头朝向 = 画面上实际的运动方向（横向射入 + 向下落），所以看起来是"斜着扎向地面"
+    float dir = Mathf.angle(missile.targetX - missile.startX, missile.targetY - missile.startY - liftHeight);
+
+    drawGroundShadow(missile, e);
+    drawTargetMarker(missile, e);
+
+    float scale = Mathf.lerp(0.4f, 1.05f, e);
     float width = this.width * scale;
     float height = this.height * scale;
-    float rotation = missile.rotation;
 
+    drawContrail(missile, e, width, liftHeight);
+
+    // 大气透视：越远越偏灰蓝、越淡
     if (backRegion.found()) {
-      Draw.color(backColor);
-      Draw.rect(backRegion, missile.x, missile.y, width, height, rotation - 90);
+      Draw.color(tmpColor.set(backColor).lerp(hazeColor, alt * 0.3f), 1f);
+      Draw.rect(backRegion, px, py, width, height, dir - 90);
     }
 
-    Draw.color(frontColor);
-    Draw.rect(frontRegion, missile.x, missile.y, width, height, rotation - 90);
+    Draw.color(tmpColor.set(frontColor).lerp(hazeColor, alt * 0.3f), 1f);
+    Draw.rect(frontRegion, px, py, width, height, dir - 90);
+
+    // 尾部喷焰：朝运动方向的反方向喷
+    Tmp.v1.trns(dir + 180f, height * 0.45f);
+    Draw.blend(Blending.additive);
+    Draw.color(frontColor, trailColor, 0.3f + 0.7f * e);
+    Drawf.tri(px + Tmp.v1.x, py + Tmp.v1.y, width * 0.6f,
+        height * (0.6f + 0.7f * e), dir + 180f);
+    Draw.color(Color.white, 0.7f * (0.3f + 0.7f * e));
+    Fill.circle(px + Tmp.v1.x, py + Tmp.v1.y, width * 0.22f);
+    Draw.blend();
+
+    Drawf.light(px, py, width * 3f, trailColor, 0.22f * (0.4f + 0.6f * e));
+    Draw.reset();
+  }
+
+  /** 地面投影的影子：跟着弹从出射侧一路滑到准星，和本体的间距就是"还在空中"。 */
+  private void drawGroundShadow(SMissile missile, float e) {
+    float a = 0.3f * (0.25f + 0.75f * e);
+    Draw.color(Color.black, a);
+    Fill.arc(missile.x, missile.y, Math.max(width * (0.5f + 0.45f * e), 3f), 1f);
+
+    Draw.color(Color.black, 0.4f * (0.25f + 0.75f * e));
+    Lines.stroke(0.8f + 0.6f * e);
+    Lines.ellipse(missile.x, missile.y, Math.max(width * (0.9f + 0.5f * e), 5f), 1f, 0.5f, 0f);
+  }
+
+  /** 准星上的落点环：后半段才明显，提示"会砸在这里"。 */
+  private void drawTargetMarker(SMissile missile, float e) {
+    float a = Mathf.clamp((e - 0.25f) / 0.75f, 0f, 1f);
+    if (a <= 0.01f)
+      return;
+
+    float rad = Math.max(width * 1.6f, 8f);
+    Draw.color(trailColor, 0.7f * a);
+    Lines.stroke(1.2f);
+    Lines.arc(missile.targetX, missile.targetY, rad, 0.62f, Time.time * 1.6f);
+    Lines.arc(missile.targetX, missile.targetY, rad, 0.62f, Time.time * 1.6f + 180f);
+  }
+
+  /** 高空尾迹：沿地面轨迹一路拖到本体，同时按各点的高度抬起来，越靠近本体越亮。 */
+  private void drawContrail(SMissile missile, float e, float bodyWidth, float lift) {
+    if (e <= 0.02f)
+      return;
+
+    int steps = 16;
+    float strength = 0.3f + 0.7f * e;
+
+    Draw.blend(Blending.additive);
+    for (int i = 0; i <= steps; i++) {
+      float f = i / (float) steps; // 0 = 本体, 1 = 出射点
+      float q = Mathf.lerp(e, 0f, f);
+      float cx = Mathf.lerp(missile.startX, missile.targetX, q);
+      float cy = Mathf.lerp(missile.startY, missile.targetY, q) + lift * (1f - q);
+      float fade = 1f - f;
+      Draw.color(trailColor, fade * fade * 0.55f * strength);
+      Fill.circle(cx, cy, bodyWidth * (0.75f * fade + 0.25f));
+    }
+    Draw.blend();
+
+    Draw.color(Color.gray, 0.22f * strength);
+    for (int i = 0; i <= steps; i += 2) {
+      float f = i / (float) steps;
+      float q = Mathf.lerp(e, 0f, f);
+      float cx = Mathf.lerp(missile.startX, missile.targetX, q);
+      float cy = Mathf.lerp(missile.startY, missile.targetY, q) + lift * (1f - q);
+      Fill.circle(cx, cy, bodyWidth * (1f - 0.3f * f));
+    }
+    Draw.reset();
   }
 
   /** 导弹命中时调用（仿 BulletType.hit） */
@@ -156,14 +268,32 @@ public class SatelliteMissile implements Comparable<SatelliteMissile> {
       return;
     missile.hitCalled = true;
 
+    // 落点对齐到准星：下坠路径的终点就是目标点
+    missile.x = missile.targetX;
+    missile.y = missile.targetY;
+
+    float radius = Math.max(splashDamageRadius, 16f);
+
     if (hitEffect != null)
       hitEffect.at(missile.x, missile.y, missile.rotation, trailColor);
 
-    // 落地大爆炸特效 + 震动
-    if (splashDamageRadius > 0) {
-      float bigRadius = splashDamageRadius / 8f;
-      Fx.massiveExplosion.at(missile.x, missile.y, bigRadius, trailColor);
-      Fx.shockwave.at(missile.x, missile.y, bigRadius, trailColor);
+    // 起爆：白色爆闪 + 橙色火球 + 贴地尘环
+    CFx.orbitalStrikeFlash.at(missile.x, missile.y, radius * 0.55f, trailColor);
+    CFx.orbitalImpactRing.at(missile.x, missile.y, radius, trailColor);
+    Fx.massiveExplosion.at(missile.x, missile.y, radius / 8f, trailColor);
+    Fx.dynamicExplosion.at(missile.x, missile.y, Mathf.clamp(radius / 32f, 0.8f, 3.5f), trailColor);
+    Fx.shockwave.at(missile.x, missile.y, 0f, trailColor);
+    Drawf.light(missile.x, missile.y, radius * 2.6f, trailColor, 0.9f);
+
+    // 烟柱：朝天空方向缓慢升起，和导弹下落方向相反
+    for (int i = 0; i < 5; i++) {
+      int idx = i;
+      float sx = missile.x + Mathf.range(-radius * 0.18f, radius * 0.18f);
+      float sy = missile.y + radius * (0.12f + idx * 0.16f);
+      Time.run(idx * 4f, () -> {
+        Fx.smoke.at(sx, sy, 0f, Color.gray);
+        Fx.smokePuff.at(sx, sy, 0f, Color.gray);
+      });
     }
 
     if (hitSound != Sounds.none)
@@ -196,70 +326,91 @@ public class SatelliteMissile implements Comparable<SatelliteMissile> {
     // 可在这里清理 trail 等持久状态；当前无需要清理的数据
   }
 
-  /** 创建并发射一枚导弹（仿 BulletType.create） */
+  /**
+   * 发射一枚导弹（仿 BulletType.create）。
+   * (sx, sy) 是**出射点**（调用方取画面左右两侧的炮口），导弹从那里一路下坠砸到 (tx, ty)：
+   * 地面轨迹是从侧面射进来的直线，"从高处落到地面"由 draw() 里的高度差表现。
+   */
   public SMissile create(Entityc owner, Team team, float sx, float sy, float tx, float ty) {
     float angle = Mathf.angle(tx - sx, ty - sy);
     float dist = Mathf.dst(sx, sy, tx, ty);
-    float life = dist / speed + 60f;
+    float life = Mathf.clamp(descentTime, 20f, 300f);
 
     SMissile missile = SMissile.create();
     missile.type = this;
     missile.team = team;
     missile.set(sx, sy);
+    missile.startX = sx;
+    missile.startY = sy;
+    missile.targetX = tx;
+    missile.targetY = ty;
     missile.lifetime = life;
-    missile.vel.trns(angle, speed);
+    // vel 只作为"平均速度"留档，真正的位移由 update() 的下坠曲线算，不靠积分
+    missile.vel.trns(angle, dist / life);
     missile.damage = this.damage;
     missile.shooter = owner;
     missile.owner = owner;
-    missile.targetX = tx;
-    missile.targetY = ty;
     missile.rotation = angle;
+    missile.hitCalled = false;
+    missile.smokeTimer = 0f;
     missile.removalReason = null;
     missile.add();
 
+    // 出射点火：炮口那一小下火光 + 尾烟（画在弹体的实际高度上，和本体对得上）
+    float vy = sy + liftHeight;
     if (shootEffect != null)
-      shootEffect.at(sx, sy, angle, trailColor);
+      shootEffect.at(sx, vy, angle, trailColor);
     if (smokeEffect != null)
-      smokeEffect.at(sx, sy, angle, Color.gray);
-    Fx.launchPod.at(sx, sy, angle, trailColor);
-    Fx.shootSmokeMissile.at(sx, sy, angle, trailColor);
+      smokeEffect.at(sx, vy, angle, Color.gray);
+    Fx.rocketSmokeLarge.at(sx, vy, 0.7f, trailColor);
+    // 烟朝飞行的反方向（=出射方向）拖出去
+    Fx.shootSmokeMissileColor.at(sx, vy, angle, Color.gray);
 
     return missile;
   }
 
-  /** 每帧更新 */
+  /** 每帧更新：沿"出射点 → 落点"的直线做重力式加速推进（地面轨迹），高度由 draw() 表现。 */
   public void update(SMissile missile) {
-    missile.x += missile.vel().x * Time.delta;
-    missile.y += missile.vel().y * Time.delta;
-    if (missile.vel().len2() > 0.001f) {
-      missile.rotation = missile.vel.angle();
-    }
+    float life = Math.max(missile.lifetime, 1f);
+    float p = Mathf.clamp(missile.time / life, 0f, 1f);
+    float e = fallCurve(p);
 
-    // 发射与飞行尾迹
+    missile.x = missile.startX + (missile.targetX - missile.startX) * e;
+    missile.y = missile.startY + (missile.targetY - missile.startY) * e;
+    missile.rotation = Mathf.angle(missile.targetX - missile.startX, missile.targetY - missile.startY);
+
+    // 弹体的实际画面位置 = 地面轨迹 + 当前高度；尾迹/烟都按这个位置撒，才和本体对得上
+    float lift = liftHeight * (1f - e);
+    float vx = missile.x, vy = missile.y + lift;
+
+    // 下坠尾迹：越接近地面越粗越亮
     if (trailEffect != null) {
       // missileTrail 用 rotation 参数作为半径
-      trailEffect.at(missile.x, missile.y, width * 0.6f, trailColor);
+      trailEffect.at(vx, vy, width * (0.5f + 0.9f * e), trailColor);
     }
     missile.smokeTimer += Time.delta;
-    if (smokeEffect != null && missile.smokeTimer >= 4f) {
-      smokeEffect.at(missile.x, missile.y, missile.rotation, Color.gray);
+    if (smokeInterval > 0f && missile.smokeTimer >= smokeInterval) {
       missile.smokeTimer = 0f;
+      // 跟着弹体补一小撮烟，凑成一条斜着落下来的烟柱
+      Fx.missileTrailSmokeSmall.at(vx, vy, 1f, Color.gray);
+      if (smokeEffect != null && p > 0.35f)
+        smokeEffect.at(vx, vy, missile.rotation, Color.gray);
     }
 
-    // 越界销毁：放宽边界，给从屏幕边缘飞入的导弹足够余量
-    float ww = mindustry.Vars.world.unitWidth();
-    float wh = mindustry.Vars.world.unitHeight();
-    if (missile.x < -500f || missile.y < -500f || missile.x > ww + 500f || missile.y > wh + 500f) {
-      missile.removalReason = "out_of_bounds";
+    // 落地判定用"这一帧回调之后"的时间：生成的 update 会在回调后再推进 time，
+    // 所以按真正的落地时刻把弹体对齐到准星，不会因为帧率不同而落偏。
+    float pNext = Mathf.clamp((missile.time + Time.delta) / life, 0f, 1f);
+    if (pNext >= 1f) {
+      missile.removalReason = "reached_target";
+      hit(missile);
       missile.remove();
       return;
     }
 
-    // 导弹需要飞到目标准星处再爆炸：只有非常接近目标或生命周期快结束时才启用碰撞检测，
-    // 避免途中撞山/撞敌提前引爆，确保导弹能到达准星附近。
+    // 高空不做碰撞：导弹是从天上砸下来的，半路的山/楼不该把它拦下来（拦下来就落偏了）。
+    // 只有最后一小段（离准星 8 单位内）才做接触判定，等价于"砸到准星上"。
     float toTarget = Mathf.dst(missile.x, missile.y, missile.targetX, missile.targetY);
-    boolean nearTarget = toTarget < 12f || missile.time > missile.lifetime * 0.95f;
-    if (!nearTarget) {
+    if (toTarget > 8f) {
       return;
     }
 
@@ -294,13 +445,6 @@ public class SatelliteMissile implements Comparable<SatelliteMissile> {
       return;
     }
 
-    // 到达准星附近且未命中任何物体：在准星处引爆
-    if (toTarget < 8f) {
-      missile.removalReason = "reached_target";
-      hit(missile);
-      missile.remove();
-      return;
-    }
   }
 
   @Override
@@ -313,6 +457,8 @@ public class SatelliteMissile implements Comparable<SatelliteMissile> {
       {
         sprite = "missile-large";
         speed = 10f;
+        descentTime = 42f;
+        liftHeight = 120f;
         damage = 90f;
         splashDamage = 300f;
         splashDamageRadius = 50f;
@@ -324,8 +470,8 @@ public class SatelliteMissile implements Comparable<SatelliteMissile> {
         despawnEffect = Fx.flakExplosionBig;
         shootEffect = Fx.shootSmokeMissile;
         smokeEffect = Fx.shootBigSmoke;
-        hitShake = 3f;
-        despawnShake = 2f;
+        hitShake = 7f;
+        despawnShake = 4f;
       }
     };
 
@@ -333,6 +479,8 @@ public class SatelliteMissile implements Comparable<SatelliteMissile> {
       {
         sprite = "missile-large";
         speed = 10f;
+        descentTime = 48f;
+        liftHeight = 150f;
         damage = 80f;
         splashDamage = 80f;
         splashDamageRadius = 48f;
@@ -344,8 +492,8 @@ public class SatelliteMissile implements Comparable<SatelliteMissile> {
         despawnEffect = Fx.explosion;
         shootEffect = Fx.shootBig;
         smokeEffect = Fx.shootBigSmoke;
-        hitShake = 6f;
-        despawnShake = 4f;
+        hitShake = 10f;
+        despawnShake = 6f;
       }
     };
 
@@ -353,6 +501,8 @@ public class SatelliteMissile implements Comparable<SatelliteMissile> {
       {
         sprite = "missile-large";
         speed = 4f;
+        descentTime = 36f;
+        liftHeight = 100f;
         damage = 20f;
         splashDamage = 20f;
         splashDamageRadius = 32f;
@@ -364,7 +514,7 @@ public class SatelliteMissile implements Comparable<SatelliteMissile> {
         despawnEffect = Fx.flakExplosion;
         shootEffect = Fx.shootSmall;
         smokeEffect = Fx.shootSmallSmoke;
-        hitShake = 4f;
+        hitShake = 5f;
         despawnShake = 3f;
       }
     };
@@ -401,6 +551,8 @@ public class SatelliteMissile implements Comparable<SatelliteMissile> {
     public Entityc shooter;
     public boolean hitCalled;
     public float smokeTimer;
+    /** 高空入场点（发射位置），下坠路径从这里开始。 */
+    public float startX, startY;
     public float targetX;
     public float targetY;
     /** 记录移除原因，便于调试“原地爆炸”等问题 */

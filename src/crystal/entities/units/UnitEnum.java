@@ -1,5 +1,6 @@
 package crystal.entities.units;
 
+import crystal.core.CultivationState;
 import arc.func.Boolp;
 import arc.graphics.Color;
 import arc.struct.Seq;
@@ -89,45 +90,45 @@ public class UnitEnum {
     kaiyang(bundle.get("kaiyang"), 5000, true, true, guHuang, true,
         new DuJieCondition(
             bundle.get("dujie.cond.kaiyang", "灵力达到6500并习得古皇功法"),
-            () -> CVars.playerMagicPower >= 6500 && CVars.gongfaHave.contains(guHuang),
-            () -> CVars.playerMagicPower < 100// 失败条件示例：灵力跌破100则失败
+            () -> CultivationState.playerMagicPower >= 6500 && CultivationState.gongfaHave.contains(guHuang),
+            () -> CultivationState.playerMagicPower < 100// 失败条件示例：灵力跌破100则失败
         )),
     shentu(bundle.get("shentu"), 7500, true, true, guHuang, true,
         new DuJieCondition(
             bundle.get("dujie.cond.shentu", "灵力达到9000并击杀100个敌方单位"),
             // 原来是 () -> true 占位，与文本不符；现接入 PlayerXiuWeiSystem 的渡劫击杀计数
-            () -> CVars.playerMagicPower >= 9000 && PlayerXiuWeiSystem.getDuJieKillCount() >= 100,
-            () -> CVars.playerMagicPower < 200)),
+            () -> CultivationState.playerMagicPower >= 9000 && PlayerXiuWeiSystem.getDuJieKillCount() >= 100,
+            () -> CultivationState.playerMagicPower < 200)),
     canghai(bundle.get("canghai"), 11000, true, true, guHuang, true,
         new DuJieCondition(
             bundle.get("dujie.cond.canghai", "灵力达到13000"),
-            () -> CVars.playerMagicPower >= 13000,
-            () -> CVars.playerMagicPower < 500)),
+            () -> CultivationState.playerMagicPower >= 13000,
+            () -> CultivationState.playerMagicPower < 500)),
     tianqiao(bundle.get("tianqiao"), 14500, true, true, guHuang, true,
         new DuJieCondition(
             bundle.get("dujie.cond.tianqiao", "灵力达到17000"),
-            () -> CVars.playerMagicPower >= 17000,
-            () -> CVars.playerMagicPower < 1000)),
+            () -> CultivationState.playerMagicPower >= 17000,
+            () -> CultivationState.playerMagicPower < 1000)),
     wanling(bundle.get("wanling"), 19000, true, true, guZun, true,
         new DuJieCondition(
             bundle.get("dujie.cond.wanling", "灵力达到22000并习得古尊功法"),
-            () -> CVars.playerMagicPower >= 22000 && CVars.gongfaHave.contains(guZun),
-            () -> CVars.playerMagicPower < 2000)),
+            () -> CultivationState.playerMagicPower >= 22000 && CultivationState.gongfaHave.contains(guZun),
+            () -> CultivationState.playerMagicPower < 2000)),
     sixiang(bundle.get("sixiang"), 25000, true, true, guZun, true,
         new DuJieCondition(
             bundle.get("dujie.cond.sixiang", "灵力达到29000"),
-            () -> CVars.playerMagicPower >= 29000,
-            () -> CVars.playerMagicPower < 3000)),
+            () -> CultivationState.playerMagicPower >= 29000,
+            () -> CultivationState.playerMagicPower < 3000)),
     shengong(bundle.get("shengong"), 31000, true, true, guZun, true,
         new DuJieCondition(
             bundle.get("dujie.cond.shengong", "灵力达到36000"),
-            () -> CVars.playerMagicPower >= 36000,
-            () -> CVars.playerMagicPower < 5000)),
+            () -> CultivationState.playerMagicPower >= 36000,
+            () -> CultivationState.playerMagicPower < 5000)),
     zunzhu(bundle.get("zunzhu"), 50000, true, true, guZun, true,
         new DuJieCondition(
             bundle.get("dujie.cond.zunzhu", "灵力达到58000"),
-            () -> CVars.playerMagicPower >= 58000,
-            () -> CVars.playerMagicPower < 10000)),
+            () -> CultivationState.playerMagicPower >= 58000,
+            () -> CultivationState.playerMagicPower < 10000)),
 
     // 圣/仙/帝境：无需渡劫
     weisheng(bundle.get("weisheng"), 60000, false, false, yinYang1, false, null),

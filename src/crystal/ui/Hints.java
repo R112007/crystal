@@ -12,7 +12,9 @@ import mindustry.ui.fragments.HintsFragment.Hint;
 
 public enum Hints implements Hint {
   // TODO 安亦雨的提示
-  pauseWatch(100, () -> GalgameDialogueManager.instance.isShowing, () -> !GalgameDialogueManager.instance.isShowing);
+  // 注意：第二个参数是可见平台位（visibleDesktop=1 / visibleMobile=2 / visibleAll=3），
+  // 之前写的 100 两个位都不含，valid() 恒为 false，这条提示永远不会出现。
+  pauseWatch(visibleAll, () -> GalgameDialogueManager.instance.isShowing, () -> !GalgameDialogueManager.instance.isShowing);
 
   @Nullable
   String text;

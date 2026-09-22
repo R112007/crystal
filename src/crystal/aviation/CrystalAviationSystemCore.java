@@ -67,7 +67,7 @@ public class CrystalAviationSystemCore {
         spaceFloor = new Floor("space-floor", 1);
         satelliteLauncher = new SatelliteLauncher("satellite-launcher") {
             {
-                size = 2;
+                size = 3;
                 this.requirements(Category.units, ItemStack.with(new Object[] { Items.copper, 1 }));
                 consumeItems(launchCost);
                 this.alwaysUnlocked = true;
@@ -83,7 +83,7 @@ public class CrystalAviationSystemCore {
 
         satelliteExpansionBeacon = new SatelliteExpansionBeacon("satellite-expansion-beacon") {
             {
-                size = 2;
+                size = 3;
                 this.requirements(Category.units, CBuildVisibility.satelliteOnly,
                         ItemStack.with(new Object[] { Items.copper, 1 }));
                 this.alwaysUnlocked = true;
@@ -92,7 +92,7 @@ public class CrystalAviationSystemCore {
 
         satelliteMapExpander = new SatelliteMapExpander("satellite-map-expander") {
             {
-                size = 2;
+                size = 3;
                 this.requirements(Category.units, CBuildVisibility.satelliteOnly,
                         ItemStack.with(new Object[] { Items.copper, 1 }));
                 this.alwaysUnlocked = true;
@@ -124,7 +124,7 @@ public class CrystalAviationSystemCore {
 
         satelliteLiquidTank = new SatelliteLiquidTank("satellite-liquid-tank") {
             {
-                size = 2;
+                size = 3;
                 this.alwaysUnlocked = true;
             }
         };
@@ -140,14 +140,14 @@ public class CrystalAviationSystemCore {
 
         itemReceivePad = new ItemReceivePad("item-receive-pad") {
             {
-                size = 2;
+                size = 5;
                 this.alwaysUnlocked = true;
             }
         };
 
         liquidReceivePad = new LiquidReceivePad("liquid-receive-pad") {
             {
-                size = 2;
+                size = 5;
                 this.alwaysUnlocked = true;
             }
         };
@@ -161,7 +161,7 @@ public class CrystalAviationSystemCore {
 
         groundLaunchPad = new GroundLaunchPad("ground-launch-pad") {
             {
-                size = 3;
+                size = 5;
                 this.alwaysUnlocked = true;
             }
         };
