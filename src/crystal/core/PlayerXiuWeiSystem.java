@@ -7,6 +7,7 @@ import arc.struct.Seq;
 import arc.util.Nullable;
 import arc.util.Time;
 import crystal.CVars;
+import crystal.content.GongFas;
 import crystal.entities.units.UnitEnum.JingJie;
 import crystal.entities.units.UnitEnum.XiuWei;
 import crystal.game.CEventType.DuJieEndEvent;
@@ -550,9 +551,16 @@ public class PlayerXiuWeiSystem {
     CultivationState.reachedJingJie.clear();
     CultivationState.reachedJingJie.add(JingJie.fan);
     CultivationState.completedDuJieJingJies.clear();
+    // none 是"凡人"境界绑定的占位功法（GongFas.load() 每次都解锁它），不是玩家要习得的功法：
+    // 把它一起锁掉，功法门槛会永远停在"凡人缺功法"，而凡人被 getMin() 豁免 →
+    // 灵力再高、功法再全，境界也永远升不上去。这里跳过它，并在最后兜底解锁。
     for (var g : GongFa.gongFas.values()) {
-      g.lock();
+      if (g != GongFas.none)
+        g.lock();
     }
+    // 兜底：正常情况下 none 一直是解锁的，这里只在它真被锁过时补回来（unlock() 会写盘+发事件，能省就省）
+    if (!GongFas.none.unlocked())
+      GongFas.none.unlock();
     saveReachedJingJie();
     saveCurrentAvailableJingJie();
     savePower();

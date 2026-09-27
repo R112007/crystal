@@ -169,8 +169,10 @@ public class UnitEnum {
     public static final Seq<JingJie> shenNewRoad = new Seq<>(
         new JingJie[] { kaiyang, shentu, canghai, tianqiao, wanling, sixiang, shengong, zunzhu });
     public static final Seq<JingJie> shenjing = new Seq<>();
+    // 旧路/新路两条路线必须"逐位同门槛"（镜像对），jiuLu 的顺序要跟 shenOldRoad 一致：
+    // shenwang(11000) → shenhuang(14500) → shenjun(19000)。顺序错了 getNextJingJie 会跳境界。
     public static final JingJie[] jiuLu = { fan, kaiqiao, zhenyuan, huayuan, tianren, shenhai, hualong, weishen,
-        zhenshen, shenjun, shenwang, shenhuang, shenling, shenming, shenzun, weisheng, yasheng, zhunsheng, dasheng,
+        zhenshen, shenwang, shenhuang, shenjun, shenling, shenming, shenzun, weisheng, yasheng, zhunsheng, dasheng,
         shengdaodadi, tianxian, zhenxian, xuanxian, jinxian, xianjun, xianzun, xianhuang, xianwang, xiandi, tiandi,
         daodi, dizun, dijun };
     public static final JingJie[] xinLu = { fan, kaiqiao, zhenyuan, huayuan, tianren, shenhai, hualong,

@@ -1,0 +1,7 @@
+name: "xwdrv"
+displayName: "crystal xiuwei test driver"
+author: "test"
+description: "verification driver for the cultivation system"
+version: "1.0"
+minGameVersion: "159"
+main: "cdrv.XiuWeiDriver"
