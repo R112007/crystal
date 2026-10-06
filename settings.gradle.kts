@@ -1,7 +1,12 @@
 pluginManagement{
     repositories{
+        mavenCentral()
         gradlePluginPortal()
         mavenLocal()
+        maven("https://ghproxy.net/https://raw.githubusercontent.com/GglLfr/EntityAnnoMaven/main")
+        maven("https://ghproxy.net/https://raw.githubusercontent.com/GglLfr/MindustryClientMaven/main")
+        maven("https://jitpack.io")
+        maven { url = uri("https://raw.githubusercontent.com/GglLfr/EntityAnnoMaven/main") }
         maven("https://raw.githubusercontent.com/GglLfr/EntityAnnoMaven/main")
         maven("https://raw.githubusercontent.com/GglLfr/MindustryClientMaven/main")
     }

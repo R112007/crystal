@@ -26,8 +26,9 @@ buildscript{
     }
 
     repositories{
+        maven("https://jitpack.io")
         ivy{
-            url = uri("https://github.com")
+            url = uri("https://github.com/")
             patternLayout{
                 artifact(mindustrySource)
                 metadataSources{artifact()}
