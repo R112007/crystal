@@ -7,6 +7,7 @@ import crystal.ai.type.OrbitalCommandAI;
 import crystal.entities.abilities.AddWeaponAbility;
 import crystal.entities.abilities.ContinueRepairField;
 import crystal.entities.shentong.FaTianXiangDi;
+import crystal.entities.units.CardUpgradeUnitEntity;
 import crystal.gen.CrawlMagicUnit;
 import crystal.gen.MagicUnit;
 import crystal.gen.Magicc;
@@ -30,9 +31,11 @@ import mindustry.game.EventType.ClientLoadEvent;
 import mindustry.gen.Crawlc;
 import mindustry.gen.Mechc;
 import mindustry.gen.Sounds;
+import mindustry.gen.UnitEntity;
 import mindustry.gen.Unitc;
 import mindustry.gen.WaterMovec;
 import mindustry.graphics.Pal;
+import mindustry.type.UnitType;
 import mindustry.type.Weapon;
 import mindustry.world.meta.BlockFlag;
 
@@ -43,8 +46,10 @@ public class CUnits {
   public static @EntityDef({ Unitc.class, Magicc.class }) MagicUnitType liekong1, liekong2, liekong3;
   public static @EntityDef({ Unitc.class, Magicc.class, WaterMovec.class }) MagicUnitType xiji;
   public static @EntityDef({ Unitc.class, ShieldBlockc.class }) BuildShieldUnitType block;
+  public static UnitType terminationUnit, kingLutian;
 
   public static void load() {
+    loadCardUpgradeUnits();
     taichu = new BuildShieldUnitType("taichu") {
       {
         this.health = 280.0f;
@@ -496,5 +501,149 @@ public class CUnits {
         });
       }
     };
+  }
+
+  private static void loadCardUpgradeUnits() {
+    terminationUnit = new UnitType("termination") {
+      {
+        flying = true;
+        lowAltitude = true;
+        health = 2400f;
+        armor = 5f;
+        hitSize = 22f;
+        speed = 2.4f;
+        accel = 0.08f;
+        drag = 0.045f;
+        rotateSpeed = 4f;
+        constructor = CardUpgradeUnitEntity::create;
+        controller = UnitTypes.flare.controller;
+        engineOffset = 22f;
+        engineSize = 5f;
+        engineColor = Color.valueOf("ff7068");
+        outlines = true;
+
+        weapons.add(new Weapon() {
+          {
+            x = 0f;
+            y = 4f;
+            mirror = false;
+            top = false;
+            rotate = true;
+            rotateSpeed = 7f;
+            reload = 14f;
+            recoil = 1.2f;
+            shootY = 6f;
+            bullet = new BasicBulletType(8.5f, 24f) {
+              {
+                width = 5f;
+                height = 11f;
+                lifetime = 30f;
+                shootEffect = Fx.shootSmall;
+                smokeEffect = Fx.shootSmallSmoke;
+              }
+            };
+          }
+        });
+      }
+
+    };
+
+    kingLutian = new UnitType("king-lutian") {
+      {
+        flying = true;
+        lowAltitude = true;
+        health = 32000f;
+        armor = 16f;
+        hitSize = 65f;
+        speed = 0.62f;
+        accel = 0.025f;
+        drag = 0.04f;
+        rotateSpeed = 1.2f;
+        constructor = UnitEntity::create;
+        controller = UnitTypes.quad.controller;
+        engineOffset = 62f;
+        engineSize = 18f;
+        engineColor = Color.valueOf("ff6d64");
+        loopSound = Sounds.loopHover;
+
+        abilities.add(new ForceFieldAbility(150f, 0.8f, 6000f, 60f * 20f));
+
+        weapons.add(new Weapon("crystal-lutian-w1") {
+          {
+            x = 38f;
+            y = 50f;
+            mirror = true;
+            rotate = true;
+            rotateSpeed = 6f;
+            reload = 8f;
+            recoil = 1f;
+            bullet = new BasicBulletType(8f, 36f) {
+              {
+                width = 5f;
+                height = 10f;
+                lifetime = 36f;
+                splashDamage = 12f;
+                splashDamageRadius = 14f;
+              }
+            };
+          }
+        });
+
+        weapons.add(new Weapon("crystal-lutian-w2") {
+          {
+            x = 42f;
+            y = -27f;
+            mirror = true;
+            rotate = true;
+            rotateSpeed = 3f;
+            reload = 34f;
+            recoil = 2.5f;
+            bullet = new ArtilleryBulletType(4.5f, 90f) {
+              {
+                width = 9f;
+                height = 13f;
+                lifetime = 72f;
+                splashDamage = 70f;
+                splashDamageRadius = 32f;
+                collidesGround = true;
+                hitEffect = Fx.blastExplosion;
+              }
+            };
+          }
+        });
+
+        weapons.add(new Weapon("crystal-lutian-w3") {
+          {
+            x = 0f;
+            y = -17f;
+            mirror = false;
+            rotate = true;
+            rotateSpeed = 1.4f;
+            reload = 120f;
+            recoil = 4f;
+            shootY = 8f;
+            bullet = new LaserBulletType(360f) {
+              {
+                length = 280f;
+                width = 36f;
+                lifetime = 55f;
+                largeHit = true;
+                collidesGround = true;
+                collidesAir = true;
+                colors = new Color[] {
+                    Pal.remove.cpy().a(0.35f),
+                    Pal.remove,
+                    Color.white
+                };
+                lightColor = Pal.remove;
+                hitEffect = Fx.hitLancer;
+                despawnEffect = Fx.hitLancer;
+              }
+            };
+          }
+        });
+      }
+    };
+
   }
 }

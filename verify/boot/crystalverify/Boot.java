@@ -25,7 +25,7 @@ import mindustry.ui.fragments.HudFragment;
  */
 public class Boot implements ApplicationListener {
     static String dataDir = "/tmp/mp_xiu/data";
-    static String scenario = "crystal.dbg.XiuWeiHeadlessTest";
+    static String scenario = null;   // 不传场景类时跑自检
     static String[] args = new String[0];
 
     public static void main(String[] a) {
@@ -80,6 +80,10 @@ public class Boot implements ApplicationListener {
                 System.exit(3);
             }
             ClassLoader ml = cm.main.getClass().getClassLoader();
+            if (scenario == null || scenario.isEmpty()) {
+                selfCheck(cm, ml);
+                return;
+            }
             Class<?> c = Class.forName(scenario, true, ml);
             c.getMethod("run", String[].class).invoke(null, (Object) args);
         } catch (Throwable t) {
@@ -87,6 +91,30 @@ public class Boot implements ApplicationListener {
             t.printStackTrace();
             System.exit(2);
         }
+    }
+
+    /**
+     * 不传场景类时的自检：确认"启动器 → 游戏 → 模组 → 修为系统"这条链是通的，
+     * 也确认修为系统确实是模组 classloader 里那一份（场景类注进 mod jar 就是为了共用这份静态状态）。
+     */
+    static void selfCheck(mindustry.mod.Mods.LoadedMod cm, ClassLoader ml) {
+        System.out.println("[XW-BOOT] 自检：游戏 " + mindustry.core.Version.type + " build " + mindustry.core.Version.build
+                + "，模组 " + cm.meta.name + " " + cm.meta.version + "，主类 " + cm.main.getClass().getName());
+        System.out.println("[XW-BOOT] 自检：模组 classloader=" + ml);
+        try {
+            Class<?> state = Class.forName("crystal.core.CultivationState", true, ml);
+            boolean shared = state.getClassLoader() == ml;
+            System.out.println("[XW-BOOT] 自检：CultivationState 和模组同一份类=" + shared);
+            if (!shared) {
+                System.out.println("[XW-BOOT] 自检 FAIL：修为系统不是模组那一份");
+                System.exit(5);
+            }
+        } catch (Throwable t) {
+            System.out.println("[XW-BOOT] 自检 FAIL：拿不到 crystal.core.CultivationState: " + t);
+            System.exit(5);
+        }
+        System.out.println("[XW-BOOT] 自检 OK（没传场景类；用法: Boot <数据目录> <场景类> [参数...]）");
+        System.exit(0);
     }
 
     /**

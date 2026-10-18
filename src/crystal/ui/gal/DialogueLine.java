@@ -329,7 +329,7 @@ public class DialogueLine {
             for (int i = 0; i < this.options.length; i++) {
                 DialogueOption o = this.options[i];
                 if (o.branch != null) {
-                    copy.options[i] = new DialogueOption(o.optionText, o.branch);
+                    copy.options[i] = new DialogueOption(o.optionText, o.branch, o.onSelect);
                 } else {
                     copy.options[i] = new DialogueOption(o.optionText, o.onSelect);
                 }

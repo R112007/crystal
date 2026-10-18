@@ -120,7 +120,7 @@ public class SatelliteSectorInfoManager {
             return;
         if (elapsedSeconds <= 0.001f)
             return;
-        simulate((int) elapsedSeconds);
+        simulate(elapsedSeconds);
     }
 
     /** 记录一次物品发射：从 source 区块到 target 卫星。 */
@@ -194,6 +194,11 @@ public class SatelliteSectorInfoManager {
      * @param elapsedSeconds 距离上次模拟经过的秒数
      */
     public static void simulate(int elapsedSeconds) {
+        simulate((float) elapsedSeconds);
+    }
+
+    /** 浮点版本保留不足一秒的经过时间，供后台计时器和测试使用。 */
+    public static void simulate(float elapsedSeconds) {
         if (elapsedSeconds <= 0)
             return;
         if (elapsedSeconds > 60) {
@@ -228,9 +233,6 @@ public class SatelliteSectorInfoManager {
 
         if (planets.isEmpty())
             return;
-        if (infos.isEmpty())
-            return;
-
         // 卫星地图中当前卫星由前台 Satellite.updateInject 处理，后台模拟需跳过避免重复
         boolean inSatelliteMap = Vars.state.map != null
                 && Vars.state.map.tags.get("crystal-aviation-satellite") != null;

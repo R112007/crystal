@@ -3,7 +3,12 @@ import ent.*
 import mindustry.client.*
 import mindustry.client.service.*
 import mindustry.client.task.*
+import java.net.http.*
+import java.net.URI
+import java.time.Duration
+import java.util.*
 import java.util.jar.*
+import java.util.zip.*
 
 buildscript{
     val (mindustry, mindustryVersion, mindustrySource) = when(val version = providers.gradleProperty("mindustryVersion").get()){
@@ -134,6 +139,100 @@ project(":"){
         genPackage = modGen
     }
 
+    tasks.named("fetchComps") {
+        // EntityAnno v2.4.0 requests GitHub without a User-Agent. GitHub rejects
+        // that request with HTTP 403, which breaks fetchComps before any source
+        // can be downloaded. Use the release archive instead, with explicit
+        // headers and a mirror fallback, then apply the plugin's own transform.
+        actions.clear()
+
+        doLast {
+            val entityAnno = project.extensions.getByType<EntityAnnoExtension>()
+            val fetchPackage = entityAnno.fetchPackage.get()
+            val outputRoot = project.layout.buildDirectory.dir("fetched").get().asFile
+            val outputDir = outputRoot.resolve(fetchPackage.replace('.', File.separatorChar))
+
+            val pluginProperties = Properties()
+            val versionStream = EntityAnnoPlugin::class.java.classLoader
+                .getResourceAsStream("version.properties")
+                ?: throw GradleException("EntityAnno is missing version.properties")
+            versionStream.use(pluginProperties::load)
+
+            val build = pluginProperties.getProperty("build")
+                ?: throw GradleException("EntityAnno version.properties is missing 'build'")
+            val type = pluginProperties.getProperty("type")
+                ?: throw GradleException("EntityAnno version.properties is missing 'type'")
+            if(type != "official"){
+                throw GradleException("fetchComps archive fallback only supports official Mindustry builds, got '$type'")
+            }
+
+            val tag = "v$build"
+            val archiveUrls = listOf(
+                "https://codeload.github.com/Anuken/Mindustry/zip/refs/tags/$tag",
+                "https://ghproxy.net/https://github.com/Anuken/Mindustry/archive/refs/tags/$tag.zip"
+            )
+            val client = HttpClient.newBuilder()
+                .followRedirects(HttpClient.Redirect.ALWAYS)
+                .build()
+
+            var archive: ByteArray? = null
+            var lastFailure: Exception? = null
+            for(url in archiveUrls){
+                try{
+                    val request = HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .timeout(Duration.ofSeconds(120))
+                        .header("User-Agent", "crystal-fetchComps")
+                        .header("Accept", "application/zip")
+                        .GET()
+                        .build()
+                    val response = client.send(request, HttpResponse.BodyHandlers.ofByteArray())
+                    if(response.statusCode() !in 200..299){
+                        throw GradleException("HTTP ${response.statusCode()} from $url")
+                    }
+                    archive = response.body()
+                    break
+                }catch(e: Exception){
+                    lastFailure = e
+                    logger.warn("fetchComps: download failed from {}: {}", url, e.message)
+                }
+            }
+            val bytes = archive ?: throw GradleException("Unable to download Mindustry $tag", lastFailure)
+
+            project.delete(outputRoot)
+            outputDir.mkdirs()
+
+            val marker = "/core/src/mindustry/entities/comp/"
+            var written = 0
+            ZipInputStream(bytes.inputStream()).use{zip ->
+                while(true){
+                    val entry = zip.nextEntry ?: break
+                    val name = entry.name.replace('\\', '/')
+                    val markerIndex = name.indexOf(marker)
+                    if(entry.isDirectory || markerIndex < 0) continue
+
+                    val componentName = name.substring(markerIndex + marker.length)
+                    if(componentName.contains('/') || !componentName.endsWith(".java")) continue
+
+                    val source = zip.readBytes().toString(Charsets.UTF_8)
+                    if(source.isBlank()){
+                        throw IllegalStateException("Downloaded an empty component: $componentName")
+                    }
+                    outputDir.resolve(componentName).writeText(
+                        EntityAnnoPlugin.procComp(source, fetchPackage),
+                        Charsets.UTF_8
+                    )
+                    written++
+                }
+            }
+
+            if(written == 0){
+                throw GradleException("Mindustry $tag archive did not contain any entity components")
+            }
+            logger.lifecycle("Wrote {} components from Mindustry {}.", written, tag)
+        }
+    }
+
     dependencies{
         // Use the entity generation annotation processor.
         compileOnly("com.github.GglLfr.EntityAnno:entity:$entVersion")
@@ -150,7 +249,9 @@ project(":"){
             files(sourceSets["main"].output.resourcesDir),
             configurations.runtimeClasspath.map{conf -> conf.map{if(it.isDirectory) it else zipTree(it)}},
 
-            files(layout.projectDirectory.dir("assets")),
+            files(layout.projectDirectory.dir("assets")) {
+                exclude("sprites/units/upgrade/layers/**")
+            },
             layout.projectDirectory.file("icon.png"),
             // Check both JSON and HJSON.
             layout.projectDirectory.file("mod.json"),
@@ -186,13 +287,26 @@ project(":"){
                 ?: throw GradleException("Neither `ANDROID_HOME` nor `ANDROID_SDK_ROOT` are set")
             )
 
-            // Find `d8`.
-            val d8 = File(sdkRoot, "build-tools/$androidBuildVersion/${if(OS.isWindows) "d8.bat" else "d8"}")
-            if(!d8.exists()) throw GradleException("Android SDK `build-tools;$androidBuildVersion` isn't installed or is corrupted")
+            // Run d8.jar directly. Going through d8.bat/cmd makes the Java runtime
+            // depend on the environment of the process that launched Gradle, which
+            // differs between a terminal and IntelliJ IDEA.
+            val d8Jar = File(sdkRoot, "build-tools/$androidBuildVersion/lib/d8.jar")
+            if(!d8Jar.exists()) throw GradleException("Android SDK `build-tools;$androidBuildVersion` isn't installed or is corrupted")
+            val javaExecutable = File(
+                System.getProperty("java.home"),
+                "bin/${if(OS.isWindows) "java.exe" else "java"}"
+            )
+            if(!javaExecutable.exists()) throw GradleException("Unable to find the Java runtime used by Gradle: $javaExecutable")
 
             // Initialize a release build.
             val input = desktopJar.get().asFile
-            val command = arrayListOf("$d8", "--release", "--min-api", androidMinVersion, "--output", "$dexJar", "$input")
+            val command = arrayListOf(
+                "$javaExecutable",
+                "-Xmx2g",
+                "-cp", "$d8Jar",
+                "com.android.tools.r8.D8",
+                "--release", "--min-api", androidMinVersion, "--output", "$dexJar", "$input"
+            )
 
             // Include all compile and runtime classpath.
             classpaths.forEach{
@@ -204,7 +318,6 @@ project(":"){
             if(!androidJar.exists()) throw GradleException("Android SDK `platforms;android-$androidSdkVersion` isn't installed or is corrupted")
 
             command.addAll(arrayOf("--lib", "$androidJar"))
-            if(OS.isWindows) command.addAll(0, arrayOf("cmd", "/c").toList())
 
             // Run `d8`.
             providers.exec{commandLine(command)}.result.get().rethrowFailure()
@@ -259,4 +372,3 @@ abstract class TrimSources : TransformAction<TransformParameters.None>{
         }
     }
 }
-

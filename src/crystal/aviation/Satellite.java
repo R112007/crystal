@@ -374,9 +374,9 @@ public class Satellite {
 
         float totalTime = injectTimer + elapsedSeconds;
         int injections = (int) (totalTime / injectInterval);
+        injectTimer = totalTime % injectInterval;
         if (injections <= 0)
             return;
-        injectTimer = totalTime % injectInterval;
 
         injectBatch(injections);
     }

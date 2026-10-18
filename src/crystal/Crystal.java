@@ -37,6 +37,7 @@ import crystal.core.UnitInfoSystem;
 import crystal.editor.MagicWaves;
 import crystal.entities.shentong.FaTianXiangDi;
 import crystal.entities.shentong.ShenTong;
+import crystal.entities.units.CardUpgradeUnitEntity;
 import crystal.entities.units.MultiStageMechUnit;
 import crystal.entities.units.SummonUnit;
 import crystal.entities.units.UnitEnum.JingJie;
@@ -398,6 +399,8 @@ public class Crystal extends Mod {
     EntityMapping.nameMap.put("crystal-multistagemechunit", EntityMapping.idMap[51]);
     EntityMapping.idMap[53] = UnitLaunchPayload::create;
     EntityMapping.nameMap.put("crystal-unitLaunchPayload", EntityMapping.idMap[53]);
+    EntityMapping.idMap[54] = CardUpgradeUnitEntity::create;
+    EntityMapping.nameMap.put("crystal-cardUpgradeUnit", EntityMapping.idMap[54]);
   }
 
   public void closeMod(String name) {
