@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "image-grid-split": {
+      "source": "meitu/meitu-skills",
+      "sourceType": "github",
+      "skillPath": "skills/image-grid-split/SKILL.md",
+      "computedHash": "65e7dcb013dd7896f187d25269e5dd9a83363f863cb12c7f9ba6a361aa809795"
+    }
+  }
+}
