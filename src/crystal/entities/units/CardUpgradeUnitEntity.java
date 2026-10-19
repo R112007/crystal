@@ -23,6 +23,8 @@ import mindustry.gen.UnitEntity;
 import mindustry.graphics.Drawf;
 import mindustry.graphics.Layer;
 import mindustry.graphics.Pal;
+import mindustry.type.UnitType;
+import mindustry.type.Weapon;
 
 /**
  * Dedicated first-phase boss entity.
@@ -54,6 +56,8 @@ public class CardUpgradeUnitEntity extends UnitEntity {
   private static final float FULL_OUTLINE_GROW_TIME = 76f;
   private static final float FULL_OUTLINE_HOLD_TIME = 26f;
   private static final float FULL_OUTLINE_FADE_TIME = 70f;
+  private static final float ENGINE_FADE_TIME = 34f;
+  private static final float ENGINE_REVEAL_PART_OPACITY = 0.7f;
   private static final float CARD_VISUAL_SCALE = 0.36f;
   private static final float PART_SWAP_START = 1f;
   private static final float UPGRADE_HEALTH_THRESHOLD = 0.3f;
@@ -68,6 +72,9 @@ public class CardUpgradeUnitEntity extends UnitEntity {
   private static final float ALL_PARTS_READY =
       ORBIT_END + (CARD_COUNT - 1) * ASSEMBLY_STAGGER + ASSEMBLY_TIME
           + PART_OUTLINE_LEAD + PART_SWAP_FADE_TIME;
+  private static final float ENGINE_START_TIME =
+      ORBIT_END + (CARD_COUNT - 3) * ASSEMBLY_STAGGER + ASSEMBLY_TIME
+          + PART_OUTLINE_LEAD + PART_SWAP_FADE_TIME * ENGINE_REVEAL_PART_OPACITY;
   private static final float TOTAL_TIME = ALL_PARTS_READY + FINAL_GLOW_TIME + EFFECT_FADE_TIME;
 
   private static final String[] CARD_NAMES = {
@@ -210,6 +217,7 @@ public class CardUpgradeUnitEntity extends UnitEntity {
     Draw.z(Layer.effect + 0.2f);
 
     drawIntroAura();
+    drawFadingEngines();
 
     float assembled = Mathf.clamp(
         (upgradeTimer - ORBIT_END) / Math.max(1f, ALL_PARTS_READY - ORBIT_END));
@@ -253,6 +261,7 @@ public class CardUpgradeUnitEntity extends UnitEntity {
       }
     }
 
+    drawFadingWeapons();
     Draw.z(Layer.effect + 0.35f);
     drawOrbitEnergy();
     if (upgradeTimer >= ORBIT_END) {
@@ -467,6 +476,113 @@ public class CardUpgradeUnitEntity extends UnitEntity {
 
     Draw.blend();
     Draw.reset();
+  }
+
+  private void drawFadingEngines() {
+    UnitType target = CUnits.kingLutian;
+    if (target == null || target.engines.isEmpty()) {
+      return;
+    }
+
+    float engineElevation = target.useEngineElevation ? elevation : 1f;
+    if (engineElevation <= 0.0001f) {
+      return;
+    }
+
+    // Start the engines when the third- and fourth-from-last parts reach 70%.
+    float enginePartOpacity = Math.min(
+        partHandoff(CARD_COUNT - 4), partHandoff(CARD_COUNT - 3));
+    if (enginePartOpacity < ENGINE_REVEAL_PART_OPACITY) {
+      return;
+    }
+    float reveal = Interp.smooth.apply(Mathf.clamp(
+        (upgradeTimer - ENGINE_START_TIME) / ENGINE_FADE_TIME));
+    if (reveal <= 0.001f) {
+      return;
+    }
+
+    float localRotation = rotation - 90f;
+    for (var engine : target.engines) {
+      Color color = engine.color != null ? engine.color
+          : target.engineColor != null ? target.engineColor : team.color;
+      Tmp.v1.set(engine.x, engine.y).rotate(localRotation);
+      float radius = (engine.radius
+          + Mathf.absin(Time.time, 2f, engine.radius / 4f)) * engineElevation;
+      Draw.color(Tmp.c1.set(color).a(reveal * color.a));
+      Fill.circle(x + Tmp.v1.x, y + Tmp.v1.y, radius);
+
+      float innerRadius = radius / 4f;
+      float innerAngle = localRotation + engine.rotation;
+      Draw.color(Tmp.c1.set(target.engineColorInner).a(reveal));
+      Fill.circle(
+          x + Tmp.v1.x - Angles.trnsx(innerAngle, innerRadius),
+          y + Tmp.v1.y - Angles.trnsy(innerAngle, innerRadius),
+          radius / 2f);
+    }
+    Draw.reset();
+  }
+
+  private void drawFadingWeapons() {
+    UnitType target = CUnits.kingLutian;
+    if (target == null || target.weapons.isEmpty()) {
+      return;
+    }
+
+    float localRotation = rotation - 90f;
+    Draw.z(Layer.effect + 0.3f);
+    for (int i = 0; i < target.weapons.size; i++) {
+      Weapon weapon = target.weapons.get(i);
+      float alpha = partHandoff(weaponPartIndex(weapon));
+      if (alpha <= 0.001f) {
+        continue;
+      }
+
+      float weaponRotation = localRotation
+          + (weapon.rotate ? 0f : weapon.baseRotation);
+      float weaponX = x + Angles.trnsx(localRotation, weapon.x, weapon.y);
+      float weaponY = y + Angles.trnsy(localRotation, weapon.x, weapon.y);
+      float oldXscl = Draw.xscl;
+      if (weapon.flipSprite) {
+        Draw.xscl = -oldXscl;
+      }
+
+      target.applyColor(this);
+      Draw.alpha(alpha);
+      if (weapon.region != null && weapon.region.found()) {
+        Draw.rect(weapon.region, weaponX, weaponY, weaponRotation);
+      }
+      if (weapon.cellRegion != null && weapon.cellRegion.found()) {
+        Draw.color(target.cellColor(this));
+        Draw.alpha(alpha);
+        Draw.rect(weapon.cellRegion, weaponX, weaponY, weaponRotation);
+      }
+
+      Draw.xscl = oldXscl;
+      Draw.reset();
+    }
+  }
+
+  /**
+   * Finds the hull part occupying the weapon's local coordinates. Mirror copies
+   * therefore automatically reveal with their own side's part.
+   */
+  private int weaponPartIndex(Weapon weapon) {
+    float sourceScale = partSource == null ? 1f : partSource.scl();
+    float bestDistance = Float.MAX_VALUE;
+    int best = 0;
+
+    for (int i = 0; i < CARD_COUNT; i++) {
+      float partX = (PART_VISUAL_X[i] - partSourceWidth * 0.5f) * sourceScale;
+      float partY = (partSourceHeight * 0.5f - PART_VISUAL_Y[i]) * sourceScale;
+      float dx = partX - weapon.x;
+      float dy = partY - weapon.y;
+      float distance = dx * dx + dy * dy;
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = i;
+      }
+    }
+    return best;
   }
 
   private void drawOrbitEnergy() {
