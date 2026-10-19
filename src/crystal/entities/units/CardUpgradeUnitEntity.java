@@ -12,6 +12,7 @@ import arc.math.Interp;
 import arc.math.Mathf;
 import arc.math.geom.Vec2;
 import arc.util.Time;
+import arc.util.Tmp;
 import arc.util.io.Reads;
 import arc.util.io.Writes;
 import crystal.content.CUnits;
@@ -44,9 +45,23 @@ public class CardUpgradeUnitEntity extends UnitEntity {
   private static final float FINAL_GLOW_TIME = 60f;
   private static final float EFFECT_FADE_TIME = 120f;
   private static final float ORBIT_ENERGY_FADE_TIME = 45f;
+  private static final float ORBIT_ENERGY_FADE_IN = 40f;
+  private static final float CARD_LIGHT_FADE_IN = 28f;
+  private static final float CARD_GLOW_FADE_IN = 40f;
+  private static final float ENERGY_LINK_FADE_IN = 24f;
+  private static final float WHOLE_GLOW_FADE_IN = 50f;
+  private static final float INTRO_TIME = 72f;
+  private static final float FULL_OUTLINE_GROW_TIME = 76f;
+  private static final float FULL_OUTLINE_HOLD_TIME = 26f;
+  private static final float FULL_OUTLINE_FADE_TIME = 70f;
   private static final float CARD_VISUAL_SCALE = 0.36f;
   private static final float PART_SWAP_START = 1f;
   private static final float UPGRADE_HEALTH_THRESHOLD = 0.3f;
+  // The atlas image has transparent padding; the sweep starts at the visible silhouette bounds.
+  private static final int FULL_OUTLINE_CROP_LEFT = 55;
+  private static final int FULL_OUTLINE_CROP_TOP = 42;
+  private static final int FULL_OUTLINE_CROP_WIDTH = 690;
+  private static final int FULL_OUTLINE_CROP_HEIGHT = 818;
 
   private static final float ALL_ENTER_ORBIT = LAUNCH_START + (CARD_COUNT - 1) * LAUNCH_STAGGER + FLIGHT_TIME;
   private static final float ORBIT_END = ALL_ENTER_ORBIT + ORBIT_HOLD_TIME;
@@ -79,6 +94,9 @@ public class CardUpgradeUnitEntity extends UnitEntity {
   private static TextureRegion[] parts;
   private static TextureRegion[] outlines;
   private static final TextureRegion[] outlineTiles = {
+      new TextureRegion(), new TextureRegion(), new TextureRegion(), new TextureRegion()
+  };
+  private static final TextureRegion[] fullOutlineTiles = {
       new TextureRegion(), new TextureRegion(), new TextureRegion(), new TextureRegion()
   };
   private static TextureRegion fullOutline;
@@ -191,6 +209,8 @@ public class CardUpgradeUnitEntity extends UnitEntity {
     loadRegions();
     Draw.z(Layer.effect + 0.2f);
 
+    drawIntroAura();
+
     float assembled = Mathf.clamp(
         (upgradeTimer - ORBIT_END) / Math.max(1f, ALL_PARTS_READY - ORBIT_END));
     float bodyAlpha = 1f - Interp.pow2In.apply(assembled);
@@ -239,7 +259,7 @@ public class CardUpgradeUnitEntity extends UnitEntity {
       drawWholeGlow();
     }
     if (upgradeTimer >= ALL_PARTS_READY) {
-      drawFinalOutlineFlash();
+      drawFinalOutline();
     }
 
     Draw.reset();
@@ -260,6 +280,11 @@ public class CardUpgradeUnitEntity extends UnitEntity {
     float assemblyScale = 1f;
     float alpha = 1f;
     float morphProgress = 0f;
+    float lightAppear = Interp.smooth.apply(Mathf.clamp(
+        (upgradeTimer - launchTime) / CARD_LIGHT_FADE_IN));
+    float orbitGlow = upgradeTimer < ORBIT_END ? 0f
+        : Interp.smooth.apply(Mathf.clamp(
+            (upgradeTimer - ORBIT_END) / CARD_GLOW_FADE_IN));
 
     if (upgradeTimer < launchTime + FLIGHT_TIME) {
       float flipProgress = flipEase(flight);
@@ -281,19 +306,34 @@ public class CardUpgradeUnitEntity extends UnitEntity {
       return;
     }
 
-    drawMovementTrail(index, alpha);
-    drawEnergyLink(index, alpha);
+    float effectAlpha = alpha * lightAppear;
+    drawMovementTrail(index, effectAlpha);
+    drawEnergyLink(index, effectAlpha);
 
     float glow = upgradeTimer >= ALL_ENTER_ORBIT ? 0.55f : Mathf.clamp(flight);
     float lightRadius = card.height * CARD_VISUAL_SCALE * 0.55f;
 
     Draw.blend(Blending.additive);
-    Draw.color(CARD_LIGHT, 0.13f * alpha);
-    Fill.light(cardPos.x, cardPos.y, 12, lightRadius, CARD_LIGHT, Color.clear);
+    // Fill.light uses the batch mix color, which Draw.color's alpha does not touch.
+    // Bake the fade into the gradient colors so the card light can actually fade.
+    Fill.light(
+        cardPos.x,
+        cardPos.y,
+        12,
+        lightRadius,
+        Tmp.c1.set(CARD_LIGHT).a(0.13f * effectAlpha),
+        Color.clear);
+    float cardRingPulse = 0.5f + 0.5f * Mathf.absin(
+        upgradeTimer * 0.21f + index * 1.3f, 1f, 1f);
+    Lines.stroke(0.7f + cardRingPulse * 1.1f);
+    Draw.color(CARD_LIGHT, effectAlpha * (0.12f + glow * 0.12f));
+    Lines.circle(cardPos.x, cardPos.y, lightRadius * (1.02f + cardRingPulse * 0.1f));
     for (int i = 0; i < 3; i++) {
       float angle = upgradeTimer * (1.7f + i * 0.09f) + index * 41f + i * 72f;
       float radius = lightRadius * (0.65f + (i % 3) * 0.12f);
-      Draw.color(i % 2 == 0 ? Color.white : CARD_LIGHT, alpha * (0.45f + glow * 0.3f));
+      Draw.color(
+          i % 2 == 0 ? Color.white : CARD_LIGHT,
+          effectAlpha * (0.45f + glow * 0.3f));
       Fill.circle(
           cardPos.x + Angles.trnsx(angle, radius),
           cardPos.y + Angles.trnsy(angle, radius),
@@ -302,7 +342,8 @@ public class CardUpgradeUnitEntity extends UnitEntity {
     Draw.blend();
     Draw.reset();
 
-    Draw.alpha(alpha);
+    float cardAlpha = alpha * lightAppear;
+    Draw.alpha(cardAlpha);
     Draw.rect(
         card,
         cardPos.x,
@@ -314,7 +355,7 @@ public class CardUpgradeUnitEntity extends UnitEntity {
 
     if (morphProgress > 0f) {
       Draw.blend(Blending.additive);
-      Draw.color(CARD_LIGHT, alpha * morphProgress * 0.55f);
+      Draw.color(CARD_LIGHT, cardAlpha * morphProgress * 0.65f);
       Draw.rect(
           card,
           cardPos.x,
@@ -326,15 +367,23 @@ public class CardUpgradeUnitEntity extends UnitEntity {
       Draw.reset();
     }
 
-    if (upgradeTimer >= ORBIT_END && upgradeTimer < ALL_PARTS_READY + 20f) {
+    if (orbitGlow > 0f && upgradeTimer < ALL_PARTS_READY + 20f) {
       Draw.blend(Blending.additive);
-      Draw.color(CARD_LIGHT, 0.2f * alpha);
+      Draw.color(CARD_LIGHT, 0.24f * cardAlpha * orbitGlow);
       Draw.rect(
           card,
           cardPos.x,
           cardPos.y,
           card.width * CARD_VISUAL_SCALE * faceScale * assemblyScale * 1.04f,
           card.height * CARD_VISUAL_SCALE * assemblyScale * 1.04f,
+          cardRotation);
+      Draw.color(Color.white, 0.08f * cardAlpha * orbitGlow);
+      Draw.rect(
+          card,
+          cardPos.x,
+          cardPos.y,
+          card.width * CARD_VISUAL_SCALE * faceScale * assemblyScale * 1.09f,
+          card.height * CARD_VISUAL_SCALE * assemblyScale * 1.09f,
           cardRotation);
       Draw.blend();
       Draw.reset();
@@ -366,21 +415,106 @@ public class CardUpgradeUnitEntity extends UnitEntity {
     Draw.reset();
   }
 
+  private void drawIntroAura() {
+    if (upgradeTimer >= INTRO_TIME) {
+      return;
+    }
+
+    float fadeIn = Interp.smooth.apply(Mathf.clamp(upgradeTimer / 14f));
+    float fadeOut = 1f - Interp.smooth.apply(
+        Mathf.clamp((upgradeTimer - 24f) / (INTRO_TIME - 24f)));
+    float effect = fadeIn * fadeOut;
+    if (effect <= 0.001f) {
+      return;
+    }
+
+    float charge = Interp.smooth.apply(Mathf.clamp(upgradeTimer / INTRO_TIME));
+    Draw.blend(Blending.additive);
+
+    Fill.light(
+        x,
+        y,
+        20,
+        hitSize * (1.2f + charge * 1.6f),
+        Tmp.c1.set(CARD_LIGHT).a(0.18f * effect),
+        Color.clear);
+
+    for (int ring = 0; ring < 2; ring++) {
+      float phase = Mathf.clamp((upgradeTimer + ring * 18f) / INTRO_TIME);
+      float radius = hitSize * (0.55f + phase * 3.3f);
+      Lines.stroke(2.8f * (1f - phase) + 0.7f);
+      Draw.color(ring == 0 ? Color.white : CARD_LIGHT, (1f - phase) * 0.42f * effect);
+      Lines.circle(x, y, radius);
+    }
+
+    for (int i = 0; i < 16; i++) {
+      float flicker = 0.45f + 0.55f * Mathf.sin(upgradeTimer * 0.27f + i * 1.91f);
+      float angle = i * 22.5f + upgradeTimer * 1.7f;
+      float inner = hitSize * (0.7f + charge * 0.8f + flicker * 0.25f);
+      float outer = inner + hitSize * (0.45f + flicker * 0.85f);
+      Draw.color(i % 3 == 0 ? Color.white : CARD_LIGHT, flicker * 0.3f * effect);
+      Lines.stroke(0.7f + flicker * 1.2f);
+      Lines.line(
+          x + Angles.trnsx(angle, inner),
+          y + Angles.trnsy(angle, inner),
+          x + Angles.trnsx(angle, outer),
+          y + Angles.trnsy(angle, outer));
+      Fill.circle(
+          x + Angles.trnsx(angle, outer),
+          y + Angles.trnsy(angle, outer),
+          0.8f + flicker * 1.5f);
+    }
+
+    Draw.blend();
+    Draw.reset();
+  }
+
   private void drawOrbitEnergy() {
     float fade = 1f - Interp.smooth.apply(Mathf.clamp(
         (upgradeTimer - ORBIT_END) / ORBIT_ENERGY_FADE_TIME));
-    if (upgradeTimer < ALL_ENTER_ORBIT || fade <= 0.001f) {
+    if (upgradeTimer < ALL_ENTER_ORBIT) {
+      return;
+    }
+    float energyIn = Interp.smooth.apply(Mathf.clamp(
+        (upgradeTimer - ALL_ENTER_ORBIT) / ORBIT_ENERGY_FADE_IN));
+    float effect = fade * energyIn;
+    if (effect <= 0.001f) {
       return;
     }
 
     float pulse = 0.5f + 0.5f * Mathf.absin(upgradeTimer * 0.16f, 1f, 1f);
+    float radius = orbitRadius();
     Draw.blend(Blending.additive);
     Lines.stroke(1.2f + pulse * 0.9f);
-    Draw.color(CARD_LIGHT, (0.18f + pulse * 0.12f) * fade);
-    Lines.circle(x, y, orbitRadius());
+    Draw.color(CARD_LIGHT, (0.18f + pulse * 0.12f) * effect);
+    Lines.circle(x, y, radius);
     Lines.stroke(0.7f);
-    Draw.color(Pal.accent, (0.22f + pulse * 0.1f) * fade);
-    Lines.circle(x, y, orbitRadius() * (0.72f + pulse * 0.025f));
+    Draw.color(Pal.accent, (0.22f + pulse * 0.1f) * effect);
+    Lines.circle(x, y, radius * (0.72f + pulse * 0.025f));
+
+    float dashRadius = radius * (1.13f + pulse * 0.01f);
+    float spin = upgradeTimer * 0.72f;
+    Lines.stroke(0.9f + pulse * 0.8f);
+    Draw.color(Color.white, 0.16f * effect);
+    for (int i = 0; i < 12; i += 2) {
+      float start = spin + i * 30f;
+      Lines.line(
+          x + Angles.trnsx(start, dashRadius),
+          y + Angles.trnsy(start, dashRadius),
+          x + Angles.trnsx(start + 17f, dashRadius),
+          y + Angles.trnsy(start + 17f, dashRadius));
+    }
+
+    for (int i = 0; i < 10; i++) {
+      float sparkle = 0.5f + 0.5f * Mathf.sin(upgradeTimer * 0.23f + i * 2.07f);
+      float angle = -spin * 1.35f + i * 36f;
+      float sparkRadius = radius * (0.84f + (i % 3) * 0.13f);
+      Draw.color(i % 2 == 0 ? Color.white : CARD_LIGHT, sparkle * 0.42f * effect);
+      Fill.circle(
+          x + Angles.trnsx(angle, sparkRadius),
+          y + Angles.trnsy(angle, sparkRadius),
+          0.7f + sparkle * 1.4f);
+    }
     Draw.blend();
     Draw.reset();
   }
@@ -394,8 +528,11 @@ public class CardUpgradeUnitEntity extends UnitEntity {
 
     float fade = upgradeTimer < assemblyStart ? 1f
         : 1f - Mathf.clamp((upgradeTimer - assemblyStart) / (ASSEMBLY_TIME * PART_SWAP_START));
+    float linkIn = Interp.smooth.apply(Mathf.clamp(
+        (upgradeTimer - entryTime) / ENERGY_LINK_FADE_IN));
+    float linkAlpha = alpha * fade * linkIn;
     Draw.blend(Blending.additive);
-    Draw.color(CARD_LIGHT, 0.25f * alpha * fade);
+    Draw.color(CARD_LIGHT, 0.3f * linkAlpha);
     Lines.stroke(0.8f + fade * 1.2f);
     Lines.beginLine();
     Lines.linePoint(x, y);
@@ -414,6 +551,18 @@ public class CardUpgradeUnitEntity extends UnitEntity {
       Lines.linePoint(x + dx * t + nx * wave, y + dy * t + ny * wave);
     }
     Lines.endLine(false);
+
+    for (int spark = 0; spark < 2; spark++) {
+      float travel = (upgradeTimer * (0.042f + spark * 0.008f)
+          + index * 0.17f + spark * 0.5f) % 1f;
+      float wave = Mathf.sin(
+          upgradeTimer * 0.22f + index * 1.7f + travel * Mathf.PI * 5f) * 4.5f
+          * Mathf.sin(travel * Mathf.PI);
+      float sparkX = x + dx * travel + nx * wave;
+      float sparkY = y + dy * travel + ny * wave;
+      Draw.color(spark == 0 ? Color.white : CARD_LIGHT, 0.55f * linkAlpha);
+      Fill.circle(sparkX, sparkY, 2.2f + spark * 0.9f);
+    }
     Draw.blend();
     Draw.reset();
   }
@@ -426,7 +575,10 @@ public class CardUpgradeUnitEntity extends UnitEntity {
     float fadeStart = ALL_PARTS_READY + FINAL_GLOW_TIME;
     float fade = 1f - Interp.smooth.apply(
         Mathf.clamp((upgradeTimer - fadeStart) / EFFECT_FADE_TIME));
-    if (fade <= 0.001f) {
+    float appear = Interp.smooth.apply(Mathf.clamp(
+        (upgradeTimer - ORBIT_END) / WHOLE_GLOW_FADE_IN));
+    float effect = fade * appear;
+    if (effect <= 0.001f) {
       return;
     }
     float pulse = 0.5f + 0.5f * Mathf.absin(upgradeTimer * 0.13f, 1f, 1f);
@@ -435,24 +587,35 @@ public class CardUpgradeUnitEntity extends UnitEntity {
 
     Draw.blend(Blending.additive);
 
-    Draw.color(CARD_LIGHT, (0.1f + intensity * 0.14f) * fade);
-    Fill.light(x, y, 24, radius * (1.02f + pulse * 0.08f), CARD_LIGHT, Color.clear);
-    Draw.color(Color.white, (0.08f + charge * 0.12f + fin * 0.18f) * fade);
+    float outerLightAlpha = (0.07f + intensity * 0.1f) * effect;
+    Fill.light(
+        x,
+        y,
+        24,
+        radius * (1.02f + pulse * 0.08f),
+        Tmp.c1.set(CARD_LIGHT).a(outerLightAlpha),
+        Color.clear);
+    Draw.color(Color.white, (0.08f + charge * 0.12f + fin * 0.18f) * effect);
     Fill.circle(x, y, 13f + pulse * 7f + fin * 16f);
 
     float fadeRadius = radius * (1.18f + (1f - fade) * 0.24f);
-    Draw.color(CARD_LIGHT, 0.24f * fade);
-    Fill.light(x, y, 32, fadeRadius, CARD_LIGHT, Color.clear);
-    Lines.stroke(2.2f + fade * 2.2f);
-    Draw.color(Color.white, 0.38f * fade);
+    Fill.light(
+        x,
+        y,
+        32,
+        fadeRadius,
+        Tmp.c1.set(CARD_LIGHT).a(0.18f * effect),
+        Color.clear);
+    Lines.stroke(2.2f + effect * 2.2f);
+    Draw.color(Color.white, 0.38f * effect);
     Lines.circle(x, y, fadeRadius);
 
-    for (int ring = 0; ring < 2; ring++) {
+    for (int ring = 0; ring < 3; ring++) {
       float ringRadius = radius * (0.68f + ring * 0.21f + pulse * 0.015f);
       float spin = upgradeTimer * (0.75f + ring * 0.32f) * (ring % 2 == 0 ? 1f : -1f);
       int segments = 18 + ring * 6;
       Lines.stroke(1.4f + ring * 0.55f + charge * 0.7f);
-      Draw.color(ring == 1 ? Color.white : CARD_LIGHT, (0.16f + charge * 0.2f) * fade);
+      Draw.color(ring == 1 ? Color.white : CARD_LIGHT, (0.16f + charge * 0.2f) * effect);
 
       for (int i = 0; i < segments; i += 2) {
         float angle1 = spin + i * 360f / segments;
@@ -465,12 +628,59 @@ public class CardUpgradeUnitEntity extends UnitEntity {
       }
     }
 
+    float haloRadius = radius * (1.48f + pulse * 0.025f);
+    float haloSpin = -upgradeTimer * 0.46f;
+    Lines.stroke(0.8f + pulse * 1.1f);
+    Draw.color(Color.white, (0.08f + charge * 0.08f) * effect);
+    for (int i = 0; i < 8; i++) {
+      float start = haloSpin + i * 45f;
+      Lines.line(
+          x + Angles.trnsx(start, haloRadius),
+          y + Angles.trnsy(start, haloRadius),
+          x + Angles.trnsx(start + 24f, haloRadius),
+          y + Angles.trnsy(start + 24f, haloRadius));
+    }
+
+    for (int i = 0; i < 14; i++) {
+      float flicker = 0.5f + 0.5f * Mathf.sin(upgradeTimer * 0.18f + i * 2.31f);
+      float angle = -upgradeTimer * (0.55f + (i % 3) * 0.07f) + i * (360f / 14f);
+      float sparkRadius = radius * (1.14f + (i % 4) * 0.07f + flicker * 0.03f);
+      Draw.color(i % 3 == 0 ? Color.white : CARD_LIGHT, flicker * 0.45f * effect);
+      Fill.circle(
+          x + Angles.trnsx(angle, sparkRadius),
+          y + Angles.trnsy(angle, sparkRadius),
+          0.8f + flicker * 1.6f);
+      if (i % 2 == 0) {
+        Lines.stroke(0.6f + flicker * 0.8f);
+        Draw.color(CARD_LIGHT, flicker * 0.18f * effect);
+        Lines.line(
+            x + Angles.trnsx(angle, sparkRadius * 0.92f),
+            y + Angles.trnsy(angle, sparkRadius * 0.92f),
+            x + Angles.trnsx(angle, sparkRadius * 1.12f),
+            y + Angles.trnsy(angle, sparkRadius * 1.12f));
+      }
+    }
+
+    float flare = (0.06f + fin * 0.16f) * effect;
+    Lines.stroke(1.2f + pulse * 1.1f + fin * 1.8f);
+    Draw.color(Color.white, flare);
+    for (int i = 0; i < 4; i++) {
+      float angle = upgradeTimer * 0.22f + i * 90f;
+      float inner = radius * (0.52f + fin * 0.12f);
+      float outer = radius * (1.26f + fin * 0.34f + pulse * 0.04f);
+      Lines.line(
+          x + Angles.trnsx(angle, inner),
+          y + Angles.trnsy(angle, inner),
+          x + Angles.trnsx(angle, outer),
+          y + Angles.trnsy(angle, outer));
+    }
+
     for (int i = 0; i < 12; i++) {
       float angle = upgradeTimer * 0.42f + i * 30f;
       float flicker = 0.5f + 0.5f * Mathf.sin(upgradeTimer * 0.19f + i * 1.73f);
       float inner = radius * (0.82f + flicker * 0.05f);
       float outer = radius * (1.04f + flicker * 0.16f + fin * 0.2f);
-      Draw.color(i % 3 == 0 ? Color.white : CARD_LIGHT, (0.1f + charge * 0.2f) * flicker * fade);
+      Draw.color(i % 3 == 0 ? Color.white : CARD_LIGHT, (0.1f + charge * 0.2f) * flicker * effect);
       Lines.stroke(1f + flicker * 1.4f);
       Lines.line(
           x + Angles.trnsx(angle, inner),
@@ -488,43 +698,124 @@ public class CardUpgradeUnitEntity extends UnitEntity {
       float shockRadius = radius * (0.62f + phase * 1.12f);
       float shockAlpha = (1f - phase) * (0.18f + charge * 0.28f);
       Lines.stroke(1f + (1f - phase) * 3.2f);
-      Draw.color(i == 0 ? Color.white : CARD_LIGHT, shockAlpha * fade);
+      Draw.color(i == 0 ? Color.white : CARD_LIGHT, shockAlpha * effect);
       Lines.circle(x, y, shockRadius);
     }
 
     if (upgradeTimer >= ALL_PARTS_READY) {
-      float burst = Mathf.clamp((upgradeTimer - ALL_PARTS_READY) / 60f);
-      float burstRadius = radius + Interp.pow2Out.apply(burst) * 235f;
-      Lines.stroke(6f * (1f - burst) + 1f);
-      Draw.color(Color.white, (1f - burst) * 0.7f * fade);
-      Lines.circle(x, y, burstRadius);
-      Draw.color(CARD_LIGHT, (1f - burst) * 0.35f * fade);
-      Fill.light(x, y, 24, burstRadius * 1.12f, CARD_LIGHT, Color.clear);
+      float burstIn = Interp.smooth.apply(Mathf.clamp(
+          (upgradeTimer - ALL_PARTS_READY) / 16f));
+      float burst = Mathf.clamp((upgradeTimer - ALL_PARTS_READY) / 95f);
+      for (int ring = 0; ring < 3; ring++) {
+        float phase = (burst + ring * 0.24f) % 1f;
+        float burstRadius = radius + Interp.pow2Out.apply(phase) * 235f;
+        Lines.stroke(6.5f * (1f - phase) + 0.9f);
+        Draw.color(ring == 1 ? CARD_LIGHT : Color.white,
+            (1f - phase) * (1f - phase) * 0.42f * burstIn * effect);
+        Lines.circle(x, y, burstRadius);
+      }
+
+      Lines.stroke(1.1f + (1f - burst) * 2.4f);
+      Draw.color(Color.white, (1f - burst) * 0.24f * burstIn * effect);
+      for (int i = 0; i < 24; i++) {
+        float angle = i * 15f + burst * 31f;
+        float inner = radius * (0.58f + burst * 0.5f);
+        float outer = radius * (1.18f + burst * 1.15f);
+        Lines.line(
+            x + Angles.trnsx(angle, inner),
+            y + Angles.trnsy(angle, inner),
+            x + Angles.trnsx(angle, outer),
+            y + Angles.trnsy(angle, outer));
+      }
+
+      float flash = (1f - burst) * (1f - burst) * burstIn * effect;
+      float flashRadius = radius * (0.58f + burst * 1.05f);
+      Fill.light(
+          x,
+          y,
+          28,
+          flashRadius * 1.3f,
+          Tmp.c1.set(Color.white).a(0.32f * flash),
+          Color.clear);
+      Draw.color(CARD_LIGHT, 0.42f * flash);
+      Fill.circle(x, y, radius * (0.23f + (1f - burst) * 0.5f));
     }
 
     Draw.blend();
-    Drawf.light(x, y, radius * 1.9f, Color.white, (0.5f + charge * 0.35f) * fade);
+    Drawf.light(x, y, radius * 1.9f, Color.white, (0.5f + charge * 0.35f) * effect);
     Draw.reset();
   }
 
-  private void drawFinalOutlineFlash() {
+  private void drawFinalOutline() {
     if (fullOutline == null || !fullOutline.found()) {
       return;
     }
 
-    float progress = Mathf.clamp((upgradeTimer - ALL_PARTS_READY) / FINAL_GLOW_TIME);
-    float alpha = Mathf.clamp(1f - progress * 1.35f);
+    float sweep = Interp.smooth.apply(Mathf.clamp(
+        (upgradeTimer - ALL_PARTS_READY) / FULL_OUTLINE_GROW_TIME));
+    float fadeStart = ALL_PARTS_READY + FULL_OUTLINE_GROW_TIME + FULL_OUTLINE_HOLD_TIME;
+    float fade = 1f - Interp.smooth.apply(Mathf.clamp(
+        (upgradeTimer - fadeStart) / FULL_OUTLINE_FADE_TIME));
+    float appear = Interp.smooth.apply(Mathf.clamp(
+        (upgradeTimer - ALL_PARTS_READY) / 18f));
+    float alpha = fade * appear;
     if (alpha <= 0.001f) {
       return;
     }
 
     Draw.blend(Blending.additive);
-    Draw.color(Color.white, alpha * 0.75f);
-    Draw.rect(fullOutline, x, y, rotation - 90f);
-    Draw.color(CARD_LIGHT, alpha * 0.45f);
-    Draw.rect(fullOutline, x, y, rotation - 90f);
+    Draw.color(CARD_LIGHT, alpha * (0.2f + sweep * 0.3f));
+    drawFullOutlineTiles(sweep);
+    Draw.color(Color.white, alpha * (0.28f + sweep * 0.55f));
+    drawFullOutlineTiles(sweep);
     Draw.blend();
     Draw.reset();
+  }
+
+  private void drawFullOutlineTiles(float contour) {
+    int left = FULL_OUTLINE_CROP_LEFT;
+    int top = FULL_OUTLINE_CROP_TOP;
+    int width = FULL_OUTLINE_CROP_WIDTH;
+    int height = FULL_OUTLINE_CROP_HEIGHT;
+    int tileWidth = Mathf.round(width * 0.5f * contour);
+    int tileHeight = Mathf.round(height * 0.5f * contour);
+    if (tileWidth <= 0 || tileHeight <= 0) {
+      return;
+    }
+
+    drawFullOutlineTile(left, top, tileWidth, tileHeight);
+    drawFullOutlineTile(left + width - tileWidth, top, tileWidth, tileHeight);
+    drawFullOutlineTile(left, top + height - tileHeight, tileWidth, tileHeight);
+    drawFullOutlineTile(
+        left + width - tileWidth, top + height - tileHeight, tileWidth, tileHeight);
+  }
+
+  private void drawFullOutlineTile(
+      int sourceX, int sourceY, int sourceWidth, int sourceHeight) {
+    TextureRegion tile = fullOutlineTiles[
+        (sourceX < fullOutline.width / 2 ? 0 : 1)
+            + (sourceY < fullOutline.height / 2 ? 0 : 2)];
+    tile.set(fullOutline, sourceX, sourceY, sourceWidth, sourceHeight);
+
+    float sourceScale = fullOutline.scl();
+    float fullWidth = fullOutline.width * sourceScale * Draw.xscl;
+    float fullHeight = fullOutline.height * sourceScale * Draw.yscl;
+    float centerX = sourceX + sourceWidth * 0.5f;
+    float centerY = sourceY + sourceHeight * 0.5f;
+    float localSide = centerX / fullOutline.width * fullWidth - fullWidth * 0.5f;
+    float localTextureY = fullHeight * 0.5f - centerY / fullOutline.height * fullHeight;
+    float drawX = x + Angles.trnsx(rotation - 90f, localSide)
+        + Angles.trnsx(rotation, localTextureY);
+    float drawY = y + Angles.trnsy(rotation - 90f, localSide)
+        + Angles.trnsy(rotation, localTextureY);
+
+    Draw.rect(
+        tile,
+        drawX,
+        drawY,
+        tile.width * tile.scl() * Draw.xscl,
+        tile.height * tile.scl() * Draw.yscl,
+        rotation - 90f);
   }
 
   private void launchPosition(Vec2 out) {
