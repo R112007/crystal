@@ -15,5 +15,6 @@ public class CBlocks {
     CStroage.load();
     CFunctionBlock.load();
     MagicBlocks.load();
+    TumorBlocks.load();
   }
 }

@@ -9,6 +9,7 @@ import java.time.Duration
 import java.util.*
 import java.util.jar.*
 import java.util.zip.*
+import crystal.plot.PlotObfuscator
 
 buildscript{
     val (mindustry, mindustryVersion, mindustrySource) = when(val version = providers.gradleProperty("mindustryVersion").get()){
@@ -249,14 +250,33 @@ project(":"){
             files(sourceSets["main"].output.resourcesDir),
             configurations.runtimeClasspath.map{conf -> conf.map{if(it.isDirectory) it else zipTree(it)}},
 
-            files(layout.projectDirectory.dir("assets")) {
-                exclude("sprites/units/upgrade/layers/**")
-            },
             layout.projectDirectory.file("icon.png"),
             // Check both JSON and HJSON.
             layout.projectDirectory.file("mod.json"),
             layout.projectDirectory.file("mod.hjson")
         )
+
+        // plot 源文件保持明文方便维护；只在打包进 jar 时对 value 做 CJK 混淆，
+        // 运行时由 PlotBundle 用同一个密钥解回明文。
+        from(layout.projectDirectory.dir("assets")) {
+            filteringCharset = "UTF-8"
+            exclude("sprites/units/upgrade/layers/**")
+            filesMatching("plot/**/*.properties") {
+                filter { line: String ->
+                    val trimmed = line.trim()
+                    if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+                        line
+                    } else {
+                        val eq = line.indexOf('=')
+                        if (eq == -1) {
+                            line
+                        } else {
+                            line.substring(0, eq + 1) + PlotObfuscator.obfuscate(line.substring(eq + 1))
+                        }
+                    }
+                }
+            }
+        }
 
         metaInf.from(layout.projectDirectory.file("LICENSE"))
     }

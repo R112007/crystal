@@ -12,6 +12,7 @@ import mindustry.ui.dialogs.*;
 import crystal.CVars;
 import crystal.aviation.SatelliteManager;
 import crystal.aviation.input.SatelliteMissileInputHandler;
+import crystal.content.CAsteroidBelts;
 
 import static mindustry.Vars.*;
 
@@ -95,6 +96,12 @@ public class CPausedDialog extends BaseDialog {
                     .padTop(-60f)
                     .colspan(showObjective ? 1 : 2).width(showObjective ? dw : dw * 2 + 10f)
                     .disabled(b -> net.client() || state.gameOver).visible(() -> state.rules.sector != null).row();
+
+            if (onAsteroidTarget()) {
+                cont.row();
+                cont.button("小行星测试", Icon.settings, () -> new AsteroidTestDialog().show())
+                        .colspan(2).width(dw * 2 + 10f).row();
+            }
 
             cont.button("@back", Icon.left, this::hide).name("back");
             cont.button("@settings", Icon.settings, ui.settings::show).name("settings");
@@ -183,6 +190,10 @@ public class CPausedDialog extends BaseDialog {
                 cont.row();
             }
 
+            if (onAsteroidTarget()) {
+                cont.buttonRow("小行星测试", Icon.settings, () -> new AsteroidTestDialog().show());
+            }
+
             cont.buttonRow("@hostserver.mobile", Icon.host, ui.host::show).disabled(b -> net.active());
 
             cont.buttonRow("@quit", Icon.exit, this::showQuitConfirm).update(s -> {
@@ -191,6 +202,11 @@ public class CPausedDialog extends BaseDialog {
                 s.getLabelCell().growX().wrap();
             });
         }
+    }
+
+    private boolean onAsteroidTarget() {
+        return CAsteroidBelts.lxBelt != null && state.rules.sector != null
+                && state.rules.sector.planet == CAsteroidBelts.lxBelt.target;
     }
 
     void showQuitConfirm() {

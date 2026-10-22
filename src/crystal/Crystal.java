@@ -12,6 +12,7 @@ import arc.util.Time;
 import crystal.audio.CMusics;
 import crystal.aviation.CrystalAviationSystemCore;
 import crystal.aviation.SatelliteManager;
+import crystal.content.CAsteroidBelts;
 import crystal.content.CBlocks;
 import crystal.content.CEnvironment;
 import crystal.content.CIcons;
@@ -55,6 +56,7 @@ import crystal.ui.dialogs.CPlanetDialog;
 import crystal.ui.dialogs.MobileLaunchLoadoutDialog;
 import crystal.util.DLog;
 import crystal.util.PlotBundle;
+import crystal.world.asteroid.AsteroidBeltSystem;
 import crystal.world.blocks.payloads.UnitLaunchPayload;
 import crystal.world.blocks.stroage.MoveBlockSystem;
 import crystal.world.blocks.stroage.MoveCoreSystem;
@@ -124,6 +126,7 @@ public class Crystal extends Mod {
     CLoadouts.load();
     CWeather.load();
     CPlanets.load();
+    CAsteroidBelts.load();
     LxMaps.load();
     CrystalTechTree.load();
     try {
@@ -198,6 +201,7 @@ public class Crystal extends Mod {
 
   @Override
   public void init() {
+    AsteroidBeltSystem.init();
     ClassMapLoader.load();
     CVars.cui.init();
     // 尽早把原版 PlacementFragment 替换成带空指针防护的 SafePlacementFragment，

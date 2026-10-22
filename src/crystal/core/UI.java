@@ -15,6 +15,7 @@ import crystal.content.WorldStuffs;
 import crystal.entities.SwordLight;
 import crystal.graphics.BlackHoleRenderer;
 import crystal.type.Contributor;
+import crystal.ui.dialogs.AsteroidTestDialog;
 import crystal.ui.dialogs.CPausedDialog;
 import crystal.ui.dialogs.CPlanetDialog;
 import crystal.ui.dialogs.CResearchDialog;
@@ -142,6 +143,15 @@ public class UI {
           table.translation.set(0, height);
         });
       });
+    // 小行星测试入口不依赖 CVars.debug，普通游戏里也能直接用。
+    Vars.ui.hudGroup.fill(null, table -> {
+      table.table(null, t -> {
+        t.button("小行星测试", Styles.flatt, () -> new AsteroidTestDialog().show()).size(100, 70);
+      }).size(100, 70);
+      table.center().left().update(() -> {
+        table.translation.set(100, height + 390);
+      });
+    });
   }
 
   void setupGeneralMagicDialog() {

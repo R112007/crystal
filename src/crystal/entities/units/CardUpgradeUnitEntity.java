@@ -16,6 +16,9 @@ import arc.util.Tmp;
 import arc.util.io.Reads;
 import arc.util.io.Writes;
 import crystal.content.CUnits;
+import mindustry.content.Fx;
+import mindustry.gen.Bullet;
+import mindustry.gen.Groups;
 import mindustry.gen.Player;
 import mindustry.gen.Sounds;
 import mindustry.gen.Unit;
@@ -59,6 +62,9 @@ public class CardUpgradeUnitEntity extends UnitEntity {
   private static final float ENGINE_FADE_TIME = 34f;
   private static final float ENGINE_REVEAL_PART_OPACITY = 0.7f;
   private static final float CARD_VISUAL_SCALE = 0.36f;
+  private static final float CARD_BLOCK_HALF_WIDTH = 138f * CARD_VISUAL_SCALE * 0.5f + 1.5f;
+  private static final float CARD_BLOCK_HALF_HEIGHT = 200f * CARD_VISUAL_SCALE * 0.5f + 1.5f;
+  private static final float BULLET_SWEEP_MARGIN = 64f;
   private static final float PART_SWAP_START = 1f;
   private static final float UPGRADE_HEALTH_THRESHOLD = 0.3f;
   // The atlas image has transparent padding; the sweep starts at the visible silhouette bounds.
@@ -120,6 +126,7 @@ public class CardUpgradeUnitEntity extends UnitEntity {
   private static final Vec2 controlPos = new Vec2();
   private static final Vec2 assemblyControl = new Vec2();
   private static final Vec2 cardPos = new Vec2();
+  private static final Vec2 blockCardPos = new Vec2();
   private static final Vec2 trailPos = new Vec2();
   private static final Vec2 trailPrev = new Vec2();
 
@@ -160,6 +167,8 @@ public class CardUpgradeUnitEntity extends UnitEntity {
         completeUpgrade();
         return;
       }
+
+      blockUpgradeBullets();
     }
 
     super.update();
@@ -169,6 +178,173 @@ public class CardUpgradeUnitEntity extends UnitEntity {
       rotation = upgradeRotation;
       controlWeapons(false, false);
     }
+  }
+
+  /** 卡牌飞行/环绕时拦截，合体开始后由单位外围护盾接管。 */
+  private void blockUpgradeBullets() {
+    float reach = orbitRadius() + CARD_BLOCK_HALF_HEIGHT + BULLET_SWEEP_MARGIN;
+    Groups.bullet.intersect(
+        x - reach, y - reach, reach * 2f, reach * 2f, this::tryBlockBullet);
+  }
+
+  private void tryBlockBullet(Bullet bullet) {
+    if (bullet.team == team || !bullet.type.absorbable) {
+      return;
+    }
+
+    float startX = bullet.x - bullet.deltaX;
+    float startY = bullet.y - bullet.deltaY;
+    for (int i = 0; i < CARD_COUNT; i++) {
+      if (!isCardBlocking(i)) {
+        continue;
+      }
+
+      float launchTime = LAUNCH_START + i * LAUNCH_STAGGER;
+      float cardRotation = rotation - 90f;
+      float widthScale = 1f;
+
+      if (upgradeTimer < launchTime + FLIGHT_TIME) {
+        float flight = Mathf.clamp((upgradeTimer - launchTime) / FLIGHT_TIME);
+        float flip = flipEase(flight);
+        flightPosition(flight, blockCardPos);
+        cardRotation += 90f * (1f - flip);
+        widthScale = 0.07f + 0.93f * flip;
+      } else {
+        orbitPosition(i, upgradeTimer, blockCardPos);
+      }
+
+      if (cardIntersects(
+          blockCardPos.x,
+          blockCardPos.y,
+          startX,
+          startY,
+          bullet.x,
+          bullet.y,
+          cardRotation,
+          widthScale)) {
+        absorbBullet(bullet);
+        return;
+      }
+    }
+
+    if (upgradeTimer >= ORBIT_END
+        && segmentIntersectsCircle(
+            startX, startY, bullet.x, bullet.y, x, y, orbitRadius())) {
+      absorbBullet(bullet);
+    }
+  }
+
+  private void absorbBullet(Bullet bullet) {
+    bullet.absorb();
+    Fx.absorb.at(bullet);
+  }
+
+  private boolean isCardBlocking(int index) {
+    return upgradeTimer >= LAUNCH_START + index * LAUNCH_STAGGER
+        && upgradeTimer < ORBIT_END + index * ASSEMBLY_STAGGER;
+  }
+
+  private boolean cardIntersects(
+      float cardX,
+      float cardY,
+      float startX,
+      float startY,
+      float endX,
+      float endY,
+      float cardRotation,
+      float widthScale) {
+    float angle = cardRotation * Mathf.degRad;
+    float cos = Mathf.cos(angle);
+    float sin = Mathf.sin(angle);
+    float startDX = startX - cardX;
+    float startDY = startY - cardY;
+    float endDX = endX - cardX;
+    float endDY = endY - cardY;
+
+    float localStartX = startDX * cos + startDY * sin;
+    float localStartY = -startDX * sin + startDY * cos;
+    float localEndX = endDX * cos + endDY * sin;
+    float localEndY = -endDX * sin + endDY * cos;
+
+    return segmentIntersectsRect(
+        localStartX,
+        localStartY,
+        localEndX,
+        localEndY,
+        CARD_BLOCK_HALF_WIDTH * widthScale,
+        CARD_BLOCK_HALF_HEIGHT);
+  }
+
+  private static boolean segmentIntersectsCircle(
+      float startX,
+      float startY,
+      float endX,
+      float endY,
+      float circleX,
+      float circleY,
+      float radius) {
+    float dx = endX - startX;
+    float dy = endY - startY;
+    float lengthSquared = dx * dx + dy * dy;
+    float t = lengthSquared <= 0.0001f
+        ? 0f
+        : Mathf.clamp(
+            ((circleX - startX) * dx + (circleY - startY) * dy) / lengthSquared,
+            0f,
+            1f);
+    float closestX = startX + dx * t;
+    float closestY = startY + dy * t;
+    return Mathf.dst2(closestX, closestY, circleX, circleY) <= radius * radius;
+  }
+
+  /** 子弹高速移动时用线段检测，避免直接穿过卡牌。 */
+  private static boolean segmentIntersectsRect(
+      float startX,
+      float startY,
+      float endX,
+      float endY,
+      float halfWidth,
+      float halfHeight) {
+    float dx = endX - startX;
+    float dy = endY - startY;
+    float min = 0f;
+    float max = 1f;
+
+    if (Math.abs(dx) < 0.0001f) {
+      if (startX < -halfWidth || startX > halfWidth) {
+        return false;
+      }
+    } else {
+      float inv = 1f / dx;
+      float near = (-halfWidth - startX) * inv;
+      float far = (halfWidth - startX) * inv;
+      if (near > far) {
+        float swap = near;
+        near = far;
+        far = swap;
+      }
+      min = Math.max(min, near);
+      max = Math.min(max, far);
+      if (min > max) {
+        return false;
+      }
+    }
+
+    if (Math.abs(dy) < 0.0001f) {
+      return startY >= -halfHeight && startY <= halfHeight;
+    }
+
+    float inv = 1f / dy;
+    float near = (-halfHeight - startY) * inv;
+    float far = (halfHeight - startY) * inv;
+    if (near > far) {
+      float swap = near;
+      near = far;
+      far = swap;
+    }
+    min = Math.max(min, near);
+    max = Math.min(max, far);
+    return min <= max;
   }
 
   @Override
@@ -223,6 +399,10 @@ public class CardUpgradeUnitEntity extends UnitEntity {
         (upgradeTimer - ORBIT_END) / Math.max(1f, ALL_PARTS_READY - ORBIT_END));
     float bodyAlpha = 1f - Interp.pow2In.apply(assembled);
 
+    drawPartShadows();
+    drawAssembledOutline();
+    Draw.z(Layer.effect + 0.2f);
+
     if (bodyAlpha > 0.001f && type.fullIcon.found()) {
       Draw.alpha(bodyAlpha);
       Draw.rect(type.fullIcon, x, y, rotation - 90f);
@@ -271,6 +451,58 @@ public class CardUpgradeUnitEntity extends UnitEntity {
       drawFinalOutline();
     }
 
+    Draw.reset();
+  }
+
+  /** 每个部件出现时同步绘制它自己的硬边偏移阴影。 */
+  private void drawPartShadows() {
+    UnitType target = CUnits.kingLutian;
+    if (target == null) {
+      return;
+    }
+
+    Draw.z(Layer.effect + 0.19f);
+
+    for (int i = 0; i < CARD_COUNT; i++) {
+      float handoff = partHandoff(i);
+      if (handoff > 0.001f && parts[i] != null && parts[i].found()) {
+        drawPartShadow(i, handoff);
+      }
+    }
+  }
+
+  private void drawPartShadow(int index, float alpha) {
+    TextureRegion part = parts[index];
+    float shadowX = -12f;
+    float shadowY = -13f;
+
+    Draw.color(Pal.shadow, Pal.shadow.a * alpha);
+    drawPartRegion(
+        index,
+        part,
+        PART_CROP_LEFT[index] + part.width * 0.5f,
+        PART_CROP_TOP[index] + part.height * 0.5f,
+        shadowX,
+        shadowY);
+    Draw.reset();
+  }
+
+  /** 用整套轮廓遮罩画黑色描边，与最终单位的 outlineRegion 对齐。 */
+  private void drawAssembledOutline() {
+    if (fullOutline == null || !fullOutline.found()) {
+      return;
+    }
+
+    // 最后一块部件临近完成时再淡入，避免早期出现完整轮廓的“幽灵边”。
+    float alpha = Interp.smooth.apply(Mathf.clamp(
+        (upgradeTimer - ALL_PARTS_READY + 60f) / 60f));
+    if (alpha <= 0.001f) {
+      return;
+    }
+
+    Draw.z(Layer.effect + 0.18f);
+    Draw.color(Pal.darkOutline, alpha);
+    drawFullOutlineTiles(1f);
     Draw.reset();
   }
 
@@ -1120,6 +1352,16 @@ public class CardUpgradeUnitEntity extends UnitEntity {
 
   private void drawPartRegion(
       int index, TextureRegion region, float sourceCenterX, float sourceCenterY) {
+    drawPartRegion(index, region, sourceCenterX, sourceCenterY, 0f, 0f);
+  }
+
+  private void drawPartRegion(
+      int index,
+      TextureRegion region,
+      float sourceCenterX,
+      float sourceCenterY,
+      float offsetX,
+      float offsetY) {
     float sourceScale = partSource == null ? 1f : partSource.scl();
     float fullWidth = partSourceWidth * sourceScale * Draw.xscl;
     float fullHeight = partSourceHeight * sourceScale * Draw.yscl;
@@ -1132,8 +1374,8 @@ public class CardUpgradeUnitEntity extends UnitEntity {
 
     Draw.rect(
         region,
-        drawX,
-        drawY,
+        drawX + offsetX,
+        drawY + offsetY,
         region.width * region.scl() * Draw.xscl,
         region.height * region.scl() * Draw.yscl,
         rotation - 90f);

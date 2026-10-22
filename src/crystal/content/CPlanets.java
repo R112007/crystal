@@ -56,7 +56,8 @@ public class CPlanets {
 
     CPlanets.lx = new SaturnPlanet("lx", csun, 3f, 3) {
       {
-        minZoom = 0.01f; // 最远视角
+        // 不要放大到只剩行星表面：极限近距离下小行星带会落到相机视野外。
+        minZoom = 0.25f;
         maxZoom = 5f; // 最近视角
         loadPlanetData = true;
         generator = new TantrosPlanetGenerator() {
