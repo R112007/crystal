@@ -1,6 +1,7 @@
 package crystal.type;
 
 import crystal.entities.shentong.ShenTong;
+import crystal.entities.units.UnitEnum.JingJie;
 import crystal.entities.units.UnitEnum.XiuWei;
 import arc.struct.Seq;
 
@@ -11,11 +12,16 @@ public interface MagicUnitInterface {
 
   float magicPowerRegenTime();
 
-  XiuWei xiuWei();
+  JingJie jingJie();
+
+  default XiuWei xiuWei() {
+    JingJie jingJie = jingJie();
+    return jingJie == null ? XiuWei.yong : jingJie.xiuWei;
+  }
 
   Seq<ShenTong> shenTongs();
 
-  float xiuWeiAmount();
+  float cultivationReward();
 
   boolean useCircleCoat();
 }

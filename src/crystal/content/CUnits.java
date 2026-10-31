@@ -110,7 +110,7 @@ public class CUnits {
         this.hitSize = 8.0f;
         this.magicPowerRegen = 0.5f;
         this.shenTongs.add(new FaTianXiangDi(3f, 2f, 3, 480, 50));
-        this.xiuWeiAmount = 0.1f;
+        this.cultivationReward = 0.1f;
         this.weapons.add(new Weapon("crystal-chujia1-weapon") {
           {
             this.reload = 10.0f;
@@ -145,7 +145,7 @@ public class CUnits {
         this.magicPowerRegen = 1;
         this.magicPower = 400;
         this.shenTongs.add(new FaTianXiangDi(3.5f, 2f, 3, 480, 100));
-        this.xiuWeiAmount = 0.2f;
+        this.cultivationReward = 0.2f;
         this.weapons.add(new Weapon("crystal-chujia2-weapon") {
           {
             this.reload = 7.0f;
@@ -248,7 +248,7 @@ public class CUnits {
         this.magicPowerRegenTime = 60;
         this.magicPowerRegen = 0.5f;
         this.magicPower = 200;
-        this.xiuWeiAmount = 0.1f;
+        this.cultivationReward = 0.1f;
         this.weapons.add(new Weapon() {
           {
             this.mirror = true;
@@ -310,7 +310,7 @@ public class CUnits {
         this.magicPowerRegenTime = 60;
         this.magicPowerRegen = 1.25f;
         this.magicPower = 400;
-        this.xiuWeiAmount = 0.3f;
+        this.cultivationReward = 0.3f;
         this.hitSize = 11f;
         this.rotateSpeed = 5f;
         this.itemCapacity = 30;
@@ -385,7 +385,7 @@ public class CUnits {
         this.magicPowerRegenTime = 60;
         this.magicPowerRegen = 2.5f;
         this.magicPower = 900;
-        this.xiuWeiAmount = 0.6f;
+        this.cultivationReward = 0.6f;
         this.hitSize = 30f;
         this.rotateSpeed = 3f;
         this.itemCapacity = 30;

@@ -20,6 +20,7 @@ import arc.util.Scaling;
 import arc.util.Strings;
 import arc.util.Structs;
 import crystal.entities.shentong.ShenTong;
+import crystal.entities.units.UnitEnum.JingJie;
 import mindustry.content.StatusEffects;
 import mindustry.editor.MapObjectivesDialog;
 import mindustry.editor.WaveGraph;
@@ -34,6 +35,8 @@ import mindustry.type.StatusEffect;
 import mindustry.type.UnitType;
 import mindustry.ui.Styles;
 import mindustry.ui.dialogs.BaseDialog;
+
+import java.lang.reflect.Parameter;
 
 import static mindustry.Vars.*;
 import static mindustry.game.SpawnGroup.never;
@@ -217,6 +220,12 @@ public class MagicWaveEditor extends BaseDialog {
                                 group.effect != null ? new TextureRegionDrawable(group.effect.uiIcon) : Icon.logicSmall,
                                 Styles.emptyi, () -> showEffects(group)).pad(-4).size(40f).scaling(Scaling.fit)
                                 .tooltip(group.effect != null ? group.effect.localizedName : "@none");
+
+                        if (group instanceof MagicSpawnGroup mg) {
+                            b.button(mg.jingJie.str, Styles.flatTogglet, () -> showJingJie(mg))
+                                    .pad(-4).size(86f, 40f)
+                                    .tooltip(Core.bundle.get("stat.jingjie", "境界"));
+                        }
 
                         ImageButton stBtn = b
                                 .button(Icon.menu, Styles.emptyi, () -> showShenTongs((MagicSpawnGroup) group))
@@ -508,14 +517,74 @@ public class MagicWaveEditor extends BaseDialog {
                     t.image(st.icon != null ? st.icon : Icon.add).size(8 * 4).scaling(Scaling.fit).padRight(2f);
                     t.add(st.name());
                 }, () -> {
-                    group.shenTongId = st.id;
                     dialog.hide();
-                    buildGroups();
+                    if (st.editableParameters().length == 0) {
+                        group.shenTongId = st.id;
+                        group.shenTongValues = null;
+                        buildGroups();
+                    } else {
+                        showShenTongConfig(group, st);
+                    }
                 }).margin(12f);
                 if (++i % 3 == 0)
                     p.row();
             }
         }).growX().scrollX(false);
+        dialog.addCloseButton();
+        dialog.show();
+    }
+
+    void showShenTongConfig(MagicSpawnGroup group, ShenTong shenTong) {
+        Parameter[] parameters = shenTong.editableParameters();
+        float[] values = group.shenTongId == shenTong.id
+                && group.shenTongValues != null
+                && group.shenTongValues.length == parameters.length
+                        ? group.shenTongValues.clone()
+                        : group.defaultShenTongValues(shenTong);
+
+        BaseDialog dialog = new BaseDialog(Core.bundle.format("waves.shentong.config", shenTong.name()));
+        dialog.cont.add(shenTong.name()).color(Pal.accent).left().row();
+        dialog.cont.add(shenTong.description()).color(Color.lightGray)
+                .wrap().width(620f).left().padBottom(8f).row();
+        dialog.cont.pane(table -> {
+            table.defaults().pad(4f);
+            for (int i = 0; i < parameters.length; i++) {
+                int index = i;
+                table.add(shenTong.editableParameterLabel(parameters[i]))
+                        .width(230f).left();
+                table.field(Strings.fixed(values[index], 2), TextFieldFilter.floatsOnly, text -> {
+                    if (Strings.canParseFloat(text)) {
+                        values[index] = Strings.parseFloat(text);
+                    }
+                }).width(190f).row();
+            }
+        }).width(460f).height(Math.min(420f, 58f + parameters.length * 54f)).row();
+
+        dialog.buttons.button("@ok", Icon.ok, () -> {
+            group.shenTongId = shenTong.id;
+            group.shenTongValues = values.clone();
+            dialog.hide();
+            buildGroups();
+        }).size(150f, 58f);
+        dialog.addCloseButton();
+        dialog.show();
+    }
+
+    void showJingJie(MagicSpawnGroup group) {
+        BaseDialog dialog = new BaseDialog(Core.bundle.get("stat.jingjie", "境界"));
+        dialog.cont.pane(p -> {
+            p.defaults().size(130f, 42f).pad(2f);
+            int i = 0;
+            for (JingJie jingJie : JingJie.all) {
+                p.button(jingJie.str, Styles.flatTogglet, () -> {
+                    group.jingJie = jingJie;
+                    dialog.hide();
+                    buildGroups();
+                }).checked(group.jingJie == jingJie);
+                if (++i % 4 == 0)
+                    p.row();
+            }
+        }).width(560f).height(440f);
         dialog.addCloseButton();
         dialog.show();
     }
@@ -585,8 +654,8 @@ public class MagicWaveEditor extends BaseDialog {
         graph.rebuild();
     }
 
-    /** 左侧配置面板宽度：小屏占一半，大屏最大 420 */
+    /** 左侧配置面板宽度：给境界、buff 和神通按钮留出同一行空间。 */
     float panelWidth() {
-        return Math.min(Core.graphics.getWidth() / 2f, 420f);
+        return Math.min(Core.graphics.getWidth() * 0.68f, 720f);
     }
 }

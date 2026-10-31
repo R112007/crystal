@@ -2,13 +2,18 @@ package crystal.dbg;
 
 import arc.Events;
 import crystal.CVars;
+import crystal.content.CUnits;
 import crystal.content.GongFas;
 import crystal.core.CultivationState;
 import crystal.core.PlayerXiuWeiSystem;
+import crystal.editor.MagicSpawnGroup;
 import crystal.entities.units.UnitEnum.JingJie;
 import crystal.entities.units.UnitEnum.XiuWei;
+import crystal.entities.units.UnitSpawner;
 import crystal.game.CEventType.DuJieStartEvent;
 import crystal.game.CEventType.JingJieRecalc;
+import crystal.gen.Magicc;
+import mindustry.game.Team;
 
 /** Headless logic test for cultivation ranks, gongfa gates, dujie and persistence. */
 public class CultivationSystemTest {
@@ -16,9 +21,12 @@ public class CultivationSystemTest {
 
     public static void run(String[] args) {
         try {
+            testXiuWeiBindings();
             testRouteIntegrity();
             testGongfaGates();
             testDuJieFlow();
+            testEnemyJingJieSelection();
+            testUnitFactory();
             testPersistenceRoundTrip();
         } catch (Throwable t) {
             t.printStackTrace();
@@ -28,10 +36,55 @@ public class CultivationSystemTest {
         System.exit(ok ? 0 : 1);
     }
 
+    private static void testXiuWeiBindings() {
+        checkTier("mortal", XiuWei.yong, JingJie.fan);
+        checkTier("fajing", XiuWei.fan,
+                JingJie.kaiqiao, JingJie.zhenyuan, JingJie.huayuan,
+                JingJie.tianren, JingJie.shenhai, JingJie.hualong);
+        checkTier("old-road god", XiuWei.shen,
+                JingJie.weishen, JingJie.zhenshen, JingJie.shenwang, JingJie.shenhuang,
+                JingJie.shenjun, JingJie.shenling, JingJie.shenming, JingJie.shenzun);
+        checkTier("new-road god", XiuWei.shen,
+                JingJie.kaiyang, JingJie.shentu, JingJie.canghai, JingJie.tianqiao,
+                JingJie.wanling, JingJie.sixiang, JingJie.shengong, JingJie.zunzhu);
+        checkTier("shengjing", XiuWei.sheng,
+                JingJie.weisheng, JingJie.yasheng, JingJie.zhunsheng,
+                JingJie.dasheng, JingJie.shengdaodadi);
+        checkTier("xianjing", XiuWei.xian,
+                JingJie.tianxian, JingJie.zhenxian, JingJie.xuanxian, JingJie.jinxian,
+                JingJie.xianjun, JingJie.xianzun, JingJie.xianhuang, JingJie.xianwang);
+        checkTier("dijing", XiuWei.dijun,
+                JingJie.xiandi, JingJie.tiandi, JingJie.daodi, JingJie.dizun, JingJie.dijun);
+
+        check("huayuan multiplier", 1.32f, JingJie.jingJieMultiplier(JingJie.huayuan));
+        check("tianqiao multiplier", 2.75f, JingJie.jingJieMultiplier(JingJie.tianqiao));
+        check("xianwang multiplier", 9.5f, JingJie.jingJieMultiplier(JingJie.xianwang));
+        check("realm name round-trips", JingJie.huayuan,
+                JingJie.getByName(JingJie.huayuan.name()));
+
+        CultivationState.playerJingJie = JingJie.tianqiao;
+        check("current tier derives from current realm", XiuWei.shen,
+                CultivationState.currentXiuWei());
+        check("current realm remains exact", JingJie.tianqiao,
+                CultivationState.currentJingJie());
+    }
+
+    private static void checkTier(String label, XiuWei expected, JingJie... realms) {
+        boolean pass = realms.length > 0;
+        for (JingJie realm : realms) {
+            pass &= realm.xiuWei == expected;
+        }
+        ok &= pass;
+        System.out.println("[XIUXIAN] " + label + " tier bindings: " + expected
+                + (pass ? " OK" : " FAIL"));
+    }
+
     private static void testRouteIntegrity() {
         for (int i = 7; i < 15; i++) {
             check("route mirror " + i + " has equal thresholds",
                     JingJie.jiuLu[i].amount, JingJie.xinLu[i].amount);
+            check("route mirror " + i + " has equal multipliers",
+                    JingJie.jiuLu[i].multiplier(), JingJie.xinLu[i].multiplier());
         }
         CVars.chooseNewRoad = false;
         CultivationState.playerJingJie = JingJie.shenwang;
@@ -53,7 +106,7 @@ public class CultivationSystemTest {
         CultivationState.playerMagicPower = JingJie.kaiqiao.amount;
         Events.fire(new JingJieRecalc(CultivationState.playerMagicPower));
         check("first gongfa unlocks kaiqiao", JingJie.kaiqiao, CultivationState.playerJingJie);
-        check("fajing maps to mortal cultivation tier", XiuWei.fan, CultivationState.playerXiuWei);
+        check("fajing maps to mortal cultivation tier", XiuWei.fan, CultivationState.currentXiuWei());
 
         CultivationState.playerMagicPower = 1000f;
         Events.fire(new JingJieRecalc(CultivationState.playerMagicPower));
@@ -71,7 +124,7 @@ public class CultivationSystemTest {
         CultivationState.playerMagicPower = JingJie.weishen.amount;
         Events.fire(new JingJieRecalc(CultivationState.playerMagicPower));
         check("old-road god rank is selected", JingJie.weishen, CultivationState.playerJingJie);
-        check("god rank maps to god cultivation tier", XiuWei.shen, CultivationState.playerXiuWei);
+        check("god rank maps to god cultivation tier", XiuWei.shen, CultivationState.currentXiuWei());
     }
 
     private static void testDuJieFlow() {
@@ -98,6 +151,22 @@ public class CultivationSystemTest {
         check("dujie failure exits active state", false, CultivationState.isInDuJie);
         check("dujie failure resets to mortal", JingJie.fan, CultivationState.playerJingJie);
         check("dujie failure clears available power", 0f, CultivationState.availableMagicPower);
+    }
+
+    private static void testEnemyJingJieSelection() {
+        MagicSpawnGroup group = new MagicSpawnGroup(CUnits.chujia1);
+        group.jingJie = JingJie.huayuan;
+        MagicSpawnGroup copy = group.copy();
+        check("enemy wave realm is copied", JingJie.huayuan, copy.jingJie);
+    }
+
+    private static void testUnitFactory() {
+        CultivationState.playerJingJie = JingJie.huayuan;
+        Magicc playerUnit = (Magicc) UnitSpawner.createPlayer(CUnits.chujia1, Team.sharded);
+        check("player unit uses player realm", JingJie.huayuan, playerUnit.jingJie());
+
+        Magicc enemyUnit = (Magicc) UnitSpawner.create(CUnits.chujia1, Team.crux);
+        check("factory keeps template realm", CUnits.chujia1.jingJie, enemyUnit.jingJie());
     }
 
     private static void testPersistenceRoundTrip() {

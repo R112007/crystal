@@ -33,7 +33,8 @@ public class CoreUnitType extends UnitType implements CoreUnit {
   public float suckRange = 160f, auxiliaryRange = 200f; // 自动吸取范围
   public int unitCapBonus = 10; // 单位容量加成
   public MCoreBlock core;
-  public UnitType unit = UnitTypes.gamma;
+  /** 玩家控制的单位类型；默认由移动核心自身承担，可改成独立单位。 */
+  public UnitType unit;
   public boolean deployDrawWeapon = true;
   public int deployBlockSize;
   public TextureRegion rightTopBase, rightUnderBase, leftTopBase, leftUnderBase;
@@ -42,6 +43,8 @@ public class CoreUnitType extends UnitType implements CoreUnit {
 
   public CoreUnitType(String name) {
     super(name);
+    unit = this;
+    playerControllable = true;
     useUnitCap = false;
     targetPriority = TargetPriority.core;
     core = new MCoreBlock(this.name + "Core") {
@@ -168,11 +171,26 @@ public class CoreUnitType extends UnitType implements CoreUnit {
   }
 
   @Override
+  public UnitType playerUnitType() {
+    return unit;
+  }
+
+  @Override
   public void drawWeapons(Unit unit) {
     Corec corec = (Corec) unit;
     if (corec.deployed() && deployDrawWeapon == false)
       return;
     super.drawWeapons(unit);
+  }
+
+  @Override
+  public void draw(Unit unit) {
+    // Landing is rendered by MobileCoreLaunch at an interpolated height.
+    // Suppress the ground-level draw so the core does not appear twice.
+    if (unit instanceof Corec core && core.landing()) {
+      return;
+    }
+    super.draw(unit);
   }
 
   @Override

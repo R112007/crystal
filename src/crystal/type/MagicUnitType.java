@@ -10,7 +10,7 @@ import arc.struct.Seq;
 import arc.util.Scaling;
 import arc.util.Strings;
 import crystal.entities.shentong.ShenTong;
-import crystal.entities.units.UnitEnum.XiuWei;
+import crystal.entities.units.UnitEnum.JingJie;
 import crystal.game.CEventType.MagicPowerChange;
 import crystal.gen.Magicc;
 import crystal.gen.MechMagicUnit;
@@ -39,11 +39,11 @@ public class MagicUnitType extends UnitType implements MagicUnitInterface {
   public float magicPower = 200f;
   public float magicPowerRegen = 1f;
   public float magicPowerRegenTime = 120f;
-  public XiuWei xiuWei = XiuWei.yong;
+  public JingJie jingJie = JingJie.fan;
   public Seq<ShenTong> shenTongs = new Seq<>();
   public boolean useCircleCoat = true;
   // 被打死获得的修为
-  public float xiuWeiAmount = 1;
+  public float cultivationReward = 1;
 
   public MagicUnitType(String name) {
     super(name);
@@ -76,8 +76,8 @@ public class MagicUnitType extends UnitType implements MagicUnitInterface {
   }
 
   @Override
-  public XiuWei xiuWei() {
-    return xiuWei;
+  public JingJie jingJie() {
+    return jingJie;
   }
 
   @Override
@@ -86,8 +86,8 @@ public class MagicUnitType extends UnitType implements MagicUnitInterface {
   }
 
   @Override
-  public float xiuWeiAmount() {
-    return xiuWeiAmount;
+  public float cultivationReward() {
+    return cultivationReward;
   }
 
   @Override
@@ -117,7 +117,8 @@ public class MagicUnitType extends UnitType implements MagicUnitInterface {
     }
     stats.add(Stat.targetsAir, targetAir);
     stats.add(Stat.targetsGround, targetGround);
-    stats.add(CStat.xiuWei, this.xiuWei.str);
+    stats.add(CStat.jingJie, this.jingJie.str);
+    stats.add(CStat.xiuWei, this.jingJie.xiuWei.str);
     if (this.magicPower > 0) {
       stats.add(CStat.magicPower, this.magicPower);
       stats.add(CStat.magicPowerRegen, this.magicPowerRegen * 60);
@@ -181,7 +182,7 @@ public class MagicUnitType extends UnitType implements MagicUnitInterface {
       bars.row();
       if (unit instanceof Magicc magic) {
         bars.add(
-            new Bar(magic.xiuWei().str + Core.bundle.get("magicpower"), CPal.magicColor1,
+            new Bar(magic.jingJie().str + Core.bundle.get("magicpower"), CPal.magicColor1,
                 () -> magic.magicPower() / magic.maxMagicPower()).blink(Color.white));
         bars.row();
         for (var s : magic.shenTongs()) {
@@ -229,8 +230,10 @@ public class MagicUnitType extends UnitType implements MagicUnitInterface {
 
   @Override
   public void killed(Unit unit) {
-    if (unit.team != Vars.player.team() && Vars.state.isCampaign())
+    if (unit.team != Vars.player.team() && Vars.state.isCampaign()) {
+      JingJie realm = unit instanceof Magicc magic ? magic.jingJie() : jingJie;
       Events.fire(new MagicPowerChange(
-          xiuWeiAmount * (Math.max(1f, XiuWei.xiuWeiMultiplier(xiuWei)))));
+          cultivationReward * Math.max(1f, JingJie.jingJieMultiplier(realm))));
+    }
   }
 }

@@ -113,6 +113,7 @@ allprojects{
         options.apply{
             compilerArgs.add("-Xlint:-options")
             compilerArgs.add("-implicit:none")
+            compilerArgs.add("-parameters")
             compilerArgs.addAll(providers.gradleProperty("org.gradle.jvmargs").get()
                 .split(Regex("\\s+"))
                 .filter{it.startsWith("--add-opens")}
@@ -341,6 +342,34 @@ project(":"){
 
             // Run `d8`.
             providers.exec{commandLine(command)}.result.get().rethrowFailure()
+        }
+        doLast{
+            val requiredClasses = listOf(
+                "crystal/gen/EntityRegistry.class",
+                "crystal/gen/CrawlMagicUnit.class",
+                "crystal/gen/MagicUnit.class",
+                "crystal/gen/MechMagicUnit.class",
+                "crystal/gen/WaterMoveMagicUnit.class",
+                "crystal/gen/RetractableLegsCoreUnit.class"
+            )
+            val artifact = archiveFile.get().asFile
+            JarFile(artifact).use{jarFile ->
+                val entries = jarFile.entries().asSequence().map{it.name}.toSet()
+                val missingClasses = requiredClasses.filter{it !in entries}
+                if(missingClasses.isNotEmpty()){
+                    throw GradleException("Dex artifact is missing generated classes: $missingClasses")
+                }
+
+                val dexEntry = jarFile.getJarEntry("classes.dex")
+                    ?: throw GradleException("Dex artifact is missing classes.dex")
+                val dexText = jarFile.getInputStream(dexEntry).readBytes().toString(Charsets.ISO_8859_1)
+                val missingDescriptors = requiredClasses.map{
+                    "L${it.removeSuffix(".class").replace('.', '/')};"
+                }.filter{it !in dexText}
+                if(missingDescriptors.isNotEmpty()){
+                    throw GradleException("classes.dex is missing generated classes: $missingDescriptors")
+                }
+            }
         }
     }
 

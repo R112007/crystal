@@ -22,8 +22,16 @@ import mindustry.game.EventType.ClientLoadEvent;
 public class CultivationState {
 
   // ==================== 修为与境界 ====================
-  public static XiuWei playerXiuWei = XiuWei.yong;
   public static JingJie playerJingJie = JingJie.fan;
+
+  public static JingJie currentJingJie() {
+    return playerJingJie == null ? JingJie.fan : playerJingJie;
+  }
+
+  /** 当前境界所属的修为档位。档位只由境界决定，不单独存储。 */
+  public static XiuWei currentXiuWei() {
+    return currentJingJie().xiuWei;
+  }
 
   // ==================== 灵力 ====================
   /** 玩家总灵力上限（修为面板显示这个） */

@@ -106,10 +106,11 @@ public class GalDebugDialog extends BaseDialog {
         contentTable.add(new Label("=== 核心运行状态 ===", Styles.defaultLabel))
                 .fontScale(1.2f).left().padBottom(8f).row();
         addDebugRow("当前模块ID", manager.currentModuleId == null ? "无" : manager.currentModuleId);
-        addDebugRow("面板是否显示", String.valueOf(manager.isShowing));
-        addDebugRow("是否正在播放", String.valueOf(manager.isPlaying));
-        addDebugRow("是否自动播放", String.valueOf(manager.isAutoPlay));
-        addDebugRow("是否正在打字", String.valueOf(manager.isTyping));
+        addDebugRow("播放状态", String.valueOf(manager.playbackState()));
+        addDebugRow("面板是否显示", String.valueOf(manager.isShowing()));
+        addDebugRow("是否正在播放", String.valueOf(manager.isPlaying()));
+        addDebugRow("是否自动播放", String.valueOf(manager.isAutoPlay()));
+        addDebugRow("是否正在打字", String.valueOf(manager.isTyping()));
         addDebugRow("上一个角色ID", manager.lastPlayedCharacterId == null ? "无" : manager.lastPlayedCharacterId);
         addDebugRow("自动播放间隔", manager.autoPlayInterval + "s");
         addDebugRow("打字速度", manager.typingSpeed + " 字符/秒");
@@ -188,7 +189,7 @@ public class GalDebugDialog extends BaseDialog {
 
         contentTable.add(new Label("=== 模块等待队列 ===", Styles.defaultLabel))
                 .fontScale(1.2f).left().padBottom(8f).row();
-        Seq<String> waitingIds = GalgameDialogueManager.instance.waitingModuleIds;
+        Seq<String> waitingIds = GalgameDialogueManager.instance.waitingModuleIds();
         if (waitingIds.isEmpty()) {
             contentTable.add(new Label("暂无等待模块", Styles.defaultLabel)).left().pad(4f).row();
         } else {

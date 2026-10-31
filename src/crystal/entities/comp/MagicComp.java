@@ -8,7 +8,7 @@ import crystal.Crystal;
 import crystal.entities.mindustryX.MindustryXUnitc;
 import crystal.entities.shentong.FaTianXiangDi;
 import crystal.entities.shentong.ShenTong;
-import crystal.entities.units.UnitEnum.XiuWei;
+import crystal.entities.units.UnitEnum.JingJie;
 import crystal.gen.FaShen;
 import crystal.gen.Magicc;
 import crystal.gen.MindustryXc;
@@ -46,7 +46,7 @@ abstract class MagicComp implements Unitc, Magicc, MindustryXc {
   public float magicPowerRegen;
   public float magicPowerRegenTime;
   public float timer;
-  public XiuWei xiuWei;
+  public JingJie jingJie;
   public Seq<ShenTong> shenTongs = new Seq<>();
   public float fashenHealthf;
   public boolean inited = false;
@@ -68,10 +68,11 @@ abstract class MagicComp implements Unitc, Magicc, MindustryXc {
       health = 0.0F;
     FaShen faShen = getFaShen();
     if (faShen != null && faShen.isAdded() && faShen.health > 0) {
-      if (faShen.health <= amount * (Mathf.clamp(xiuWei.ordinal() / 4f))) {
+      float fashenGuard = Mathf.clamp(jingJieMultiplier(jingJie) / 4f);
+      if (faShen.health <= amount * fashenGuard) {
         amount -= faShen.health;
       } else {
-        float damage = amount * (Mathf.clamp(xiuWei.ordinal() / 4f));
+        float damage = amount * fashenGuard;
         faShen.damage(damage);
         amount -= damage;
       }
@@ -99,10 +100,11 @@ abstract class MagicComp implements Unitc, Magicc, MindustryXc {
     float shieldDamage = Math.min(Math.max(shield, 0), amount);
     FaShen faShen = getFaShen();
     if (faShen != null && faShen.isAdded() && faShen.health > 0) {
-      if (faShen.health <= amount * (Math.min(xiuWei.ordinal() / 4, 1))) {
+      float fashenGuard = Math.min(jingJieMultiplier(jingJie) / 4f, 1f);
+      if (faShen.health <= amount * fashenGuard) {
         amount -= faShen.health;
       } else {
-        float damage = amount * (Math.min(xiuWei.ordinal() / 4f, 1));
+        float damage = amount * fashenGuard;
         faShen.damage(damage);
         amount -= damage;
       }
@@ -123,15 +125,12 @@ abstract class MagicComp implements Unitc, Magicc, MindustryXc {
     healthChanged();
   }
 
-  public float xiuWeiMultiplier(XiuWei xiuWei) {
-    return switch (xiuWei) {
-      case fan -> 1f;
-      case shen -> 2f;
-      case sheng -> 4f;
-      case xian -> 6f;
-      case dijun -> 10f;
-      default -> 0f;
-    };
+  public JingJie jingJie() {
+    return jingJie;
+  }
+
+  public float jingJieMultiplier(JingJie jingJie) {
+    return JingJie.jingJieMultiplier(jingJie);
   }
 
   @Override
@@ -141,7 +140,7 @@ abstract class MagicComp implements Unitc, Magicc, MindustryXc {
         this.magicPower = magic.magicPower();
         inited = true;
       }
-      this.xiuWei = magic.xiuWei();
+      this.jingJie = magic.jingJie();
       this.maxMagicPower = magic.magicPower();
       this.magicPowerRegen = magic.magicPowerRegen();
       // 【修复】原来误写成 magic.magicPowerRegen()：把回复速率赋给了回复间隔，

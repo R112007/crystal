@@ -18,8 +18,8 @@ import crystal.entities.bullet.ReduceBoostBullet;
 import crystal.entities.shentong.FaTianXiangDi;
 import crystal.entities.shentong.ThunderSkyBlade;
 import crystal.entities.units.MultiStageMechUnit;
+import crystal.entities.units.UnitEnum.JingJie;
 import crystal.entities.units.UnitEnum.Mode;
-import crystal.entities.units.UnitEnum.XiuWei;
 import crystal.gen.FaShenc;
 import crystal.gen.Magicc;
 import crystal.graphics.CPal;
@@ -318,7 +318,7 @@ public class Test {
                         }
 
                 );
-                this.xiuWei = XiuWei.sheng;
+                this.jingJie = JingJie.weisheng;
                 this.magicPowerRegenTime = 60;
                 this.magicPowerRegenTime = 60;
                 this.magicPower = 1000;
@@ -393,7 +393,7 @@ public class Test {
                         }
 
                 );
-                this.xiuWei = XiuWei.dijun;
+                this.jingJie = JingJie.xiandi;
                 this.magicPowerRegenTime = 60;
                 this.magicPowerRegenTime = 60;
                 this.magicPower = 1000;
@@ -485,7 +485,7 @@ public class Test {
                                 };
                             }
                         });
-                this.xiuWei = XiuWei.sheng;
+                this.jingJie = JingJie.weisheng;
                 this.magicPowerRegenTime = 60;
                 this.magicPowerRegenTime = 60;
                 this.magicPower = 1000;

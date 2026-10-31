@@ -26,8 +26,8 @@ import mindustry.gen.*;
 import mindustry.world.Block;
 import mindustry.world.Tile;
 import mindustry.world.blocks.storage.CoreBlock;
-import mindustry.type.UnitType;
-import mindustry.content.UnitTypes;
+import crystal.gen.Corec;
+import crystal.world.blocks.stroage.MobileCoreControlSystem;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -568,69 +568,32 @@ public class TimeRewind {
         Log.info("[CrystalRewind] fixPlayerUnit: player.id=@, unit=@, added=@", Vars.player.id(),
                 u == null ? "null" : u.id(), u == null ? "n/a" : u.isAdded());
 
+        boolean mobileCoreOnly = MobileCoreControlSystem.isEnabledHere();
         if (u != null && !u.isAdded()) {
-            Log.info("[CrystalRewind] fixPlayerUnit: 单位引用失效，清空。");
+            Log.info("[CrystalRewind] fixPlayerUnit: 玩家当前单位与区块控制模式不符，清空。");
             Vars.player.unit((Unit) null);
             u = null;
         }
 
-        if (u == null) {
-            for (Unit unit : Groups.unit) {
-                if (unit.isPlayer()) {
-                    Vars.player.unit(unit);
-                    u = unit;
-                    Log.info("[CrystalRewind] fixPlayerUnit: 在 Groups.unit 中找到归属单位 @ 并绑定。", u.id());
-                    break;
-                }
+        if (mobileCoreOnly) {
+            Corec core = MobileCoreControlSystem.findPlayerCore(Vars.player);
+            if (core == null) {
+                core = MobileCoreControlSystem.createPlayerMobileCore(Vars.player);
+            } else {
+                MobileCoreControlSystem.enforcePlayerControl(Vars.player);
             }
-        }
-
-        if (u == null) {
-            spawnPlayerFromCore();
-        }
-    }
-
-    /** 手动从核心为本地玩家生成单位，避免依赖 CoreBlock.playerSpawn 的远程/条件判断。 */
-    private void spawnPlayerFromCore() {
-        if (Vars.player == null) {
-            Log.warn("[CrystalRewind] spawnPlayerFromCore: Vars.player 为 null。");
-            return;
-        }
-
-        Team team = Vars.player.team();
-        Teams.TeamData data = state.teams.get(team);
-        Log.info("[CrystalRewind] spawnPlayerFromCore: player.team=@, cores.size=@", team,
-                data == null ? "null" : data.cores.size);
-
-        if (data == null || data.cores.size == 0) {
-            Log.warn("[CrystalRewind] spawnPlayerFromCore: 队伍@没有核心，无法重生。", team);
-            return;
-        }
-
-        CoreBlock.CoreBuild core = data.cores.first();
-        if (core == null || core.tile == null || !(core.block instanceof CoreBlock)) {
-            Log.warn("[CrystalRewind] spawnPlayerFromCore: 核心或核心瓦片无效。");
-            return;
-        }
-
-        UnitType type = ((CoreBlock) core.block).unitType;
-        if (type == null) {
-            Log.warn("[CrystalRewind] spawnPlayerFromCore: 核心单位类型为空，回退到 alpha。");
-            type = UnitTypes.alpha;
-        }
-
-        try {
-            Unit unit = type.create(team);
-            unit.set(core);
-            unit.rotation(90f);
-            unit.impulse(0f, 3f);
-            unit.spawnedByCore(true);
-            unit.controller(Vars.player);
-            unit.add();
-            Vars.player.unit(unit);
-            Log.info("[CrystalRewind] spawnPlayerFromCore: 已从核心@生成单位@并绑定到玩家。", core.tile.pos(), unit.id());
-        } catch (Exception e) {
-            Log.err("[CrystalRewind] spawnPlayerFromCore: 手动生成单位失败。", e);
+            if (core != null) {
+                Log.info("[CrystalRewind] fixPlayerUnit: 已绑定移动核心 @ 的玩家单位。", core.id());
+            } else {
+                Log.warn("[CrystalRewind] fixPlayerUnit: 没有可用的移动核心。");
+            }
+        } else if (u == null) {
+            Corec mobileCore = MobileCoreControlSystem.findPlayerCore(Vars.player);
+            if (mobileCore != null) {
+                MobileCoreControlSystem.enforcePlayerControl(Vars.player);
+            } else {
+                Vars.player.checkSpawn();
+            }
         }
     }
 

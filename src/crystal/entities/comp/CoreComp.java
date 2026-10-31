@@ -25,6 +25,7 @@ import crystal.type.CoreUnit;
 import crystal.type.CoreUnitType;
 import crystal.util.FleePathfinder;
 import crystal.world.blocks.stroage.CoreInjector;
+import crystal.world.blocks.stroage.MobileCoreControlSystem;
 import crystal.world.blocks.stroage.MoveCoreSystem;
 import ent.anno.Annotations;
 import ent.anno.Annotations.EntityComponent;
@@ -79,6 +80,7 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
   public ItemModule items = new ItemModule();
   public int storageCapacity;
   public boolean deployed = false;
+  public transient boolean landing = false;
   public transient CoreBuild proxy;
   public float suckRange, // 收取核心机物品范围
       auxiliaryRange;// 挖矿建造范围
@@ -357,7 +359,7 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
     if (timer % 60 == 0) {
       updateClosestCore();
     }
-    if (corec.elevation() > 0 && onSolid() == false) {
+    if (!landing && corec.elevation() > 0 && onSolid() == false) {
       corec.elevation(0.0F);
     }
     if (deployed) {
@@ -592,18 +594,10 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
   }
 
   public void spawnPlayer(Player player) {
-    UnitType spawnType = ((CoreUnitType) type()).unit;
-    Fx.spawn.at(this);
-    player.set(this);
-    if (!net.client()) {
-      Unit unit = spawnType.create(team());
-      unit.set(this);
-      unit.rotation(90f);
-      unit.impulse(0f, 3f);
-      unit.spawnedByCore(true);
-      unit.controller(player);
-      unit.add();
+    if (dead()) {
+      return;
     }
+    MobileCoreControlSystem.spawnPlayerFromCore(player, self());
   }
 
   public boolean acceptItem(Building source, Item item) {

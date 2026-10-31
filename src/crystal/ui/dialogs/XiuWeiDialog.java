@@ -12,6 +12,7 @@ import crystal.content.GongFas;
 import crystal.core.FaBaoSystem;
 import crystal.core.PlayerXiuWeiSystem;
 import crystal.entities.units.UnitEnum.JingJie;
+import crystal.entities.units.UnitEnum.XiuWei;
 import crystal.magic.FaBao;
 import crystal.type.GongFa;
 import mindustry.gen.Tex;
@@ -57,11 +58,11 @@ public class XiuWeiDialog extends BaseDialog {
   /** 头部：修为标签 + 大号境界名（随修为档位变色）+ 道号 */
   private void buildHeader(Table t) {
     JingJie cur = CultivationState.playerJingJie == null ? JingJie.fan : CultivationState.playerJingJie;
-    Color rankColor = CultivationState.playerXiuWei == null ? Color.white : CultivationState.playerXiuWei.color;
+    XiuWei rank = CultivationState.currentXiuWei();
+    Color rankColor = rank.color;
 
     t.table(Styles.black6, head -> {
-      head.add(Core.bundle.get("stat.xiuwei") + " · " +
-          (CultivationState.playerXiuWei == null ? "" : CultivationState.playerXiuWei.str))
+      head.add(Core.bundle.get("stat.xiuwei") + " · " + rank.str)
           .color(rankColor).padTop(4f);
       head.row();
       head.add(cur.str).color(rankColor).get().setFontScale(2.2f);
@@ -85,8 +86,7 @@ public class XiuWeiDialog extends BaseDialog {
     t.table(Styles.black6, p -> {
       Bar bar = new Bar(
           () -> String.format("%.1f", CultivationState.playerMagicPower) + " / " + (maxed ? "MAX" : String.valueOf((long) to)),
-          () -> (CultivationState.playerXiuWei == null ? Color.white : CultivationState.playerXiuWei.color)
-              .cpy().lerp(Color.white, 0.2f),
+          () -> CultivationState.currentXiuWei().color.cpy().lerp(Color.white, 0.2f),
           () -> maxed ? 1f : Mathf.clamp((CultivationState.playerMagicPower - from) / (to - from)));
       bar.blink(Color.white);
       p.add(bar).growX().height(46f).pad(6f);

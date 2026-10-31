@@ -33,8 +33,8 @@ public class MagicWaveDialog extends BaseDialog {
   private static final int maxWave = 200;
 
   private Label currentWaveLabel;
-  private Label currentWaveXiuWeiLabel;
-  private Label totalXiuWeiLabel;
+  private Label currentWaveCultivationLabel;
+  private Label totalCultivationLabel;
   private Table detailsTable;
 
   public MagicWaveDialog() {
@@ -98,14 +98,14 @@ public class MagicWaveDialog extends BaseDialog {
 
       // ---- 当前波次修为 ----
       t.add("@magicwave.current").color(Pal.accent).fontScale(1.1f).row();
-      currentWaveXiuWeiLabel = t.add("0").style(Styles.outlineLabel).padBottom(16f).get();
-      currentWaveXiuWeiLabel.setFontScale(1.4f);
+      currentWaveCultivationLabel = t.add("0").style(Styles.outlineLabel).padBottom(16f).get();
+      currentWaveCultivationLabel.setFontScale(1.4f);
       t.row();
 
       // ---- 累计修为 ----
       t.add("@magicwave.total").color(Pal.accent).fontScale(1.1f).row();
-      totalXiuWeiLabel = t.add("0").style(Styles.outlineLabel).padBottom(16f).get();
-      totalXiuWeiLabel.setFontScale(1.4f);
+      totalCultivationLabel = t.add("0").style(Styles.outlineLabel).padBottom(16f).get();
+      totalCultivationLabel.setFontScale(1.4f);
       t.row();
 
       // ---- 详细列表 ----
@@ -125,31 +125,31 @@ public class MagicWaveDialog extends BaseDialog {
     // 获取当前扇区的 rules
     Rules rules = state.rules;
     if (rules == null || rules.spawns == null) {
-      currentWaveXiuWeiLabel.setText("0");
-      totalXiuWeiLabel.setText("0");
+      currentWaveCultivationLabel.setText("0");
+      totalCultivationLabel.setText("0");
       clearDetails();
       return;
     }
 
     Seq<SpawnGroup> spawns = rules.spawns;
     if (spawns == null || spawns.isEmpty()) {
-      currentWaveXiuWeiLabel.setText("0");
-      totalXiuWeiLabel.setText("0");
+      currentWaveCultivationLabel.setText("0");
+      totalCultivationLabel.setText("0");
       clearDetails();
       return;
     }
 
     // 计算当前波次的修为总量
-    float currentWaveXiuWei = calculateWaveXiuWei(spawns, waveIndex);
+    float currentWaveCultivation = calculateWaveCultivation(spawns, waveIndex);
 
     // 计算从第1波到当前波次的累计修为
-    float totalXiuWei = 0f;
+    float totalCultivation = 0f;
     for (int i = 0; i <= waveIndex; i++) {
-      totalXiuWei += calculateWaveXiuWei(spawns, i);
+      totalCultivation += calculateWaveCultivation(spawns, i);
     }
 
-    currentWaveXiuWeiLabel.setText(Strings.autoFixed(currentWaveXiuWei, 2));
-    totalXiuWeiLabel.setText(Strings.autoFixed(totalXiuWei, 2));
+    currentWaveCultivationLabel.setText(Strings.autoFixed(currentWaveCultivation, 2));
+    totalCultivationLabel.setText(Strings.autoFixed(totalCultivation, 2));
 
     // 更新详细列表
     updateDetails(spawns, waveIndex);
@@ -162,7 +162,7 @@ public class MagicWaveDialog extends BaseDialog {
    * @param wave   波次（0-based）
    * @return 修为总量
    */
-  float calculateWaveXiuWei(Seq<SpawnGroup> spawns, int wave) {
+  float calculateWaveCultivation(Seq<SpawnGroup> spawns, int wave) {
     float total = 0f;
 
     for (SpawnGroup group : spawns) {
@@ -173,7 +173,7 @@ public class MagicWaveDialog extends BaseDialog {
       UnitType type = group.type;
       // 检查 UnitType 是否实现了 MagicUnitInterface
       if (type instanceof MagicUnitInterface magic) {
-        total += magic.xiuWeiAmount() * spawned;
+        total += magic.cultivationReward() * spawned;
       }
     }
 
@@ -193,12 +193,12 @@ public class MagicWaveDialog extends BaseDialog {
 
       UnitType type = group.type;
       if (type instanceof MagicUnitInterface magic) {
-        result.add(new MagicUnitInfo(type, magic.xiuWeiAmount(), spawned));
+        result.add(new MagicUnitInfo(type, magic.cultivationReward(), spawned));
       }
     }
 
     // 按修为值降序排序
-    result.sort(info -> -info.xiuWeiAmount);
+    result.sort(info -> -info.cultivationReward);
 
     return result;
   }
@@ -244,13 +244,13 @@ public class MagicWaveDialog extends BaseDialog {
         row.add(info.type.localizedName).width(110f).left().ellipsis(true);
 
         // 单个修为值
-        row.add(Strings.autoFixed(info.xiuWeiAmount, 2)).width(80f);
+        row.add(Strings.autoFixed(info.cultivationReward, 2)).width(80f);
 
         // 数量
         row.add("x" + info.count).width(60f);
 
         // 小计
-        float subtotal = info.xiuWeiAmount * info.count;
+        float subtotal = info.cultivationReward * info.count;
         row.add(Strings.autoFixed(subtotal, 2)).width(90f).color(Pal.accent);
       }).growX().row();
     }
@@ -258,7 +258,7 @@ public class MagicWaveDialog extends BaseDialog {
     detailsTable.image().color(Color.darkGray).height(1f).growX().padTop(4f).padBottom(4f).row();
 
     // 当前波次总计
-    float waveTotal = calculateWaveXiuWei(spawns, wave);
+    float waveTotal = calculateWaveCultivation(spawns, wave);
     detailsTable.table(total -> {
       total.defaults().pad(4f);
       total.add("@magicwave.wavetotal").padRight(20f);
@@ -269,12 +269,12 @@ public class MagicWaveDialog extends BaseDialog {
   /** 修为单位信息内部类 */
   static class MagicUnitInfo {
     UnitType type;
-    float xiuWeiAmount;
+    float cultivationReward;
     int count;
 
-    MagicUnitInfo(UnitType type, float xiuWeiAmount, int count) {
+    MagicUnitInfo(UnitType type, float cultivationReward, int count) {
       this.type = type;
-      this.xiuWeiAmount = xiuWeiAmount;
+      this.cultivationReward = cultivationReward;
       this.count = count;
     }
   }

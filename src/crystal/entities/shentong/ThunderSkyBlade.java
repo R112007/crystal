@@ -12,7 +12,7 @@ import arc.scene.ui.layout.Table;
 import arc.util.Time;
 import arc.util.io.Reads;
 import arc.util.io.Writes;
-import crystal.entities.units.UnitEnum.XiuWei;
+import crystal.entities.units.UnitEnum.JingJie;
 import crystal.gen.Magicc;
 import crystal.graphics.CPal;
 import crystal.type.MagicUnitType;
@@ -118,8 +118,8 @@ public class ThunderSkyBlade extends ShenTong {
   }
 
   @Override
-  public XiuWei limitMinXiuWei() {
-    return XiuWei.shen;
+  public JingJie minimumJingJie() {
+    return JingJie.weishen;
   }
 
   @Override
@@ -131,7 +131,7 @@ public class ThunderSkyBlade extends ShenTong {
   // ========== 核心更新逻辑 ==========
   @Override
   public void update(Magicc magic) {
-    if (magic.xiuWei().ordinal() < limitMinXiuWei().ordinal())
+    if (!magic.jingJie().atLeast(minimumJingJie()))
       return;
 
     if (cooldownTimer > 0) {
@@ -151,7 +151,7 @@ public class ThunderSkyBlade extends ShenTong {
 
   // ========== 释放入口 ==========
   public boolean cast(Magicc caster, float targetX, float targetY) {
-    if (caster.xiuWei().ordinal() < limitMinXiuWei().ordinal()
+    if (!caster.jingJie().atLeast(minimumJingJie())
         || cooldownTimer > 0
         || caster.magicPower() < magicCost) {
       return false;
@@ -170,7 +170,7 @@ public class ThunderSkyBlade extends ShenTong {
 
   // ========== 核心劈砍逻辑 ==========
   private void executeStrike(Magicc caster) {
-    float damageMult = caster.xiuWeiMultiplier(caster.xiuWei());
+    float damageMult = caster.jingJieMultiplier(caster.jingJie());
     float realDamage = baseDamage * damageMult;
 
     strikeEffect.at(targetX, targetY, 0, caster.team().color, caster);
@@ -272,11 +272,11 @@ public class ThunderSkyBlade extends ShenTong {
   // ========== UI属性展示 ==========
   @Override
   public void setStat(MagicUnitType magic, Table table) {
-    if (magic.xiuWei.ordinal() < limitMinXiuWei().ordinal()) {
+    if (!magic.jingJie().atLeast(minimumJingJie())) {
       table.add(Core.bundle.get("toolowxiuwei"));
       return;
     }
-    float mult = XiuWei.xiuWeiMultiplier(magic.xiuWei);
+    float mult = JingJie.jingJieMultiplier(magic.jingJie);
     table.add(Core.bundle.get("thunderskyblade.basedamage") + ": " + (int) (baseDamage * mult)).row();
     table.add(Core.bundle.get("thunderskyblade.cooldown") + ": " + (int) (cooldown / 60) + "秒").row();
     table.add(Core.bundle.get("thunderskyblade.magiccost") + ": " + (int) magicCost).row();
@@ -288,7 +288,7 @@ public class ThunderSkyBlade extends ShenTong {
   // ========== 状态栏冷却条 ==========
   @Override
   public void setBar(Magicc magic, Table table) {
-    if (magic.xiuWei().ordinal() < limitMinXiuWei().ordinal())
+    if (!magic.jingJie().atLeast(minimumJingJie()))
       return;
     table.add(
         new Bar(Core.bundle.get("shengtong.thunderskyblade"), CPal.light_blue1, () -> 1f - cooldownTimer / cooldown))

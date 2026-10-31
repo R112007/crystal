@@ -1,10 +1,10 @@
 package crystal.ui.gal;
 
 import arc.Core;
-import arc.graphics.Color;
 import arc.scene.ui.Dialog;
 import arc.scene.ui.layout.Scl;
 import arc.util.Align;
+import arc.util.Log;
 import mindustry.ui.Styles;
 import mindustry.ui.dialogs.BaseDialog;
 
@@ -26,49 +26,25 @@ public class ModuleReplayDialog extends BaseDialog {
         // 全黑背景
         setBackground(Styles.black);
         cont.setBackground(Styles.black);
-        setSize(Core.graphics.getWidth() * 0.9f, Core.graphics.getHeight() * 0.3f);
-        setPosition(Core.graphics.getWidth() / 2, scl(20f), Align.center);
+        setFillParent(true);
         // 创建隔离的回放 Manager，不注册战役事件、不创建继续按钮
-        manager = new GalgameDialogueManager(true) {
-            @Override
-            public void show() {
-                if (isShowing)
-                    return;
-                isShowing = true;
-                ui.updateVisibility();
-            }
-
-            @Override
-            public void hide() {
-                if (!isShowing)
-                    return;
-                isShowing = false;
-                isPlaying = false;
-                isTyping = false;
-                isAutoPlay = false;
-                cachedAutoPlayBeforeOption = false;
-                stopAutoPlay();
-                dialogueQueue.clear();
-                currentLine = null;
-                lastPlayedCharacterId = null;
-                ui.reset();
-                isPlayingModule = false;
-                // UI 由对话框托管，这里不 remove；只在对话框仍显示时关闭它
-                if (ModuleReplayDialog.this.visible) {
-                    ModuleReplayDialog.this.hide();
-                }
-            }
-        };
+        manager = new GalgameDialogueManager(true);
+        manager.hostExternally(() -> {
+            if (ModuleReplayDialog.this.visible) ModuleReplayDialog.this.hide();
+        });
 
         // 副本播放不需要历史、快速推进和强制跳过按钮
         manager.ui.historyBtn.visible = false;
 
-        cont.add(manager.ui).grow();
+        addCloseButton();
 
         // 用户手动关闭对话框时一并清理 Manager
         hidden(() -> {
-            if (manager.isShowing)
-                manager.hide();
+            Log.info("[GAL] replay dialog hidden");
+            manager.externalHostClosed();
+            if (manager.ui.hasParent()) {
+                manager.ui.remove();
+            }
         });
     }
 
@@ -82,7 +58,29 @@ public class ModuleReplayDialog extends BaseDialog {
 
     @Override
     public Dialog show() {
-        manager.replayModule(module);
-        return super.show();
+        Log.info("[GAL] replay dialog show");
+        Dialog result = super.show();
+        if (!manager.ui.hasParent()) {
+            Core.scene.root.addChild(manager.ui);
+        }
+        manager.ui.toFront();
+        manager.ui.update(() -> {
+            // BaseDialog brings itself to the front while shown. Keep the
+            // externally hosted dialogue layer above that full-screen black
+            // host so its text, sprites and choice buttons remain visible.
+            manager.ui.toFront();
+        });
+        Log.info("[GAL] replay ui attached parent=@, x=@, y=@, w=@, h=@",
+            manager.ui.parent != null, manager.ui.getX(Align.bottomLeft),
+            manager.ui.getY(Align.bottomLeft),
+            manager.ui.getWidth(), manager.ui.getHeight());
+        // The hosted UI must be attached to the scene before playback starts,
+        // otherwise its typing update and visibility state never begin.
+        Core.app.post(() -> {
+            Log.info("[GAL] replay post-start module=@", module.moduleId);
+            manager.replayModule(module);
+            Log.info("[GAL] replay started state=@", manager.playbackState());
+        });
+        return result;
     }
 }

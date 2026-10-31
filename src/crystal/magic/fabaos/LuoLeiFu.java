@@ -19,7 +19,7 @@ public class LuoLeiFu extends FaBao {
     super("luoleifu", "落雷符");
     range = 8 * 10f;
     rangeColor = Color.gold;
-    effectedByXiuWei = true;
+    scalesWithJingJie = true;
   }
 
   @Override

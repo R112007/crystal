@@ -1,12 +1,12 @@
 package crystal.content;
 
-import mindustry.type.SectorPreset;
+import crystal.type.MobileCoreSectorPreset;
 
 public class LxMaps {
-  public static SectorPreset jianglindian, jingliuduanxia;
+  public static MobileCoreSectorPreset jianglindian, jingliuduanxia;
 
   public static void load() {
-    jianglindian = new SectorPreset("jianglindian", CPlanets.lx, 0) {
+    jianglindian = new MobileCoreSectorPreset("jianglindian", CPlanets.lx, 0) {
       {
         this.alwaysUnlocked = true;
         this.difficulty = 1;
@@ -15,7 +15,7 @@ public class LxMaps {
         this.startWaveTimeMultiplier = 3f;
       }
     };
-    jingliuduanxia = new SectorPreset("jingliuduanxia", CPlanets.lx, 96) {
+    jingliuduanxia = new MobileCoreSectorPreset("jingliuduanxia", CPlanets.lx, 96) {
       {
         this.difficulty = 1;
         this.captureWave = 40;

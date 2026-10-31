@@ -36,7 +36,9 @@ public class MagicWaves {
 
             @Override
             public SpawnGroup read(Json json, JsonValue data, Class type) {
-                SpawnGroup group = data.has("shenTongId") ? new MagicSpawnGroup() : new SpawnGroup();
+                SpawnGroup group = data.has("shenTongId") || data.has("jingJie")
+                        ? new MagicSpawnGroup()
+                        : new SpawnGroup();
                 group.read(json, data);
                 return group;
             }

@@ -15,7 +15,6 @@ import crystal.game.CEventType.DuJieStartEvent;
 import crystal.game.CEventType.GongFaBuQuanEvent;
 import crystal.game.CEventType.JingJieRecalc;
 import crystal.game.CEventType.MagicPowerChange;
-import crystal.game.CEventType.XiuWeiRecalc;
 import crystal.type.GongFa;
 import crystal.ui.dialogs.XiuWeiDialog;
 import crystal.util.DLog;
@@ -82,7 +81,6 @@ public class PlayerXiuWeiSystem {
     CultivationState.playerMagicPower = 0f;
     CultivationState.availableMagicPower = 0f;
     CultivationState.playerJingJie = JingJie.fan;
-    CultivationState.playerXiuWei = XiuWei.yong;
     CultivationState.currentAvailableJingJie.clear();
     CultivationState.currentAvailableJingJie.add(JingJie.fan);
     CultivationState.pendingDuJieJingJie = null;
@@ -104,7 +102,6 @@ public class PlayerXiuWeiSystem {
     saveCurrentAvailableJingJie();
     saveDuJieState();
     Events.fire(new JingJieRecalc(0f));
-    Events.fire(new XiuWeiRecalc(CultivationState.playerJingJie));
 
     if (target != null) {
       Events.fire(new DuJieEndEvent(target, false));
@@ -120,7 +117,13 @@ public class PlayerXiuWeiSystem {
         table.table(null, t -> {
           t.button(xiuWei.str,
               () -> {
-                CultivationState.playerXiuWei = xiuWei;
+                JingJie[] route = CVars.chooseNewRoad ? JingJie.xinLu : JingJie.jiuLu;
+                for (JingJie jingJie : route) {
+                  if (jingJie.xiuWei == xiuWei) {
+                    CultivationState.playerJingJie = jingJie;
+                    break;
+                  }
+                }
               });
         }).size(100, 70);
         table.center().left().update(() -> {
@@ -151,8 +154,6 @@ public class PlayerXiuWeiSystem {
       }
       if (CultivationState.playerJingJie == null)
         CultivationState.playerJingJie = JingJie.fan;
-      if (CultivationState.playerXiuWei == null)
-        CultivationState.playerXiuWei = XiuWei.yong;
 
       Events.run(Trigger.update, PlayerXiuWeiSystem::tickDuJieCheck);
       Events.run(Trigger.update, PlayerXiuWeiSystem::regenMagicPower);
@@ -279,7 +280,6 @@ public class PlayerXiuWeiSystem {
         // 弹窗有自己的 60s 冷却（showDuJieConfirm 内），不再受 toast 冷却门控
         showDuJieConfirm(needDuJieJingJie);
 
-        Events.fire(new XiuWeiRecalc(CultivationState.playerJingJie));
         return;
       }
 
@@ -296,24 +296,7 @@ public class PlayerXiuWeiSystem {
         Vars.ui.hudfrag.showToast(Icon.down, Core.bundle.get("xiuweidieluo") + finalTargetJingJie.str);
       }
 
-      Events.fire(new XiuWeiRecalc(CultivationState.playerJingJie));
       DLog.info("当前境界更新为：" + finalTargetJingJie.str + "，当前灵力：" + CultivationState.playerMagicPower);
-    });
-
-    Events.on(XiuWeiRecalc.class, e -> {
-      if (JingJie.fajing.contains(e.jingJie)) {
-        CultivationState.playerXiuWei = XiuWei.fan;
-      } else if (JingJie.shenjing.contains(e.jingJie)) {
-        CultivationState.playerXiuWei = XiuWei.shen;
-      } else if (JingJie.shengjing.contains(e.jingJie)) {
-        CultivationState.playerXiuWei = XiuWei.sheng;
-      } else if (JingJie.xianjing.contains(e.jingJie)) {
-        CultivationState.playerXiuWei = XiuWei.xian;
-      } else if (JingJie.dijing.contains(e.jingJie)) {
-        CultivationState.playerXiuWei = XiuWei.dijun;
-      } else {
-        CultivationState.playerXiuWei = XiuWei.yong;
-      }
     });
 
     Events.on(MagicPowerChange.class, e -> {

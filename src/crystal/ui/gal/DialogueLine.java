@@ -294,7 +294,7 @@ public class DialogueLine {
         copy.rightSprite = this.rightSprite;
         copy.content = this.content;
         copy.key = this.key;
-        copy.inlineImages = this.inlineImages;
+        copy.inlineImages = new Seq<>(this.inlineImages);
         // 选项文案保留；分支引用保留以便回溯/回放时跳转到分支剧情，回调置空避免重复触发游戏功能
         if (this.options != null) {
             copy.options = new DialogueOption[this.options.length];
@@ -313,28 +313,12 @@ public class DialogueLine {
     }
 
     /**
-     * 创建用于模块回放副本的副本：文本、角色、立绘、表情、选项、回调与动作均保留。
-     * 回调引用被共享（闭包上下文不变），但 DialogueLine 实例是新的，避免影响原模块进度。
+     * 创建用于模块回放副本的副本。
+     * 回放必须保持只读：保留展示数据和纯 UI 动作，但不复制任何可能修改游戏状态的闭包。
      */
     public DialogueLine copyForReplay() {
         DialogueLine copy = copyForHistory();
-        copy.spriteEnterAction = this.spriteEnterAction;
-        copy.spriteExitAction = this.spriteExitAction;
-        copy.spriteActionLegacy = this.spriteActionLegacy;
-        copy.onComplete = this.onComplete;
-        copy.beforePlay = this.beforePlay;
         copy.spriteAction = this.spriteAction;
-        if (this.options != null) {
-            copy.options = new DialogueOption[this.options.length];
-            for (int i = 0; i < this.options.length; i++) {
-                DialogueOption o = this.options[i];
-                if (o.branch != null) {
-                    copy.options[i] = new DialogueOption(o.optionText, o.branch, o.onSelect);
-                } else {
-                    copy.options[i] = new DialogueOption(o.optionText, o.onSelect);
-                }
-            }
-        }
         return copy;
     }
 

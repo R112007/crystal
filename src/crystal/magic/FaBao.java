@@ -14,7 +14,7 @@ import arc.struct.ObjectMap;
 import arc.struct.Seq;
 import arc.util.Nullable;
 import crystal.CVars;
-import crystal.entities.units.UnitEnum.XiuWei;
+import crystal.entities.units.UnitEnum.JingJie;
 import mindustry.Vars;
 import mindustry.game.EventType.ClientLoadEvent;
 import mindustry.gen.Icon;
@@ -47,7 +47,7 @@ public abstract class FaBao {
   /** 松手即生效（保留骨架语义） */
   public boolean instantWork;
   /** 效果数值是否受修为档位加成（见 powerScale()） */
-  public boolean effectedByXiuWei;
+  public boolean scalesWithJingJie;
   public boolean update;
   /** 作用半径（世界单位，1 格 = 8），默认瞄准圈用 */
   public float range = 8 * 8f;
@@ -115,11 +115,11 @@ public abstract class FaBao {
   }
 
   /**
-   * 效果数值倍率：effectedByXiuWei = true 时随玩家修为档位放大
+   * 效果数值倍率：scalesWithJingJie = true 时随玩家当前境界放大
    * （yong×1.1 / fan×2 / shen×3 / sheng×5 / xian×7 / dijun×11）
    */
   protected float powerScale() {
-    return effectedByXiuWei ? XiuWei.xiuWeiMultiplier(CultivationState.playerXiuWei) + 1f : 1f;
+    return scalesWithJingJie ? JingJie.jingJieMultiplier(CultivationState.currentJingJie()) + 1f : 1f;
   }
 
   /** 懒加载图标（构造时 atlas 未就绪），atlas 键 fabao-<fullName>，缺失用通用图标兜底 */

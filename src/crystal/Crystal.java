@@ -26,7 +26,6 @@ import crystal.content.CrystalTechTree;
 import crystal.content.FaBaos;
 import crystal.content.GongFas;
 import crystal.content.LxMaps;
-import crystal.content.MuchLoadUnit;
 import crystal.content.SpecialUnits;
 import crystal.content.hzr.HZRBlocks;
 import crystal.core.Affection;
@@ -38,6 +37,7 @@ import crystal.core.UnitInfoSystem;
 import crystal.editor.MagicWaves;
 import crystal.entities.shentong.FaTianXiangDi;
 import crystal.entities.shentong.ShenTong;
+import crystal.entities.shentong.ThunderSkyBlade;
 import crystal.entities.units.CardUpgradeUnitEntity;
 import crystal.entities.units.MultiStageMechUnit;
 import crystal.entities.units.SummonUnit;
@@ -53,13 +53,13 @@ import crystal.ui.CStyles;
 import crystal.ui.FaBaoHUD;
 import crystal.ui.Hints;
 import crystal.ui.dialogs.CPlanetDialog;
-import crystal.ui.dialogs.MobileLaunchLoadoutDialog;
 import crystal.util.DLog;
 import crystal.util.PlotBundle;
 import crystal.world.asteroid.AsteroidBeltSystem;
 import crystal.world.blocks.payloads.UnitLaunchPayload;
 import crystal.world.blocks.stroage.MoveBlockSystem;
 import crystal.world.blocks.stroage.MoveCoreSystem;
+import crystal.world.blocks.stroage.MobileCoreControlSystem;
 import crystal.world.time.TimeRewind;
 import mindustry.Vars;
 import mindustry.core.UI;
@@ -129,13 +129,9 @@ public class Crystal extends Mod {
     CAsteroidBelts.load();
     LxMaps.load();
     CrystalTechTree.load();
-    try {
-      MuchLoadUnit.load();
-    } catch (IllegalAccessException e) {
-      throw new RuntimeException(e);
-    }
     MoveBlockSystem.init();
     MoveCoreSystem.init();
+    MobileCoreControlSystem.init();
     Log.info("Have Loaded All Contents!");
   }
 
@@ -194,6 +190,7 @@ public class Crystal extends Mod {
   public void registerShenTongs() {
     ShenTong.shengTongMap.clear();
     ShenTong.shengTongMap.put(0, new FaTianXiangDi(0, 0, 0, 0));
+    ShenTong.shengTongMap.put(1, new ThunderSkyBlade());
   }
 
   public void loadlog() {
@@ -219,7 +216,6 @@ public class Crystal extends Mod {
     Events.on(ClientLoadEvent.class, e -> {
       constructor();
     });
-    MobileLaunchLoadoutDialog.init();
     CIcons.load();
     CSettings.load();
     replaceUI();
@@ -227,7 +223,6 @@ public class Crystal extends Mod {
       update();
     });
     SummonUnit.init();
-    // MuchLoadUnit.addTab();
     timeRewind = new TimeRewind();
     // 在逻辑更新前驱动：正向时捕获快照，回溯时恢复旧快照
     Events.run(Trigger.beforeGameUpdate, () -> {

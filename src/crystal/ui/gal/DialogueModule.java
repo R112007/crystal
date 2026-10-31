@@ -3,8 +3,8 @@ package crystal.ui.gal;
 import arc.Core;
 import arc.struct.ObjectSet;
 import arc.struct.Seq;
-import crystal.util.DLog;
-import mindustry.io.JsonIO;
+
+import java.util.function.Function;
 
 /**
  * 对话模块，用于分组管理对话节点。
@@ -136,8 +136,12 @@ public class DialogueModule {
 
   /** 检查前置模块是否已完成（无前置直接返回true） */
   public boolean prerequisiteMet() {
+    return prerequisiteMet(GalgameDialogueManager.instance::getModule);
+  }
+
+  public boolean prerequisiteMet(Function<String, DialogueModule> resolver) {
     if (prerequisiteModuleId == null || prerequisiteModuleId.isEmpty()) return true;
-    DialogueModule pre = GalgameDialogueManager.instance.getModule(prerequisiteModuleId);
+    DialogueModule pre = resolver.apply(prerequisiteModuleId);
     return pre != null && pre.isCompleted;
   }
 
@@ -177,31 +181,20 @@ public class DialogueModule {
   }
 
   public void saveModuleData() {
-    String branchIdsJson = JsonIO.json.toJson(this.branchIds);
-    Core.settings.put("gal_module_branch_" + this.moduleId, branchIdsJson);
-    Core.settings.put("gal_module_progress_" + this.moduleId, this.progressIndex);
-    Core.settings.put("gal_module_completed_" + this.moduleId, this.isCompleted);
-    Core.settings.forceSave();
+    DialoguePersistence.saveModule(this);
   }
 
   public void loadModuleData() {
     history.clear();
     playedNodeSet.clear();
-    String branchIdsJson = Core.settings.getString("gal_module_branch_" + this.moduleId, "[]");
-    try {
-      Seq<String> savedBranchIds = JsonIO.json.fromJson(Seq.class, branchIdsJson);
-      this.branchIds.set(savedBranchIds);
-    } catch (Exception e) {
-      DLog.err("加载分支失败: " + this.moduleId, e);
-      this.branchIds.clear();
-    }
+    DialoguePersistence.SavedModule saved = DialoguePersistence.loadModule(moduleId);
+    branchIds.set(saved.branchIds);
     rebuildDialogueNodes();
-    this.progressIndex = Core.settings.getInt("gal_module_progress_" + this.moduleId, 0);
+    this.progressIndex = saved.progressIndex;
     // 完成状态以存档标记为准，并且要求进度确实走完。
     // 不能只比 progressIndex >= size：停在"选项节点"时进度也等于节点数，
     // 但分支还没选、后面的分支节点也还没追加，只比大小会把没选分支的模块误判成已完成。
-    boolean savedCompleted = Core.settings.getBool("gal_module_completed_" + this.moduleId, false);
-    this.isCompleted = savedCompleted && this.progressIndex >= this.dialogueNodes.size;
+    this.isCompleted = saved.completed && this.progressIndex >= this.dialogueNodes.size;
 
     if (isCompleted) {
       for (DialogueLine d : dialogueNodes) {

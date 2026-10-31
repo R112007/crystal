@@ -17,7 +17,7 @@ import arc.util.io.Reads;
 import arc.util.io.Writes;
 import crystal.entities.effect.MultiEffect;
 import crystal.entities.effect.SeqEffect;
-import crystal.entities.units.UnitEnum.XiuWei;
+import crystal.entities.units.UnitEnum.JingJie;
 import crystal.gen.FaShen;
 import crystal.gen.Magicc;
 import crystal.graphics.CPal;
@@ -298,12 +298,12 @@ public class FaTianXiangDi extends ShenTong {
 
   @Override
   public void setStat(MagicUnitType magic, Table table) {
-    if (magic.xiuWei.ordinal() < limitMinXiuWei().ordinal()) {
+    if (!magic.jingJie.atLeast(minimumJingJie())) {
       table.add(Core.bundle.get("tooLowXiuwei"));
       return;
     }
     table.add(
-        Core.bundle.get("fatianxiangdi.multiplier") + ":" + baseMultiplier * XiuWei.xiuWeiMultiplier(magic.xiuWei));
+        Core.bundle.get("fatianxiangdi.multiplier") + ":" + baseMultiplier * JingJie.jingJieMultiplier(magic.jingJie));
     table.row();
     table.add(Core.bundle.get("fatianxiangdi.sizemultiplier") + ":" + getSizeMultiplier(magic));
     table.row();
@@ -316,23 +316,24 @@ public class FaTianXiangDi extends ShenTong {
     table.add(Core.bundle.get("fatianxiangdi.restoreTime") + ":" + restoreTime / 60);
     table.row();
     table.add(Core.bundle.get("fatianxiangdi.healthf") + ":"
-        + magic.health * baseMultiplier * XiuWei.xiuWeiMultiplier(magic.xiuWei));
+        + magic.health * baseMultiplier * JingJie.jingJieMultiplier(magic.jingJie));
     table.row();
     table.add(Core.bundle.get("fatianxiangdi.specialArmorMultiplier") + ":"
-        + 100 * Math.min(magic.xiuWei.ordinal() / 4f, 1) + "%");
+        + 100 * Math.min(JingJie.jingJieMultiplier(magic.jingJie) / 4f, 1) + "%");
     table.row();
   }
 
   @Override
   public void setBar(Magicc magic, Table bars) {
     bars.add(
-        new Bar(Core.bundle.get("fatianxiangdi.healthf"), magic.xiuWei().color, () -> healthf).blink(Color.white))
+        new Bar(Core.bundle.get("fatianxiangdi.healthf"), magic.jingJie().xiuWei.color, () -> healthf)
+            .blink(Color.white))
         .row();
   }
 
   @Override
   public void update(Magicc magic) {
-    if (magic.xiuWei().ordinal() < limitMinXiuWei().ordinal()) {
+    if (!magic.jingJie().atLeast(minimumJingJie())) {
       return;
     }
     if (isCreating) {
@@ -393,8 +394,8 @@ public class FaTianXiangDi extends ShenTong {
       }
       fashen.rotation = magic.rotation();
       if (fashen.mounts.length != magic.type().weapons.size) {
-        setWeapon(magic, baseMultiplier * magic.xiuWeiMultiplier(magic.xiuWei()),
-            baseSizeMultiplier * (1 + magic.xiuWeiMultiplier(magic.xiuWei()) / 5));
+        setWeapon(magic, baseMultiplier * magic.jingJieMultiplier(magic.jingJie()),
+            baseSizeMultiplier * (1 + magic.jingJieMultiplier(magic.jingJie()) / 5));
         setWeaponShootPos(getSizeMultiplier(magic));
       }
       if (fashen.dead) {
@@ -409,10 +410,10 @@ public class FaTianXiangDi extends ShenTong {
         return;
       }
       if (fashen.health < fashen.maxHealth && magic.magicPower() > regenAmount) {
-        float realRegen = regenAmount * baseMultiplier * magic.xiuWeiMultiplier(magic.xiuWei());
+        float realRegen = regenAmount * baseMultiplier * magic.jingJieMultiplier(magic.jingJie());
         fashen.heal(realRegen);
         magic.consumeMagic(fashen.maxHealth - fashen.health >= realRegen ? regenAmount
-            : ((fashen.maxHealth - fashen.health) / baseMultiplier) * magic.xiuWeiMultiplier(magic.xiuWei()));
+            : ((fashen.maxHealth - fashen.health) / baseMultiplier) * magic.jingJieMultiplier(magic.jingJie()));
       }
     } else {
       if ((timer += Time.delta) >= restoreTime) {
@@ -423,16 +424,16 @@ public class FaTianXiangDi extends ShenTong {
   }
 
   public float getSizeMultiplier(MagicUnitType magic) {
-    return baseSizeMultiplier * (1 + XiuWei.xiuWeiMultiplier(magic.xiuWei) / 5);
+    return baseSizeMultiplier * (1 + JingJie.jingJieMultiplier(magic.jingJie) / 5);
   }
 
   public float getSizeMultiplier(Magicc magic) {
-    return baseSizeMultiplier * (1 + magic.xiuWeiMultiplier(magic.xiuWei()) / 5);
+    return baseSizeMultiplier * (1 + magic.jingJieMultiplier(magic.jingJie()) / 5);
   }
 
   @Override
-  public XiuWei limitMinXiuWei() {
-    return XiuWei.fan;
+  public JingJie minimumJingJie() {
+    return JingJie.fan;
   }
 
   public void setWeaponShootPos(float sizeMultiplier) {
@@ -521,8 +522,8 @@ public class FaTianXiangDi extends ShenTong {
   }
 
   public void createFaShen(Magicc magic) {
-    float multiplier = baseMultiplier * magic.xiuWeiMultiplier(magic.xiuWei());
-    float sizeMultiplier = baseSizeMultiplier * (1 + magic.xiuWeiMultiplier(magic.xiuWei()) / 5);
+    float multiplier = baseMultiplier * magic.jingJieMultiplier(magic.jingJie());
+    float sizeMultiplier = baseSizeMultiplier * (1 + magic.jingJieMultiplier(magic.jingJie()) / 5);
     FaShen fa = FaShen.create();
     fa.set(magic);
     fa.setField(magic.hitSize(), multiplier, sizeMultiplier, magic.id());

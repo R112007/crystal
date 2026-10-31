@@ -18,6 +18,7 @@ import arc.scene.ui.layout.*;
 import arc.struct.*;
 import arc.util.*;
 import crystal.game.UnitInfo;
+import crystal.type.MobileCoreSectorPreset;
 import crystal.world.blocks.stroage.MoveCoreSystem;
 import crystal.aviation.Satellite;
 import crystal.aviation.SatelliteManager;
@@ -60,7 +61,7 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
     public static float sectorShowDuration = 60f * 2.4f;
 
     public final FrameBuffer buffer = new FrameBuffer(2, 2, true);
-    public final LaunchLoadoutDialog loadouts = new LaunchLoadoutDialog();
+    public final MobileCoreLaunchLoadoutDialog loadouts = new MobileCoreLaunchLoadoutDialog();
     public final PlanetRenderer planets = renderer.planets;
 
     public PlanetParams state = new PlanetParams();
@@ -855,7 +856,10 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
         Table c = expandTable;
         c.clear();
         c.visible(() -> !(graphics.isPortrait() && mobile) && mode != planetLaunch);
-        if (state.planet.sectors.contains(Sector::hasBase)) {
+        boolean hasBases = state.planet.sectors.contains(Sector::hasBase);
+        boolean hasLaunchablePresets = state.planet.sectors.contains(
+                sector -> sector.preset != null && canSelect(sector));
+        if (hasBases || hasLaunchablePresets) {
             int attacked = state.planet.sectors.count(Sector::isAttacked);
 
             // sector notifications & search
@@ -887,7 +891,9 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
 
         notifs.clear();
 
-        var all = state.planet.sectors.select(Sector::hasBase);
+        var all = state.planet.sectors.select(
+                sector -> sector.hasBase()
+                        || (sector.preset != null && canSelect(sector)));
         all.sort(Structs.comps(Structs.comparingBool(s -> !s.isAttacked()),
                 Structs.comparingInt(s -> s.save == null ? 0 : -(int) s.save.meta.timePlayed)));
 
@@ -908,8 +914,9 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
             readd[0] = () -> {
                 con.clearChildren();
                 for (Sector sec : all) {
-                    if (sec.hasBase()
-                            && (searchText.isEmpty() || sec.name().toLowerCase().contains(searchText.toLowerCase()))) {
+                    if ((sec.hasBase() || (sec.preset != null && canSelect(sec)))
+                            && (searchText.isEmpty()
+                                    || sec.name().toLowerCase().contains(searchText.toLowerCase()))) {
                         con.button(t -> {
                             t.marginRight(10f);
                             t.left();
@@ -1728,9 +1735,21 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
         stable.setPosition(x, y, Align.center);
 
         stable.act(0f);
+        // The detail table is rebuilt after the bottom bar's first layout. Ask
+        // the parent to measure its new height so the full action button is
+        // inside the cell's hit area, not just the part visible at the edge.
+        buttons.invalidateHierarchy();
     }
 
     boolean hasNoCandidate(Sector sector) {
+        if (sector == null || sector.planet == null) {
+            return true;
+        }
+        // Marked sectors are entered directly with their mobile core; no existing
+        // launch point or block core is required for the first landing.
+        if (MobileCoreSectorPreset.isMarked(sector)) {
+            return false;
+        }
         return sector != sector.planet.getStartSector() && !sector.hasBase() && findLauncher(sector) == null;
     }
 
@@ -1739,11 +1758,14 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
     }
 
     boolean canPlaySector(Sector sector) {
-        return !isLocked(sector) && !hasNoCandidate(sector);
+        return sector != null
+                && (canSelect(sector) || MobileCoreSectorPreset.isMarked(sector))
+                && !isLocked(sector)
+                && !hasNoCandidate(sector);
     }
 
     void playSelected() {
-        if (selected == null)
+        if (selected == null || !canPlaySector(selected))
             return;
         lockPlanetReplace = true;
         arc.util.Time.runTask(120f, () -> lockPlanetReplace = false);
@@ -1778,27 +1800,47 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
             Sector from = findLauncher(sector);
 
             if (from == null) {
-                // clear loadout information, so only the basic loadout gets used
-                universe.clearLoadoutInfo();
-                // free launch.
-                control.playSector(sector);
+                if (!MobileCoreSectorPreset.isMarked(sector)) {
+                    // clear loadout information, so only the basic loadout gets used
+                    universe.clearLoadoutInfo();
+                    // free launch.
+                    control.playSector(sector);
+                } else {
+                    // A marked sector's first landing still needs the mobile-core
+                    // launch UI. Use the destination as a zero-inventory origin.
+                    from = sector;
+                }
+            }
+
+            if (from == null) {
+                // Ordinary sectors retain the vanilla free-launch path.
             } else {
+                Sector launchFrom = from;
+                boolean directLanding = launchFrom == sector;
                 CoreBlock block = sector.allowLaunchSchematics()
-                        ? (from.info.bestCoreType instanceof CoreBlock b ? b : (CoreBlock) from.planet.defaultCore)
-                        : (CoreBlock) from.planet.defaultCore;
+                        ? (launchFrom.info.bestCoreType instanceof CoreBlock b ? b
+                                : (CoreBlock) launchFrom.planet.defaultCore)
+                        : (CoreBlock) launchFrom.planet.defaultCore;
 
-                loadouts.show(block, from, sector, () -> {
+                loadouts.show(block, launchFrom, sector, () -> {
                     var loadout = universe.getLastLoadout();
-                    var schemCore = loadout.findCore();
-                    from.removeItems(loadout.requirements());
-                    from.removeItems(universe.getLaunchResources());
-
-                    Events.fire(new SectorLaunchLoadoutEvent(sector, from, loadout));
+                    if (!directLanding) {
+                        if (!loadouts.isMobileCoreLaunch()) {
+                            launchFrom.removeItems(loadout.requirements());
+                        }
+                        launchFrom.removeItems(universe.getLaunchResources());
+                        Events.fire(new SectorLaunchLoadoutEvent(sector, launchFrom, loadout));
+                    }
 
                     CoreBuild core = player.team().core();
-                    if (core == null || settings.getBool("skipcoreanimation")) {
+                    if (directLanding || core == null || settings.getBool("skipcoreanimation")
+                            || loadouts.isMobileCoreLaunch()) {
                         // just... go there
-                        control.playSector(from, sector);
+                        if (directLanding) {
+                            control.playSector(sector);
+                        } else {
+                            control.playSector(launchFrom, sector);
+                        }
                         // hide only after load screen is shown
                         Time.runTask(8f, this::hide);
                     } else {
@@ -1810,14 +1852,15 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
                             Runnable doLaunch = () -> {
                                 renderer.showLaunch(core);
                                 // run with less delay, as the loading animation is delayed by several frames
-                                Time.runTask(core.launchDuration() - 8f, () -> control.playSector(from, sector));
+                                Time.runTask(core.launchDuration() - 8f,
+                                        () -> control.playSector(launchFrom, sector));
                             };
 
                             // load launchFrom sector right before launching so animation is correct
-                            if (!from.isBeingPlayed()) {
+                            if (!launchFrom.isBeingPlayed()) {
                                 // run *after* the loading animation is done
                                 Time.runTask(9f, doLaunch);
-                                control.playSector(from);
+                                control.playSector(launchFrom);
                             } else {
                                 doLaunch.run();
                             }

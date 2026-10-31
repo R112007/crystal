@@ -21,6 +21,7 @@ public class CStat {
   public static final Stat dependfloor;
   public static final Stat maxBlock;
   public static final Stat shenTong;
+  public static final Stat jingJie;
   public static final Stat xiuWei;
   public static final Stat magicPower;
   public static final Stat magicPowerRegenTime;
@@ -60,6 +61,7 @@ public class CStat {
     dependfloor = new Stat("dependfloor", CStatCat.depend);
     maxBlock = new Stat("maxBlock", StatCat.function);
     shenTong = new Stat("shenTong");
+    jingJie = new Stat("jingJie", CStatCat.magic);
     xiuWei = new Stat("xiuWei", CStatCat.magic);
     magicPower = new Stat("magicPower", CStatCat.magic);
     magicPowerRegen = new Stat("magicPowerRegen", CStatCat.magic);

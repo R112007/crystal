@@ -18,6 +18,7 @@ import arc.util.Time;
 import arc.util.Tmp;
 import arc.util.io.Reads;
 import arc.util.io.Writes;
+import crystal.entities.units.UnitSpawner;
 import crystal.game.UnitInfo;
 import mindustry.Vars;
 import mindustry.content.Fx;
@@ -214,7 +215,7 @@ public class UnitReceivePad extends PayloadBlock {
         public void produceUnit(UnitType unitType) {
             if (!canProduce(unitType))
                 return;
-            Unit unit = unitType.create(team);
+            Unit unit = UnitSpawner.createPlayer(unitType, team);
             payload = new UnitPayload(unit);
             if (commandPos != null && unit.isCommandable()) {
                 unit.command().commandPosition(commandPos);

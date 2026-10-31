@@ -5,7 +5,7 @@ import arc.util.Log;
 import arc.util.io.Reads;
 import arc.util.io.Writes;
 import crystal.entities.shentong.ShenTong;
-import crystal.entities.units.UnitEnum.XiuWei;
+import crystal.entities.units.UnitEnum.JingJie;
 import crystal.type.UnitStack;
 import ent.anno.Annotations.TypeIOHandler;
 import mindustry.Vars;
@@ -75,12 +75,12 @@ public class CTypeIO {
     return stacks;
   }
 
-  public static void writeXiuWei(Writes writes, XiuWei xiuWei) {
-    writes.i(xiuWei.ordinal());
+  public static void writeJingJie(Writes writes, JingJie jingJie) {
+    writes.str(jingJie == null ? JingJie.fan.name() : jingJie.name());
   }
 
-  public static XiuWei readXiuWei(Reads reads) {
-    return XiuWei.all[reads.i()];
+  public static JingJie readJingJie(Reads reads) {
+    return JingJie.getByName(reads.str());
   }
 
   public static void writeShenTong(Writes writes, Seq<ShenTong> shenTongs) {
@@ -125,8 +125,8 @@ public class CTypeIO {
           }
 
           @Override
-          public XiuWei limitMinXiuWei() {
-            return XiuWei.yong;
+          public JingJie minimumJingJie() {
+            return JingJie.fan;
           }
         }.read(reads);
         continue;
