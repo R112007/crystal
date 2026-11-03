@@ -4,9 +4,13 @@ import crystal.core.CultivationState;
 import arc.Core;
 import arc.graphics.Color;
 import arc.math.Mathf;
+import arc.scene.ui.ScrollPane;
+import arc.scene.ui.Label;
+import arc.scene.ui.layout.Scl;
 import arc.scene.ui.layout.Table;
 import arc.struct.Seq;
 import arc.util.Scaling;
+import arc.util.Time;
 import crystal.CVars;
 import crystal.content.GongFas;
 import crystal.core.FaBaoSystem;
@@ -27,22 +31,31 @@ import mindustry.ui.dialogs.BaseDialog;
  * 神武仍为预留位：内容从 CultivationState.shenwuHave 读取，系统实装后只需往里填数据。
  */
 public class XiuWeiDialog extends BaseDialog {
-  /** 法宝/神武各预留的槽位数 */
-  private static final int FABAO_SLOTS = 4;
+  /** 神武预留槽位数 */
   private static final int SHENWU_SLOTS = 4;
   /** 内容区宽度（决定文本换行宽度） */
   private static final float CONTENT_WIDTH = 460f;
   private static final Color SECTION_COLOR = Color.gold;
   private static final Color EMPTY_COLOR = Color.valueOf("555577");
+  private float contentWidth = CONTENT_WIDTH;
 
   public XiuWeiDialog() {
     super("", Styles.fullDialog);
-    shown(this::rebuild);
+    shown(() -> {
+      rebuild();
+      toFront();
+    });
+    onResize(this::rebuild);
     addCloseButton();
   }
 
   private void rebuild() {
+    float screenWidth = Core.graphics.getWidth() / Scl.scl(1f);
+    float screenHeight = Core.graphics.getHeight() / Scl.scl(1f);
+    contentWidth = Math.max(240f, Math.min(CONTENT_WIDTH, screenWidth - (Core.graphics.isPortrait() ? 28f : 72f)));
+
     cont.clear();
+    cont.margin(8f);
     cont.pane(t -> {
       t.defaults().pad(4f);
       buildHeader(t);
@@ -52,7 +65,10 @@ public class XiuWeiDialog extends BaseDialog {
       buildFaBaoSlots(t);
       buildSlots(t, Core.bundle.get("shenwu", "神武"), CultivationState.shenwuHave, SHENWU_SLOTS,
           Core.bundle.get("shenwu.empty", "尚未炼化任何神武"));
-    }).growX().width(CONTENT_WIDTH + 20f);
+    }).grow()
+        .width(contentWidth + 20f)
+        .maxHeight(Math.max(260f, screenHeight - 150f))
+        .scrollX(false);
   }
 
   /** 头部：修为标签 + 大号境界名（随修为档位变色）+ 道号 */
@@ -75,24 +91,38 @@ public class XiuWeiDialog extends BaseDialog {
     t.row();
   }
 
-  /** 灵力进度条：当前境界到下一境界的进度，颜色取修为档位色 */
+  /** 灵力条：显示可动用灵力占灵力上限的比例，颜色取修为档位色。 */
   private void buildPowerBar(Table t) {
-    JingJie cur = CultivationState.playerJingJie == null ? JingJie.fan : CultivationState.playerJingJie;
     JingJie next = PlayerXiuWeiSystem.getNextJingJie();
-    float from = cur.amount;
-    float to = next.amount;
-    boolean maxed = to <= from;
+    boolean maxed = next == CultivationState.currentJingJie();
 
     t.table(Styles.black6, p -> {
-      Bar bar = new Bar(
-          () -> String.format("%.1f", CultivationState.playerMagicPower) + " / " + (maxed ? "MAX" : String.valueOf((long) to)),
-          () -> CultivationState.currentXiuWei().color.cpy().lerp(Color.white, 0.2f),
-          () -> maxed ? 1f : Mathf.clamp((CultivationState.playerMagicPower - from) / (to - from)));
-      bar.blink(Color.white);
-      p.add(bar).growX().height(46f).pad(6f);
+      p.table(head -> {
+        Label title = head.add("✦  灵 力 潮 汐  ✦").color(SECTION_COLOR).fontScale(1.05f).get();
+        title.update(() -> title.setColor(SECTION_COLOR.cpy().lerp(
+            Color.white, Mathf.absin(Time.time, 3.5f, 0.28f))));
+        head.add().growX();
+        Label regen = head.add("").color(Color.valueOf("9dffc4")).fontScale(1f).get();
+        regen.update(() -> regen.setText(String.format(
+            "凝聚  +%.2f / 秒", PlayerXiuWeiSystem.magicRegenPerSecond())));
+      }).growX().pad(8f, 12f, 3f, 12f);
       p.row();
-      p.add(Core.bundle.get("nextjingjie") + "：" + next.str + (maxed ? "（MAX）" : ""))
-          .color(Color.lightGray).padBottom(4f);
+
+      Bar bar = new Bar(
+          () -> String.format("%.1f / %.1f",
+              Mathf.clamp(CultivationState.availableMagicPower, 0f, CultivationState.playerMagicPower),
+              CultivationState.playerMagicPower),
+          () -> CultivationState.currentXiuWei().color.cpy().lerp(
+              Color.white, 0.16f + Mathf.absin(Time.time, 6f, 0.12f)),
+          () -> CultivationState.playerMagicPower <= 0f ? 0f
+              : Mathf.clamp(CultivationState.availableMagicPower / CultivationState.playerMagicPower));
+      bar.blink(Color.white);
+      bar.outline(CultivationState.currentXiuWei().color.cpy().a(0.9f), 3f);
+      p.add(bar).growX().height(62f).pad(8f, 10f, 8f, 10f);
+      p.row();
+      p.add(Core.bundle.get("nextjingjie") + "：" + next.str
+          + (maxed ? "（MAX）" : ""))
+          .color(Color.lightGray).fontScale(0.9f).padBottom(6f);
     }).growX().padBottom(6f);
     t.row();
   }
@@ -119,7 +149,7 @@ public class XiuWeiDialog extends BaseDialog {
     String ftext = text;
     Color fcolor = color;
     t.table(Styles.black6, d -> {
-      d.add(ftext).color(fcolor).wrap().width(CONTENT_WIDTH - 20f).pad(6f);
+      d.add(ftext).color(fcolor).wrap().width(contentWidth - 28f).pad(6f);
       // 神途渡劫：实时击杀进度（条件为"击杀100个敌方单位"）
       if (CultivationState.isInDuJie && CultivationState.pendingDuJieJingJie == JingJie.shentu) {
         d.row();
@@ -141,49 +171,57 @@ public class XiuWeiDialog extends BaseDialog {
         g.add(Core.bundle.get("gongfa.empty", "尚未习得功法")).color(EMPTY_COLOR).pad(8f);
         return;
       }
+      int columns = contentWidth < 340f ? 1 : 2;
+      float cardWidth = (contentWidth - 28f) / columns;
       int i = 0;
       for (GongFa gf : list) {
         g.table(Tex.button, card -> {
           card.image(gf.uiIcon()).size(30f).scaling(Scaling.fit);
-          card.add(gf.localizedName).padLeft(5f);
-        }).pad(3f);
-        if (++i % 2 == 0)
+          card.add(gf.localizedName).padLeft(5f).wrap().left().growX();
+        }).width(cardWidth).pad(3f).left();
+        if (++i % columns == 0)
           g.row();
       }
     }).growX().padBottom(6f);
     t.row();
   }
 
-  /** 法宝槽位区：读 FaBaoSystem 真实持有数，竖排卡片（图标在上，名字/数量在下），3 列排列，空槽 "?" */
+  /** 法宝槽位区：栏位数量与持有类型数一致，最多显示两行，超出后纵向滚动。 */
   private void buildFaBaoSlots(Table t) {
     sectionTitle(t, Core.bundle.get("fabao", "法宝"));
 
     Seq<FaBao> owned = FaBaoSystem.owned();
-    int total = Math.max(FABAO_SLOTS, owned.size);
+    int columns = contentWidth < 430f ? 2 : 3;
+    float slotWidth = Math.max(92f, Math.min(136f, (contentWidth - 24f) / columns));
     t.table(Styles.black6, s -> {
-      for (int i = 0; i < total; i++) {
-        int idx = i;
-        s.table(Tex.button, slot -> {
-          if (idx < owned.size) {
-            FaBao f = owned.get(idx);
-            slot.image(f.uiIcon()).size(40f).scaling(Scaling.fit)
-                .color(f.usingFallbackIcon() ? f.rangeColor : Color.white);
-            slot.row();
-            slot.add(f.localizedName).get().setFontScale(0.9f);
-            slot.row();
-            slot.add("×" + FaBaoSystem.count(f)).color(Color.lightGray).get().setFontScale(0.8f);
-          } else {
-            slot.add("?").color(EMPTY_COLOR).get().setFontScale(1.6f);
-          }
-        }).size(136f, 108f).pad(4f);
-        if ((i + 1) % 3 == 0)
-          s.row();
-      }
       if (owned.isEmpty()) {
-        s.row();
         s.add(Core.bundle.get("fabao.empty", "尚无法宝（一次性消耗品，从右侧法宝栏拖出使用）"))
-            .color(Color.darkGray).padBottom(4f);
+            .color(Color.darkGray).wrap().width(contentWidth - 28f).pad(4f);
+        return;
       }
+
+      Table grid = new Table();
+      grid.center();
+      for (int i = 0; i < owned.size; i++) {
+        FaBao f = owned.get(i);
+        grid.table(Tex.button, slot -> {
+          slot.image(f.uiIcon()).size(40f).scaling(Scaling.fit)
+              .color(f.usingFallbackIcon() ? f.rangeColor : Color.white);
+          slot.row();
+          slot.add(f.localizedName).wrap().width(slotWidth - 12f)
+              .get().setFontScale(0.9f);
+          slot.row();
+          slot.add("×" + FaBaoSystem.count(f)).color(Color.lightGray).get().setFontScale(0.8f);
+        }).size(slotWidth, 108f).pad(4f);
+        if ((i + 1) % columns == 0)
+          grid.row();
+      }
+
+      int rows = (owned.size + columns - 1) / columns;
+      ScrollPane scroll = new ScrollPane(grid, Styles.smallPane);
+      scroll.setScrollingDisabled(true, rows <= 2);
+      scroll.setFadeScrollBars(false);
+      s.add(scroll).growX().height(Math.min(rows, 2) * 116f);
     }).growX().padBottom(6f);
     t.row();
   }
@@ -205,7 +243,8 @@ public class XiuWeiDialog extends BaseDialog {
       }
       s.row();
       if (owned.isEmpty()) {
-        s.add(emptyTip).color(Color.darkGray).padBottom(4f);
+        s.add(emptyTip).colspan(slots).color(Color.darkGray).wrap()
+            .width(contentWidth - 28f).padBottom(4f);
       }
     }).growX().padBottom(6f);
     t.row();

@@ -13,6 +13,9 @@ import mindustry.type.SectorPreset;
  * player bound to that core.</p>
  */
 public class MobileCoreSectorPreset extends SectorPreset {
+  /** 是否为移动核心路线的起始区块；起始区块发射不消耗移动核心建造资源。 */
+  public boolean startSector;
+
   public MobileCoreSectorPreset(String name, Planet planet, int sector) {
     super(name, planet, sector);
   }

@@ -11,6 +11,7 @@ import arc.scene.ui.layout.Table;
 import arc.struct.Seq;
 import arc.util.Align;
 import crystal.type.CoreUnit;
+import crystal.type.CoreUnitType;
 import crystal.type.MobileCoreSectorPreset;
 import crystal.world.blocks.stroage.MobileCoreControlSystem;
 import mindustry.content.Blocks;
@@ -40,6 +41,7 @@ import static mindustry.Vars.*;
 public class MobileCoreLaunchLoadoutDialog extends LaunchLoadoutDialog {
   private final LoadoutDialog resourceEditor = new LoadoutDialog();
   private final ItemSeq mobileTotal = new ItemSeq();
+  private final ItemSeq mobileRequirements = new ItemSeq();
   private final ItemSeq entityTotal = new ItemSeq();
   private final Seq<UnitType> mobileCores = new Seq<>();
 
@@ -306,6 +308,7 @@ public class MobileCoreLaunchLoadoutDialog extends LaunchLoadoutDialog {
   }
 
   private void buildMobileDialog(CoreBlock core, Sector from, Sector destination, Runnable confirm) {
+    boolean marked = MobileCoreSectorPreset.isMarked(destination);
     cont.clear();
     buttons.clear();
     buttons.defaults().size(160f, 64f);
@@ -324,12 +327,38 @@ public class MobileCoreLaunchLoadoutDialog extends LaunchLoadoutDialog {
       universe.updateLaunchResources(launchItems);
     }
 
+    Table requirementsTable = new Table();
+    Runnable rebuildRequirements = () -> {
+      requirementsTable.clearChildren();
+      requirementsTable.add("[lightgray]核心建造：").left();
+      if (isFreeStartLaunch(destination)) {
+        requirementsTable.add("[green]起始区块免费").left();
+      } else if (mobileRequirements.toSeq().isEmpty()) {
+        requirementsTable.add("[lightgray]无").left();
+      } else {
+        for (ItemStack stack : mobileRequirements) {
+          requirementsTable.image(stack.item.uiIcon).size(iconSmall).padLeft(5f);
+          requirementsTable.add(String.valueOf(stack.amount)).color(Color.lightGray).padLeft(2f);
+        }
+      }
+    };
+
     Runnable update = () -> {
-      if (!(selectedCore instanceof CoreUnit coreType)) {
+      mobileRequirements.clear();
+      if (!(selectedCore instanceof CoreUnitType coreType)
+          || !selectedCore.unlockedNow()
+          || !selectedCore.isOnPlanet(from.planet)) {
         mobileCapacity = 0;
         mobileTotal.clear();
         mobileValid = false;
+        rebuildRequirements.run();
         return;
+      }
+
+      if (!isFreeStartLaunch(destination) && coreType.requirements != null) {
+        for (ItemStack stack : coreType.requirements) {
+          mobileRequirements.add(stack.item, stack.amount);
+        }
       }
 
       mobileCapacity = (int) (from.planet.launchCapacityMultiplier * coreType.storageCapacity());
@@ -347,15 +376,20 @@ public class MobileCoreLaunchLoadoutDialog extends LaunchLoadoutDialog {
           }
         }
       } else if (getMax()) {
+        ItemSeq available = sectorItems.copy();
+        mobileRequirements.each(available::remove);
         for (Item item : content.items()) {
-          resources.set(item, Mathf.clamp(sectorItems.get(item), 0, mobileCapacity));
+          resources.set(item, Mathf.clamp(available.get(item), 0, mobileCapacity));
         }
       }
 
       universe.updateLaunchResources(resources);
       mobileTotal.clear();
       resources.each(mobileTotal::add);
-      mobileValid = sectorItems.has(mobileTotal) || CPlanetDialog.debugSelect;
+      ItemSeq requiredTotal = mobileTotal.copy();
+      mobileRequirements.each(requiredTotal::add);
+      mobileValid = sectorItems.has(requiredTotal) || CPlanetDialog.debugSelect;
+      rebuildRequirements.run();
     };
 
     Table resourceTable = new Table();
@@ -389,6 +423,7 @@ public class MobileCoreLaunchLoadoutDialog extends LaunchLoadoutDialog {
 
       buttons.button("@resources", Icon.edit, () -> {
         ItemSeq available = sectorItems.copy();
+        mobileRequirements.each(available::remove);
         Seq<ItemStack> selected = universe.getLaunchResources().toSeq();
         resourceEditor.show(
             mobileCapacity,
@@ -415,7 +450,6 @@ public class MobileCoreLaunchLoadoutDialog extends LaunchLoadoutDialog {
       if (selectedCore == null) {
         return;
       }
-      boolean marked = MobileCoreSectorPreset.isMarked(destination);
       Core.settings.put(
           marked ? MobileCoreControlSystem.preferredCoreSetting : MobileCoreControlSystem.launchCoreSetting,
           selectedCore.name);
@@ -431,7 +465,10 @@ public class MobileCoreLaunchLoadoutDialog extends LaunchLoadoutDialog {
     }
 
     cont.add("[accent]移动核心发射[]").left().row();
-    cont.add("[lightgray]移动核心将作为本区块核心，玩家控制其配置的单位类型。").left().row();
+    cont.add(marked
+        ? "[lightgray]默认控制移动核心，可消耗灵力召唤核心机；灵力耗尽后返回移动核心。"
+        : "[lightgray]移动核心将作为本区块核心，玩家控制其配置的核心机。")
+        .left().row();
 
     int columns = Math.max((int) (Core.graphics.getWidth() / Scl.scl(230f)), 1);
     ButtonGroup<Button> group = new ButtonGroup<>();
@@ -439,7 +476,7 @@ public class MobileCoreLaunchLoadoutDialog extends LaunchLoadoutDialog {
       int index = 0;
       for (UnitType type : mobileCores) {
         if (!(type instanceof CoreUnit coreType)
-            || !type.unlocked()
+            || !type.unlockedNow()
             || !type.isOnPlanet(from.planet)) {
           continue;
         }
@@ -463,6 +500,7 @@ public class MobileCoreLaunchLoadoutDialog extends LaunchLoadoutDialog {
       }
     }).growX().scrollX(false).row();
 
+    cont.add(requirementsTable).growX().left().row();
     cont.label(() -> Core.bundle.format("launch.capacity", mobileCapacity))
         .left().padTop(4f).row();
     cont.pane(resourceTable).growX().row();
@@ -499,7 +537,12 @@ public class MobileCoreLaunchLoadoutDialog extends LaunchLoadoutDialog {
   }
 
   private boolean isSelectable(UnitType type, Sector destination) {
-    return type instanceof CoreUnit && type.unlocked() && type.isOnPlanet(destination.planet);
+    return type instanceof CoreUnit && type.unlockedNow() && type.isOnPlanet(destination.planet);
+  }
+
+  public static boolean isFreeStartLaunch(Sector destination) {
+    return destination != null && destination.preset instanceof MobileCoreSectorPreset preset
+        && preset.startSector;
   }
 
   private void setMax(boolean max) {

@@ -145,6 +145,7 @@ public class UI {
       });
     // 小行星测试入口不依赖 CVars.debug，普通游戏里也能直接用。
     Vars.ui.hudGroup.fill(null, table -> {
+      table.visible = false;
       table.table(null, t -> {
         t.button("小行星测试", Styles.flatt, () -> new AsteroidTestDialog().show()).size(100, 70);
       }).size(100, 70);

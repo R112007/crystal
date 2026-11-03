@@ -3,6 +3,7 @@ package crystal.core;
 import arc.Core;
 import arc.Events;
 import arc.graphics.Color;
+import arc.scene.ui.layout.Table;
 import arc.struct.Seq;
 import arc.util.Nullable;
 import arc.util.Time;
@@ -21,10 +22,12 @@ import crystal.util.DLog;
 import mindustry.Vars;
 import mindustry.core.GameState.State;
 import mindustry.game.EventType.ClientLoadEvent;
+import mindustry.game.EventType.SaveWriteEvent;
 import mindustry.game.EventType.StateChangeEvent;
 import mindustry.game.EventType.Trigger;
 import mindustry.game.EventType.UnitDestroyEvent;
 import mindustry.gen.Icon;
+import mindustry.ui.Bar;
 import mindustry.ui.Styles;
 import mindustry.ui.dialogs.BaseDialog;
 
@@ -57,6 +60,10 @@ public class PlayerXiuWeiSystem {
 
   /** 可动用灵力自然恢复：每秒恢复到 playerMagicPower 上限 */
   private static final float MAGIC_REGEN_PER_SECOND = 0.1f;
+
+  public static float magicRegenPerSecond() {
+    return MAGIC_REGEN_PER_SECOND;
+  }
 
   /** 当前渡劫期间已击杀的敌方单位数 */
   public static int getDuJieKillCount() {
@@ -133,10 +140,40 @@ public class PlayerXiuWeiSystem {
       });
   }
 
+  private static void buildHudMagicBar() {
+    Vars.ui.hudGroup.fill(null, root -> {
+      Bar bar = new Bar(
+          () -> String.format("可用灵力 %.1f / %.1f  (+%.2f/s)",
+              Math.min(CultivationState.availableMagicPower,
+                  Math.max(CultivationState.playerMagicPower, 0f)),
+              Math.max(CultivationState.playerMagicPower, 0f),
+              magicRegenPerSecond()),
+          () -> CultivationState.currentXiuWei().color.cpy().lerp(Color.white, 0.2f),
+          () -> CultivationState.playerMagicPower <= 0f ? 0f
+              : Math.min(1f, Math.max(0f,
+                  CultivationState.availableMagicPower / CultivationState.playerMagicPower)));
+
+      Table panel = new Table(Styles.black6);
+      panel.add(bar).growX().height(24f).pad(4f);
+      root.add(panel).width(Vars.mobile ? 270f : 340f).padTop(mobile ? 76f : 58f);
+      root.top();
+      root.touchable = arc.scene.event.Touchable.disabled;
+
+      root.update(() -> {
+        panel.visible = state.isPlaying() && state.rules != null && !state.rules.editor;
+        panel.touchable = arc.scene.event.Touchable.disabled;
+      });
+    });
+  }
+
   public static void init() {
     if (initialized)
       return;
     initialized = true;
+    Events.on(SaveWriteEvent.class, e -> {
+      savePower();
+      flushPowerIfNeeded(true);
+    });
     Events.on(ClientLoadEvent.class, e -> {
       CVars.chooseNewRoad = Core.settings.getBool("crystal.chooseNewRoad", false);
       loadReachedJingJie();
@@ -161,6 +198,7 @@ public class PlayerXiuWeiSystem {
       Events.fire(new JingJieRecalc(CultivationState.playerMagicPower));
       DLog.info("新路: " + CVars.chooseNewRoad);
 
+      buildHudMagicBar();
       Vars.ui.hudGroup.fill(null, table -> {
         table.table(null, t -> {
           t.button(Core.bundle.get("stat.xiuwei"), () -> showMagic()).size(100, 80);
@@ -449,15 +487,21 @@ public class PlayerXiuWeiSystem {
 
   private static void regenMagicPower() {
     if (Vars.state.isPlaying() && Vars.state.isCampaign()) {
+      float previous = CultivationState.availableMagicPower;
       CultivationState.availableMagicPower = Math.min(
           CultivationState.playerMagicPower,
           CultivationState.availableMagicPower + MAGIC_REGEN_PER_SECOND * Time.delta / 60f);
+      if (CultivationState.availableMagicPower != previous) {
+        Core.settings.put(CultivationState.SAVE_KEY_AVAILABLE_POWER,
+            CultivationState.availableMagicPower);
+        powerDirty = true;
+      }
     }
   }
 
   public static void savePower() {
-    Core.settings.put("crystal.magicpower", CultivationState.playerMagicPower);
-    Core.settings.put("crystal.availableMagicPower", CultivationState.availableMagicPower);
+    Core.settings.put(CultivationState.SAVE_KEY_MAGIC_POWER, CultivationState.playerMagicPower);
+    Core.settings.put(CultivationState.SAVE_KEY_AVAILABLE_POWER, CultivationState.availableMagicPower);
     powerDirty = true;
   }
 

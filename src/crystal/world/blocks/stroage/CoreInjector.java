@@ -153,6 +153,18 @@ public class CoreInjector {
 
       Team team = coreUnit.team();
       TeamData data = team.data();
+      Seq<CoreBuild> cores = (Seq<CoreBuild>) coresField.get(data);
+
+      // Keep the virtual core in TeamData.cores. SectorInfo.prepare() reads
+      // TeamData.core() when saving and marks the sector as coreless if it is
+      // missing, which would make the save disappear from the planet map.
+      if (!cores.contains(proxy, true)) {
+        if (Vars.state != null && Vars.state.teams != null) {
+          Vars.state.teams.registerCore(proxy);
+        } else {
+          cores.add(proxy);
+        }
+      }
 
       // 1. flagMap
       if (Vars.indexer != null) {
@@ -386,21 +398,36 @@ public class CoreInjector {
       }
       recalculateCapacity(coreUnit.team());
       recalculateUnitCap(coreUnit.team());
-      // 移除后判断是否还有核心
-      if (cores.isEmpty()) {
-        data.destroyToDerelict();
-        if (Vars.state.isCampaign()) {
-          Sector sector = Vars.state.getSector();
-          Events.fire(new SectorLoseEvent(sector));
-          sector.info.hasCore = false;
-          sector.save = null;
-          sector.saveInfo();
-        }
-        Team winner = coreUnit.team() == Vars.state.rules.defaultTeam
-            ? Vars.state.rules.waveTeam
-            : Vars.state.rules.defaultTeam;
-        Events.fire(new GameOverEvent(winner));
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+
+  /**
+   * Handles an actual in-game core destruction. This is deliberately separate
+   * from {@link #removeCore(TeamData, Corec)}: ordinary cleanup also runs while
+   * a world is being unloaded and must never delete the campaign sector save.
+   */
+  public static void destroyCore(TeamData data, Corec coreUnit) {
+    removeCore(data, coreUnit);
+    try {
+      Seq<CoreBuild> cores = (Seq<CoreBuild>) coresField.get(data);
+      if (!cores.isEmpty()) {
+        return;
       }
+
+      data.destroyToDerelict();
+      if (Vars.state != null && Vars.state.isCampaign()) {
+        Sector sector = Vars.state.getSector();
+        Events.fire(new SectorLoseEvent(sector));
+        sector.info.hasCore = false;
+        sector.save = null;
+        sector.saveInfo();
+      }
+      Team winner = coreUnit.team() == Vars.state.rules.defaultTeam
+          ? Vars.state.rules.waveTeam
+          : Vars.state.rules.defaultTeam;
+      Events.fire(new GameOverEvent(winner));
     } catch (Exception e) {
       e.printStackTrace();
     }

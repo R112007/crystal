@@ -2,11 +2,16 @@ package crystal.world.blocks.stroage;
 
 import arc.Core;
 import arc.Events;
+import arc.input.KeyBind;
+import arc.input.KeyCode;
 import arc.struct.ObjectMap;
 import arc.util.Log;
 import arc.util.Nullable;
 import arc.util.Time;
 import crystal.content.SpecialUnits;
+import crystal.core.CultivationState;
+import crystal.core.PlayerXiuWeiSystem;
+import crystal.entities.units.UnitEnum.JingJie;
 import crystal.gen.Corec;
 import crystal.type.CoreUnit;
 import crystal.type.MobileCoreSectorPreset;
@@ -28,21 +33,29 @@ import mindustry.world.modules.ItemModule;
 import static mindustry.Vars.*;
 
 /**
- * Keeps the local player on a mobile core's configured player unit.
+ * Coordinates player control between a mobile core and its configured core unit.
  *
  * <p>The mobile core remains the team's core while the player controls the
- * {@link CoreUnit#playerUnitType()} configured on that core. This restriction
- * is only active in sectors marked by {@link MobileCoreSectorPreset}. Unit
- * changes are checked here as well because upgrades can call
- * {@link Player#unit(Unit)} directly and bypass normal input restrictions.</p>
+ * {@link CoreUnit#playerUnitType()} configured on that core. Ordinary sectors
+ * spawn that unit automatically. Sectors marked by
+ * {@link MobileCoreSectorPreset} start on the mobile core and require the
+ * spirit-powered summon command. Unit changes are checked here as well because
+ * upgrades can call {@link Player#unit(Unit)} directly and bypass normal input
+ * restrictions.</p>
  */
 public final class MobileCoreControlSystem {
   public static final String preferredCoreSetting = "mobile_core_type";
   public static final String launchCoreSetting = "mobile_core_launch";
+  public static final KeyBind playerUnitKey = KeyBind.add(
+      "crystal_core_unit_skill", KeyCode.u, "crystal");
+  private static final float PLAYER_UNIT_MAGIC_DRAIN_PER_FRAME = 0.0033333f;
   private static boolean initialized;
   private static boolean enforcing;
   private static boolean rebinding;
   private static final ObjectMap<Integer, Unit> playerUnits = new ObjectMap<>();
+  private static boolean playerUnitActive;
+  private static int activePlayerUnitId = -1;
+  private static float magicSaveTimer;
 
   private MobileCoreControlSystem() {
   }
@@ -80,6 +93,9 @@ public final class MobileCoreControlSystem {
     });
     Events.on(ResetEvent.class, e -> {
       enforcing = false;
+      playerUnitActive = false;
+      activePlayerUnitId = -1;
+      magicSaveTimer = 0f;
       playerUnits.clear();
     });
 
@@ -90,11 +106,18 @@ public final class MobileCoreControlSystem {
       }
       Corec core = findPlayerCore(e.player);
       if (core != null) {
-        Unit avatar = playerUnitFor(e.player, core);
-        if (e.unit != null && e.unit == avatar && isUsableUnit(avatar, e.player.team())) {
-          return;
+        if (playerUnitActive) {
+          Unit avatar = activePlayerUnit(e.player, core);
+          if (avatar != null) {
+            if (e.unit != avatar) {
+              bind(e.player, avatar);
+            }
+          } else {
+            returnToCore(e.player, core);
+          }
+        } else {
+          bind(e.player, core);
         }
-        ensurePlayerAvatar(e.player, core);
       } else if (e.unit != null) {
         e.player.unit((Unit) null);
       }
@@ -105,18 +128,38 @@ public final class MobileCoreControlSystem {
       // Always restore this mod-owned flag before the early exit, so a marked
       // sector cannot leak possession restrictions into ordinary sectors.
       applyWorldRules();
+      if (isEnabledHere() && state.isPlaying() && !Core.scene.hasDialog()
+          && !Core.scene.hasKeyboard() && Core.input.keyTap(playerUnitKey)) {
+        togglePlayerUnit();
+      }
       if (!enforcing || player == null || !state.isPlaying() || !isEnabledHere()) {
         return;
       }
 
       Corec core = findPlayerCore(player);
       if (core != null) {
-        Unit avatar = playerUnitFor(player, core);
-        if (player.unit() != avatar) {
-          ensurePlayerAvatar(player, core);
+        if (playerUnitActive) {
+          updatePlayerUnitMagic(player, core);
+        } else if (player.unit() != (Unit) core) {
+          bind(player, core);
         }
       }
     });
+  }
+
+  public static void togglePlayerUnit() {
+    if (headless || player == null || !state.isPlaying() || !isEnabledHere()) {
+      return;
+    }
+    Corec core = findPlayerCore(player);
+    if (core == null) {
+      return;
+    }
+    if (playerUnitActive && activePlayerUnit(player, core) != null) {
+      returnToCore(player, core);
+    } else {
+      summonPlayerUnit(core);
+    }
   }
 
   /** Returns the existing player-owned mobile core, or creates one from the team's core. */
@@ -142,7 +185,19 @@ public final class MobileCoreControlSystem {
     if (core != null) {
       Log.info("[MobileCoreControl] core=@, created=@, marked=@, launch=@",
           core.id(), created, restrictControl, requestedType == null ? "none" : requestedType.name);
-      ensurePlayerAvatar(target, core);
+      if (restrictControl) {
+        if (created) {
+          // A newly launched sector may already have a vanilla core unit.
+          // It was not summoned by the player and must not start the skill.
+          clearPlayerUnitState(core);
+          bind(target, core);
+        } else {
+          restoreMarkedControl(target, core);
+        }
+      } else {
+        clearPlayerUnitState(core);
+        ensurePlayerAvatar(target, core);
+      }
       enforcing = restrictControl;
       if (!restrictControl) {
         Core.settings.put(launchCoreSetting, "");
@@ -162,7 +217,21 @@ public final class MobileCoreControlSystem {
     }
     Corec core = findPlayerCore(target);
     if (core != null) {
-      ensurePlayerAvatar(target, core);
+      if (isEnabledHere()) {
+        if (playerUnitActive) {
+          Unit avatar = activePlayerUnit(target, core);
+          if (avatar != null) {
+            bind(target, avatar);
+          } else {
+            returnToCore(target, core);
+          }
+        } else {
+          bind(target, core);
+        }
+      } else {
+        clearPlayerUnitState(core);
+        ensurePlayerAvatar(target, core);
+      }
       enforcing = isEnabledHere();
     } else if (isEnabledHere() && target.unit() != null) {
       target.unit((Unit) null);
@@ -170,17 +239,72 @@ public final class MobileCoreControlSystem {
   }
 
   /**
-   * Spawns or re-binds the mobile core's configured player unit type while
-   * keeping the mobile core itself in the world as the team's core.
+   * Handles a respawn request. Ordinary sectors spawn the configured unit;
+   * marked sectors return to the mobile core unless its summoned unit is alive.
    */
   public static @Nullable Unit spawnPlayerFromCore(Player target, Corec core) {
     if (target == null || core == null || core.dead()) {
       return null;
     }
     Fx.spawn.at(core);
-    Unit avatar = ensurePlayerAvatar(target, core);
+    Unit avatar;
+    if (isEnabledHere()) {
+      avatar = playerUnitActive ? activePlayerUnit(target, core) : null;
+      if (avatar == null) {
+        returnToCore(target, core);
+        return (Unit) core;
+      }
+      bind(target, avatar);
+    } else {
+      clearPlayerUnitState(core);
+      avatar = ensurePlayerAvatar(target, core);
+    }
     enforcing = isEnabledHere();
     return avatar;
+  }
+
+  /**
+   * Summons the mobile core's configured unit in a marked sector. The summon
+   * costs spirit power up front and keeps draining it while the unit exists.
+   */
+  public static boolean summonPlayerUnit(Corec core) {
+    if (headless || player == null || core == null || !isEnabledHere()
+        || !isUsable(core, player.team()) || core != findPlayerCore(player)) {
+      return false;
+    }
+    if (playerUnitActive) {
+      Unit existing = activePlayerUnit(player, core);
+      if (existing != null) {
+        bind(player, existing);
+        return true;
+      }
+      clearPlayerUnitState(core);
+    }
+
+    UnitType unitType = configuredPlayerUnit(core);
+    if (unitType == null) {
+      return false;
+    }
+
+    if (CultivationState.availableMagicPower <= 0f) {
+      if (ui != null) {
+        ui.showInfoToast(Core.bundle.get("mobilecore.summon.nomagic"), 3f);
+      }
+      return false;
+    }
+
+    Unit avatar = spawnPlayerUnit(player, core, unitType);
+    if (avatar == null) {
+      return false;
+    }
+
+    playerUnitActive = true;
+    activePlayerUnitId = avatar.id;
+    playerUnits.put(core.id(), avatar);
+    magicSaveTimer = 0f;
+    bind(player, avatar);
+    Fx.spawn.at(core);
+    return true;
   }
 
   /** Converts a normal core block into a mobile core while preserving its items. */
@@ -303,6 +427,90 @@ public final class MobileCoreControlSystem {
     return unit != null && unit.team == team && !unit.dead() && unit.isAdded();
   }
 
+  private static void restoreMarkedControl(Player target, Corec core) {
+    UnitType avatarType = playerUnitType(core);
+    Unit avatar = avatarType != null && avatarType != core.type()
+        ? playerUnitFor(target, core)
+        : null;
+    if (avatar != null && avatar != core) {
+      playerUnitActive = true;
+      activePlayerUnitId = avatar.id;
+      playerUnits.put(core.id(), avatar);
+      bind(target, avatar);
+    } else {
+      clearPlayerUnitState(core);
+      bind(target, core);
+    }
+  }
+
+  private static void updatePlayerUnitMagic(Player target, Corec core) {
+    Unit avatar = activePlayerUnit(target, core);
+    if (avatar == null) {
+      returnToCore(target, core);
+      return;
+    }
+
+    float drain = coreUnitMagicDrainPerFrame();
+    if (CultivationState.availableMagicPower <= 0f && drain > 0f) {
+      returnToCore(target, core);
+      return;
+    }
+
+    if (drain > 0f) {
+      CultivationState.availableMagicPower = Math.max(
+          0f, CultivationState.availableMagicPower - drain);
+      magicSaveTimer += 1f;
+      if (magicSaveTimer >= 60f) {
+        PlayerXiuWeiSystem.savePower();
+        magicSaveTimer = 0f;
+      }
+      if (CultivationState.availableMagicPower <= 0f) {
+        returnToCore(target, core);
+        return;
+      }
+    }
+
+    if (target.unit() != avatar) {
+      bind(target, avatar);
+    }
+  }
+
+  private static @Nullable Unit activePlayerUnit(Player target, Corec core) {
+    Unit tracked = activePlayerUnitId >= 0
+        ? Groups.unit.getByID(activePlayerUnitId)
+        : null;
+    UnitType avatarType = playerUnitType(core);
+    if (!isUsableUnit(tracked, target.team())
+        || (avatarType != null && tracked.type != avatarType)) {
+      tracked = playerUnits.get(core.id());
+    }
+    if (isUsableUnit(tracked, target.team())
+        && tracked != core
+        && (avatarType == null || tracked.type == avatarType)) {
+      playerUnits.put(core.id(), tracked);
+      activePlayerUnitId = tracked.id;
+      return tracked;
+    }
+    playerUnits.remove(core.id());
+    activePlayerUnitId = -1;
+    return null;
+  }
+
+  private static void returnToCore(Player target, Corec core) {
+    clearPlayerUnitState(core);
+    if (isUsable(core, target.team())) {
+      bind(target, core);
+    }
+    magicSaveTimer = 0f;
+    PlayerXiuWeiSystem.savePower();
+  }
+
+  private static void clearPlayerUnitState(Corec core) {
+    playerUnitActive = false;
+    activePlayerUnitId = -1;
+    playerUnits.remove(core.id());
+  }
+
   private static @Nullable Unit playerUnitFor(Player target, Corec core) {
     Unit tracked = playerUnits.get(core.id());
     UnitType avatarType = playerUnitType(core);
@@ -338,18 +546,28 @@ public final class MobileCoreControlSystem {
     return null;
   }
 
+  private static @Nullable Unit spawnPlayerUnit(Player target, Corec core, UnitType unitType) {
+    if (unitType == null || unitType.constructor == null) {
+      return null;
+    }
+    Unit avatar = unitType.create(target.team());
+    avatar.set(core.x(), core.y());
+    avatar.rotation(90f);
+    avatar.spawnedByCore(true);
+    avatar.controller(target);
+    avatar.add();
+    return avatar;
+  }
+
   private static @Nullable Unit ensurePlayerAvatar(Player target, Corec core) {
     Unit avatar = playerUnitFor(target, core);
     if (avatar == null) {
       UnitType avatarType = playerUnitType(core);
       if (avatarType != null && avatarType.constructor != null && avatarType != core.type()) {
-        avatar = avatarType.create(target.team());
-        avatar.set(core.x(), core.y());
-        avatar.rotation(90f);
-        avatar.spawnedByCore(true);
-        avatar.controller(target);
-        avatar.add();
-        playerUnits.put(core.id(), avatar);
+        avatar = spawnPlayerUnit(target, core, avatarType);
+        if (avatar != null) {
+          playerUnits.put(core.id(), avatar);
+        }
       }
     }
 
@@ -365,6 +583,16 @@ public final class MobileCoreControlSystem {
 
   private static @Nullable UnitType playerUnitType(Corec core) {
     return core.type() instanceof CoreUnit type ? type.playerUnitType() : null;
+  }
+
+  private static @Nullable UnitType configuredPlayerUnit(Corec core) {
+    UnitType unit = playerUnitType(core);
+    return unit == null || unit == core.type() || unit.constructor == null ? null : unit;
+  }
+
+  public static float coreUnitMagicDrainPerFrame() {
+    JingJie realm = CultivationState.currentJingJie();
+    return PLAYER_UNIT_MAGIC_DRAIN_PER_FRAME * Math.max(realm.multiplier(), 1f);
   }
 
   private static @Nullable CoreBuild findSourceCore(Player target) {

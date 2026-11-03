@@ -18,6 +18,7 @@ import arc.scene.ui.layout.*;
 import arc.struct.*;
 import arc.util.*;
 import crystal.game.UnitInfo;
+import crystal.type.CoreUnitType;
 import crystal.type.MobileCoreSectorPreset;
 import crystal.world.blocks.stroage.MoveCoreSystem;
 import crystal.aviation.Satellite;
@@ -1825,7 +1826,18 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
                 loadouts.show(block, launchFrom, sector, () -> {
                     var loadout = universe.getLastLoadout();
                     if (!directLanding) {
-                        if (!loadouts.isMobileCoreLaunch()) {
+                        if (loadouts.isMobileCoreLaunch()) {
+                            UnitType selected = loadouts.selectedMobileCore();
+                            if (selected instanceof CoreUnitType coreType
+                                && !MobileCoreLaunchLoadoutDialog.isFreeStartLaunch(sector)
+                                && coreType.requirements != null) {
+                                ItemSeq coreCost = new ItemSeq();
+                                for (ItemStack stack : coreType.requirements) {
+                                    coreCost.add(stack.item, stack.amount);
+                                }
+                                launchFrom.removeItems(coreCost);
+                            }
+                        } else {
                             launchFrom.removeItems(loadout.requirements());
                         }
                         launchFrom.removeItems(universe.getLaunchResources());

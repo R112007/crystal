@@ -100,14 +100,7 @@ public class MoveCoreSystem {
 
     Events.on(UnitDestroyEvent.class, e -> {
       if (e.unit instanceof Corec core) {
-        CoreInjector.removeCore(core.team().data(), core);
-        if (Vars.state.isCampaign() && core.team().data().cores.isEmpty()) {
-          mindustry.type.Sector sector = Vars.state.getSector();
-          Events.fire(new SectorLoseEvent(sector));
-          sector.info.hasCore = false;
-          sector.save = null;
-          sector.saveInfo();
-        }
+        CoreInjector.destroyCore(core.team().data(), core);
       }
     });
 
@@ -124,6 +117,18 @@ public class MoveCoreSystem {
         }
       }
       Log.info("[MoveCoreSystem] WorldLoadEvent: reindexed " + count + " mobile cores");
+    });
+
+    Events.on(SaveWriteEvent.class, e -> {
+      for (Unit unit : Groups.unit) {
+        if (unit instanceof Corec core && core.proxy() != null && !core.dead()) {
+          CoreInjector.reindexCore(core);
+        }
+      }
+      if (Vars.state.isCampaign() && Vars.state.rules.defaultTeam.core() != null) {
+        Vars.state.getSector().info.hasCore = true;
+        Vars.state.getSector().saveInfo();
+      }
     });
   }
 

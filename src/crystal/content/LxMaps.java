@@ -8,6 +8,7 @@ public class LxMaps {
   public static void load() {
     jianglindian = new MobileCoreSectorPreset("jianglindian", CPlanets.lx, 0) {
       {
+        this.startSector = true;
         this.alwaysUnlocked = true;
         this.difficulty = 1;
         this.captureWave = 30;

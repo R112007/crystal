@@ -35,7 +35,11 @@ public class CoreUnitType extends UnitType implements CoreUnit {
   public MCoreBlock core;
   /** 玩家控制的单位类型；默认由移动核心自身承担，可改成独立单位。 */
   public UnitType unit;
+  /** 发射该移动核心时额外消耗的建造资源。 */
+  public ItemStack[] requirements = ItemStack.empty;
   public boolean deployDrawWeapon = true;
+  /** 邻近建筑的物品是否只能在本单位部署后输入。 */
+  public boolean itemInputRequiresDeployment = true;
   public int deployBlockSize;
   public TextureRegion rightTopBase, rightUnderBase, leftTopBase, leftUnderBase;
   public String entity = "legs";

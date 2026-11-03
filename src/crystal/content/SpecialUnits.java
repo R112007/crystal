@@ -37,7 +37,8 @@ public class SpecialUnits {
   public static void load() {
     moveCore1 = new CoreUnitType("moveCore1") {
       {
-        alwaysUnlocked = true;
+        alwaysUnlocked = false;
+        unit = CUnits.taichu;
         unitCapBonus = 10;
         mineSpeed = 1;
         mineTier = 3;

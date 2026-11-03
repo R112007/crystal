@@ -362,7 +362,7 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
     if (!landing && corec.elevation() > 0 && onSolid() == false) {
       corec.elevation(0.0F);
     }
-    if (deployed) {
+    if (deployed || !((CoreUnitType) type).itemInputRequiresDeployment) {
       Seq<Building> builds = nearbyBuilds();
       for (Building b : builds) {
         if (b.block.hasItems && b.items != null && b.items.total() > 0 && proxy != null) {
@@ -562,7 +562,15 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
   }
 
   public void updateClosestCore() {
+    if (proxy != null && !dead()) {
+      // The proxy is not a tile-backed core and can be removed from this list
+      // by team-stat refreshes. Re-register it before selecting the closest core.
+      state.teams.registerCore(proxy);
+    }
     CoreBuild coreBuild = state.teams.closestCore(Core.camera.position.x, Core.camera.position.y, team);
+    if (coreBuild == null) {
+      return;
+    }
     state.teams.get(team).cores.remove(coreBuild);
     state.teams.get(team).cores.insert(0, coreBuild);
   }
@@ -692,6 +700,18 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
   }
 
   public void updateAutoCommand() {
+    if (isPlayer()) {
+      // Player control must never be overridden by autonomous movement or
+      // the idle-to-auxiliary-AI transition.
+      fleeing = false;
+      fleeTarget.setZero();
+      fleeRetargetTimer = 0f;
+      fleeStuckTimer = 0f;
+      idleTimer = 0f;
+      autoSwitched = false;
+      return;
+    }
+
     // === 步骤1：威胁检测 ===
     Unit nearestThreat = Units.closestEnemy(team, x(), y(), fleeDetectRange,
         u -> u.isValid() && u.targetable(team));
