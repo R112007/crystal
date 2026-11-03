@@ -1,5 +1,5 @@
 <factorypath>
-    <factorypathentry kind="EXTJAR" id="/root/.gradle/caches/9.3.1/transforms/dd282fd2ffb2a7cc757d60977b92a07a/transformed/javapoet-1.13.0.jar" enabled="true" runInBatchMode="false"/>
-    <factorypathentry kind="EXTJAR" id="/root/.gradle/caches/9.3.1/transforms/e484a73f31146742b8b00f03bf0b696d/transformed/entity-v159.7.6.jar" enabled="true" runInBatchMode="false"/>
-    <factorypathentry kind="EXTJAR" id="/root/.gradle/caches/9.3.1/transforms/df2e9cf1a73857d8080131b4b00d60d7/transformed/Mindustry-latest.jar" enabled="true" runInBatchMode="false"/>
+    <factorypathentry kind="EXTJAR" id="/root/.gradle/caches/9.3.1/transforms/5eba5d6beb07f5a2e7ce88c05866ded2/transformed/entity-v2.4.0+v160.jar" enabled="true" runInBatchMode="false"/>
+    <factorypathentry kind="EXTJAR" id="/root/.gradle/caches/9.3.1/transforms/e062b29151a1f523207e03bc3b66f76e/transformed/Mindustry-latest.jar" enabled="true" runInBatchMode="false"/>
+    <factorypathentry kind="EXTJAR" id="/root/.gradle/caches/9.3.1/transforms/8e30549e6715fd84763fad9286186e28/transformed/javapoet-1.13.0.jar" enabled="true" runInBatchMode="false"/>
 </factorypath>

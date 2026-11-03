@@ -2,15 +2,26 @@ package crystal.dbg;
 
 import arc.Core;
 import arc.Events;
+import crystal.content.CUnits;
 import crystal.content.CPlanets;
 import crystal.content.LxMaps;
 import crystal.content.SpecialUnits;
+import crystal.content.blocks.CStroage;
+import crystal.gen.Corec;
 import crystal.type.MobileCoreSectorPreset;
 import crystal.ui.dialogs.CPlanetDialog;
+import crystal.world.blocks.stroage.MCoreBlock;
 import crystal.world.blocks.stroage.MobileCoreControlSystem;
+import mindustry.core.GameState.State;
+import mindustry.core.World;
 import mindustry.game.EventType.WorldLoadEvent;
 import mindustry.content.UnitTypes;
+import mindustry.game.Team;
+import mindustry.game.Teams;
 import mindustry.type.Sector;
+import mindustry.world.Tile;
+import mindustry.world.Tiles;
+import mindustry.world.blocks.storage.CoreBlock.CoreBuild;
 
 import java.lang.reflect.Method;
 
@@ -31,8 +42,14 @@ public class MobileCoreLaunchTest {
           MobileCoreControlSystem.shouldCreateMobileCore());
       check("requested mobile core type is resolved", SpecialUnits.moveCore1,
           MobileCoreControlSystem.requestedLaunchType());
-      check("mobile core controls itself by default", SpecialUnits.moveCore1,
+      check("mobile core spawns its configured player unit", CUnits.taichu,
           SpecialUnits.moveCore1.playerUnitType());
+      check("core1 allocates a Corec entity", true,
+          CStroage.core1.create(Team.sharded) instanceof Corec);
+      check("core1 keeps the original core storage capacity", 6000,
+          CStroage.core1.storageCapacity());
+      check("planet default core is not a mobile-core proxy", false,
+          CPlanets.lx.defaultCore instanceof MCoreBlock);
 
       check("marked sector is detected", true,
           MobileCoreSectorPreset.isMarked(LxMaps.jianglindian.sector));
@@ -55,6 +72,8 @@ public class MobileCoreLaunchTest {
           mindustry.Vars.state.rules.possessionAllowed);
       check("ordinary unit controllability is not globally overridden", true,
           UnitTypes.alpha.playerControllable);
+
+      checkPhysicalCoreConversion();
     } catch (Throwable t) {
       t.printStackTrace();
       ok = false;
@@ -72,6 +91,34 @@ public class MobileCoreLaunchTest {
     ok &= pass;
     System.out.println("[MOBILE-LAUNCH] " + label + ": " + actual + "/" + expected
         + (pass ? " OK" : " FAIL"));
+  }
+
+  private static void checkPhysicalCoreConversion() {
+    mindustry.Vars.state.teams = new Teams();
+    mindustry.Vars.state.set(State.playing);
+    mindustry.Vars.state.rules.defaultTeam = Team.sharded;
+    mindustry.Vars.state.rules.waveTeam = Team.crux;
+
+    mindustry.Vars.world = new World();
+    Tiles tiles = new Tiles(32, 32);
+    for (int y = 0; y < 32; y++) {
+      for (int x = 0; x < 32; x++) {
+        tiles.set(x, y, new Tile(x, y, mindustry.content.Blocks.stone,
+            mindustry.content.Blocks.air, mindustry.content.Blocks.air));
+      }
+    }
+    mindustry.Vars.world.tiles = tiles;
+
+    Tile tile = mindustry.Vars.world.tile(16, 16);
+    tile.setBlock(CStroage.core1Block, Team.sharded);
+    CoreBuild source = (CoreBuild) tile.build;
+    Corec converted = MobileCoreControlSystem.convertCore(source, CStroage.core1);
+    check("physical core converts to the selected mobile core", true,
+        converted != null
+            && converted.type() == CStroage.core1
+            && converted.proxy() != null
+            && converted.isAdded()
+            && tile.build == null);
   }
 
   private static <T> T allocateWithoutConstructor(Class<T> type) {

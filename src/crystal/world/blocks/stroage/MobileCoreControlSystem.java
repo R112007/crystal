@@ -162,6 +162,23 @@ public final class MobileCoreControlSystem {
     }
   }
 
+  /** Whether the mobile-core avatar command is currently available to the HUD. */
+  public static boolean canTogglePlayerUnit() {
+    return !headless
+        && player != null
+        && state != null
+        && state.isPlaying()
+        && state.rules != null
+        && !state.rules.editor
+        && isEnabledHere()
+        && findPlayerCore(player) != null;
+  }
+
+  /** Used by the touch button so it mirrors the U key's summon/return state. */
+  public static boolean isPlayerUnitActive() {
+    return playerUnitActive;
+  }
+
   /** Returns the existing player-owned mobile core, or creates one from the team's core. */
   public static @Nullable Corec createPlayerMobileCore(@Nullable Player target) {
     if (target == null || !state.isGame() || !shouldCreateMobileCore()) {
@@ -500,6 +517,9 @@ public final class MobileCoreControlSystem {
     clearPlayerUnitState(core);
     if (isUsable(core, target.team())) {
       bind(target, core);
+      if (target == player && Core.camera != null) {
+        Core.camera.position.set(core);
+      }
     }
     magicSaveTimer = 0f;
     PlayerXiuWeiSystem.savePower();

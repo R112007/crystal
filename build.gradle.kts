@@ -66,8 +66,10 @@ val modGen = providers.gradleProperty("modGen").get()
 
 allprojects{
     apply(plugin = "java")
-    sourceSets["main"].java.setSrcDirs(listOf(layout.projectDirectory.dir("src")))
-
+    sourceSets["main"].java {
+        srcDir(layout.projectDirectory.dir("src"))
+        srcDir(layout.buildDirectory.dir("generated/sources/annotationProcessor/java/main"))
+    }
     dependencies{
         registerTransform(TrimSources::class){
             from.attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)

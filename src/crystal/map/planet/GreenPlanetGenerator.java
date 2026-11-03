@@ -141,9 +141,11 @@ public class GreenPlanetGenerator extends PlanetGenerator {
     return false;
   }
 
-  {
-    defaultLoadout = CLoadouts.jichuhexi;
-  }
+  /*
+   * {
+   * defaultLoadout = CLoadouts.jichuhexi;
+   * }
+   */
 
   @Override
   public @Nullable Sector findLaunchCandidate(Sector destination, @Nullable Sector selected) {

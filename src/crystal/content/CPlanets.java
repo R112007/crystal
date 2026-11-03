@@ -82,7 +82,7 @@ public class CPlanets {
                 0.45f, 1f,
                 0.41f));
         cloudMeshLoader = () -> new MultiMesh();
-        defaultCore = CStroage.core1;
+        defaultCore = CStroage.core1Block;
         launchCapacityMultiplier = 0.7f;
         sectorSeed = 8888;
         allowWaves = true;

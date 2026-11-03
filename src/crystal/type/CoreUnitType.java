@@ -2,7 +2,6 @@ package crystal.type;
 
 import arc.Core;
 import arc.graphics.Color;
-import arc.graphics.g2d.TextureRegion;
 import arc.struct.Seq;
 import arc.util.Log;
 import arc.util.Scaling;
@@ -14,13 +13,11 @@ import crystal.world.blocks.stroage.MCoreBlock;
 import crystal.world.blocks.stroage.CoreUnitFactory.CoreUnitPlan;
 import crystal.world.meta.CStat;
 import mindustry.Vars;
-import mindustry.content.UnitTypes;
 import mindustry.entities.TargetPriority;
-import mindustry.entities.bullet.BasicBulletType;
+import mindustry.gen.Mechc;
 import mindustry.gen.Unit;
 import mindustry.type.ItemStack;
 import mindustry.type.UnitType;
-import mindustry.type.Weapon;
 import mindustry.type.weapons.MineWeapon;
 import mindustry.ui.Styles;
 import mindustry.world.Block;
@@ -40,9 +37,6 @@ public class CoreUnitType extends UnitType implements CoreUnit {
   public boolean deployDrawWeapon = true;
   /** 邻近建筑的物品是否只能在本单位部署后输入。 */
   public boolean itemInputRequiresDeployment = true;
-  public int deployBlockSize;
-  public TextureRegion rightTopBase, rightUnderBase, leftTopBase, leftUnderBase;
-  public String entity = "legs";
   public static Seq<CoreUnitType> coreTypes = new Seq<>();
 
   public CoreUnitType(String name) {
@@ -99,32 +93,11 @@ public class CoreUnitType extends UnitType implements CoreUnit {
     if (allowedInPayloads) {
       allowedInPayloads = false;
     }
-    switch (entity) {
-      case "legs":
-        this.constructor = RetractableLegsCoreUnit::create;
-        break;
-
-      default:
-        throw new RuntimeException(name + "has not entity,please add entity for it");
-    }
+    // CoreUnitType entities must always be Corec. Without this, UnitType falls
+    // back to UnitEntity and the launch flow silently fails to create a core.
+    constructor = RetractableLegsCoreUnit::create;
     super.init();
     commands.add(CUnitCommands.coreAuxiliaryCommand, CUnitCommands.fleeCommand);
-    /*
-     * weapons.add(new Weapon() {
-     * {
-     * x = y = 0;
-     * top = false;
-     * display = false;
-     * bullet = new BasicBulletType(0, 0) {
-     * {
-     * width = height = 0.01f;
-     * lifetime = 0;
-     * }
-     * };
-     * reload = Float.MAX_VALUE;
-     * }
-     * });
-     */
   }
 
   @Override

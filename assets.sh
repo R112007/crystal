@@ -1,2 +1,2 @@
-rm -rf assets
-cp -r ~/sd/assets .
+#rm -rf assets
+#cp -r ~/sd/assets .

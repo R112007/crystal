@@ -3,6 +3,7 @@ package crystal.core;
 import arc.Core;
 import arc.Events;
 import arc.graphics.Color;
+import arc.scene.ui.TextButton;
 import arc.scene.ui.layout.Table;
 import arc.struct.Seq;
 import arc.util.Nullable;
@@ -19,6 +20,7 @@ import crystal.game.CEventType.MagicPowerChange;
 import crystal.type.GongFa;
 import crystal.ui.dialogs.XiuWeiDialog;
 import crystal.util.DLog;
+import crystal.world.blocks.stroage.MobileCoreControlSystem;
 import mindustry.Vars;
 import mindustry.core.GameState.State;
 import mindustry.game.EventType.ClientLoadEvent;
@@ -155,7 +157,9 @@ public class PlayerXiuWeiSystem {
 
       Table panel = new Table(Styles.black6);
       panel.add(bar).growX().height(24f).pad(4f);
-      root.add(panel).width(Vars.mobile ? 270f : 340f).padTop(mobile ? 76f : 58f);
+      // 桌面端固定 58；移动端按横竖屏区分：竖屏 100、横屏 60。
+      root.add(panel).width(Vars.mobile ? 270f : 340f)
+          .padTop(!mobile ? 58f : (Core.graphics.isPortrait() ? 100f : 60f));
       root.top();
       root.touchable = arc.scene.event.Touchable.disabled;
 
@@ -202,7 +206,20 @@ public class PlayerXiuWeiSystem {
       Vars.ui.hudGroup.fill(null, table -> {
         table.table(null, t -> {
           t.button(Core.bundle.get("stat.xiuwei"), () -> showMagic()).size(100, 80);
-        }).size(100, 100);
+          t.row();
+
+          TextButton coreUnitButton = new TextButton("", Styles.defaultt);
+          coreUnitButton.clicked(MobileCoreControlSystem::togglePlayerUnit);
+          coreUnitButton.update(() -> coreUnitButton.setText(Core.bundle.get(
+              MobileCoreControlSystem.isPlayerUnitActive()
+                  ? "mobilecore.recall.button"
+                  : "mobilecore.summon.button",
+              MobileCoreControlSystem.isPlayerUnitActive() ? "收回核心机" : "召唤核心机")));
+          t.add(coreUnitButton)
+              .size(Vars.mobile ? 136f : 148f, 44f)
+              .padTop(5f)
+              .visible(MobileCoreControlSystem::canTogglePlayerUnit);
+        }).size(Vars.mobile ? 136f : 148f, 136f);
         table.center().right().update(() -> {
           if (Core.settings.getBool("showXiuWei")) {
             height = 0;
@@ -426,7 +443,8 @@ public class PlayerXiuWeiSystem {
       }
 
       Core.settings.manualSave();
-      DLog.info("渡劫状态已保存，已完成：" + CultivationState.completedDuJieJingJies.size + "个，待渡劫：" + CultivationState.pendingDuJieJingJie);
+      DLog.info("渡劫状态已保存，已完成：" + CultivationState.completedDuJieJingJies.size + "个，待渡劫："
+          + CultivationState.pendingDuJieJingJie);
     } catch (Exception e) {
       DLog.err("渡劫状态保存失败", e);
     }

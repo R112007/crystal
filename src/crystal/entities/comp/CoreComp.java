@@ -56,6 +56,8 @@ import mindustry.gen.Player;
 import mindustry.gen.Posc;
 import mindustry.gen.Unit;
 import mindustry.gen.Unitc;
+import mindustry.graphics.Drawf;
+import mindustry.graphics.Layer;
 import mindustry.graphics.Pal;
 import mindustry.input.InputHandler;
 import mindustry.type.Item;
@@ -257,7 +259,7 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
     cacheX = x();
     cacheY = y();
     cacheTime = now;
-    float half = hitSize() / 2f + tilesize * 2;
+    float half = itemInputRange();
     int minX = (int) ((x() - half) / tilesize);
     int maxX = (int) ((x() + half) / tilesize);
     int minY = (int) ((y() - half) / tilesize);
@@ -281,6 +283,62 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
       }
     }
     return nearbyBuildCache;
+  }
+
+  /** Radius used by both item input scanning and its on-screen dashed boundary. */
+  public float itemInputRange() {
+    return hitSize() / 2f + tilesize * 2f;
+  }
+
+  /**
+   * Returns whether this building is an input endpoint. Conveyor bridges may
+   * contain items at their sending end, but only the receiving end belongs to
+   * the mobile core's input range.
+   */
+  public boolean isItemInputEndpoint(Building building) {
+    if (building instanceof mindustry.world.blocks.distribution.Conveyor.ConveyorBuild cb) {
+      if (cb.next instanceof mindustry.world.blocks.distribution.Conveyor.ConveyorBuild
+          && cb.next.team == team) {
+        return false;
+      }
+      if (cb.next != null) {
+        return false;
+      }
+      float dx = x() - building.x;
+      float dy = y() - building.y;
+      return dx * Geometry.d4x(building.rotation)
+          + dy * Geometry.d4y(building.rotation) > 0f;
+    }
+    if (building instanceof mindustry.world.blocks.distribution.Duct.DuctBuild db) {
+      if (db.next instanceof mindustry.world.blocks.distribution.Duct.DuctBuild
+          && db.next.team == team) {
+        return false;
+      }
+      if (db.next != null) {
+        return false;
+      }
+      float dx = x() - building.x;
+      float dy = y() - building.y;
+      return dx * Geometry.d4x(building.rotation)
+          + dy * Geometry.d4y(building.rotation) > 0f;
+    }
+    if (building instanceof mindustry.world.blocks.distribution.ItemBridge.ItemBridgeBuild ib) {
+      ib.checkIncoming();
+      return ib.link < 0 && ib.incoming.size > 0;
+    }
+    if (building instanceof mindustry.world.blocks.distribution.DuctBridge.DuctBridgeBuild dbb) {
+      if (dbb.lastLink != null) {
+        return false;
+      }
+      for (var occupied : dbb.occupied) {
+        if (occupied != null && occupied.isValid()
+            && occupied.lastLink == dbb) {
+          return true;
+        }
+      }
+      return false;
+    }
+    return true;
   }
 
   @Override
@@ -366,47 +424,8 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
       Seq<Building> builds = nearbyBuilds();
       for (Building b : builds) {
         if (b.block.hasItems && b.items != null && b.items.total() > 0 && proxy != null) {
-          if (b instanceof mindustry.world.blocks.distribution.Conveyor.ConveyorBuild cb) {
-            if (cb.next instanceof mindustry.world.blocks.distribution.Conveyor.ConveyorBuild
-                && cb.next.team == team) {
-              continue;
-            }
-            if (cb.next != null)
-              continue;
-            float dx = x() - b.x;
-            float dy = y() - b.y;
-            float dot = dx * Geometry.d4x(b.rotation) + dy * Geometry.d4y(b.rotation);
-            if (dot <= 0)
-              continue;
-          }
-          if (b instanceof mindustry.world.blocks.distribution.Duct.DuctBuild db) {
-            if (db.next instanceof mindustry.world.blocks.distribution.Duct.DuctBuild
-                && db.next.team == team) {
-              continue;
-            }
-            if (db.next != null)
-              continue;
-            float dx = x() - b.x;
-            float dy = y() - b.y;
-            float dot = dx * Geometry.d4x(b.rotation) + dy * Geometry.d4y(b.rotation);
-            if (dot <= 0)
-              continue;
-          }
-          if (b instanceof mindustry.world.blocks.distribution.ItemBridge.ItemBridgeBuild ib) {
-            mindustry.world.blocks.distribution.ItemBridge bridgeBlock = (mindustry.world.blocks.distribution.ItemBridge) b.block;
-            ib.checkIncoming();
-            boolean hasValidOutput = false;
-            Tile linkTile = world.tile(ib.link);
-            hasValidOutput = linkTile != null && !bridgeBlock.linkValid(ib.tile, world.tile(ib.link))
-                && ib.incoming.size > 0;
-            if (!hasValidOutput)
-              continue;
-          }
-          if (b instanceof mindustry.world.blocks.distribution.DuctBridge.DuctBridgeBuild dbb) {
-            if (dbb.lastLink == null || !dbb.lastLink.isValid() || dbb.lastLink.team() != team) {
-              continue;
-            }
-          }
+          if (!isItemInputEndpoint(b))
+            continue;
           b.items.each((item, amount) -> {
             if (amount <= 0)
               return;
@@ -461,6 +480,24 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
         moveAt(Tmp.v1.trns(angle, type.speed));
       }
     }
+  }
+
+  @Override
+  public void draw() {
+    if (headless || player == null || proxy == null || dead()
+        || team != player.team()
+        || MobileCoreControlSystem.findPlayerCore(player) != self()) {
+      return;
+    }
+    CoreUnitType coreType = (CoreUnitType) type;
+    if (!deployed && coreType.itemInputRequiresDeployment) {
+      return;
+    }
+
+    float previousZ = Draw.z();
+    Draw.z(Layer.overlayUI);
+    Drawf.dashSquare(Pal.accent, x(), y(), itemInputRange() * 2f);
+    Draw.z(previousZ);
   }
 
   @Override
