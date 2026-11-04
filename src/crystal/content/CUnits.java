@@ -109,7 +109,7 @@ public class CUnits {
         this.rotateSpeed = 3.0f;
         this.hitSize = 8.0f;
         this.magicPowerRegen = 0.5f;
-        this.shenTongs.add(new FaTianXiangDi(3f, 2f, 3, 480, 50));
+       // this.shenTongs.add(new FaTianXiangDi(3f, 2f, 3, 480, 50));
         this.cultivationReward = 0.1f;
         this.weapons.add(new Weapon("crystal-chujia1-weapon") {
           {
@@ -144,7 +144,7 @@ public class CUnits {
         this.magicPowerRegenTime = 90;
         this.magicPowerRegen = 1;
         this.magicPower = 400;
-        this.shenTongs.add(new FaTianXiangDi(3.5f, 2f, 3, 480, 100));
+        //this.shenTongs.add(new FaTianXiangDi(3.5f, 2f, 3, 480, 100));
         this.cultivationReward = 0.2f;
         this.weapons.add(new Weapon("crystal-chujia2-weapon") {
           {

@@ -6,10 +6,6 @@ import arc.scene.Scene;
 import arc.scene.ui.Dialog;
 import mindustry.editor.WaveInfoDialog;
 
-/**
- * 包装器：继承原版 WaveInfoDialog，满足 MapInfoDialog.waveInfo 字段类型，
- * 实际显示的是我们自己的 MagicWaveEditor。
- */
 public class MagicWaveInfoDialog extends WaveInfoDialog {
 
   public MagicWaveInfoDialog() {

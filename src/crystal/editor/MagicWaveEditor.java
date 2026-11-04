@@ -222,7 +222,7 @@ public class MagicWaveEditor extends BaseDialog {
                                 .tooltip(group.effect != null ? group.effect.localizedName : "@none");
 
                         if (group instanceof MagicSpawnGroup mg) {
-                            b.button(mg.jingJie.str, Styles.flatTogglet, () -> showJingJie(mg))
+                            b.button(mg.jingJie.str+mg.jingJie.multiplier(), Styles.flatTogglet, () -> showJingJie(mg))
                                     .pad(-4).size(86f, 40f)
                                     .tooltip(Core.bundle.get("stat.jingjie", "境界"));
                         }

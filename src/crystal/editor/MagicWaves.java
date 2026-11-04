@@ -12,17 +12,9 @@ import mindustry.game.SpawnGroup;
 
 import java.lang.reflect.Field;
 
-/**
- * 魔法波次系统入口：
- * 1. 给 SpawnGroup 注册自定义序列化器，使 shenTongId 能随地图保存/读取。
- * 2. 用反射把原版的波次编辑对话框替换成 MagicWaveInfoDialog。
- */
 public class MagicWaves {
 
     public static void registerSerializer() {
-        // 旧版/旧地图保存的是 crystal.editor.ShenTongSpawnGroup，映射到新类（兜底）
-        mindustry.io.JsonIO.classTag("crystal.editor.ShenTongSpawnGroup", ShenTongSpawnGroup.class);
-        mindustry.io.JsonIO.classTag("ShenTongSpawnGroup", ShenTongSpawnGroup.class);
         mindustry.io.JsonIO.classTag("crystal.editor.MagicSpawnGroup", MagicSpawnGroup.class);
         mindustry.io.JsonIO.classTag("MagicSpawnGroup", MagicSpawnGroup.class);
 
