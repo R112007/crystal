@@ -8,11 +8,15 @@ import arc.graphics.g2d.Fill;
 import arc.graphics.g2d.Lines;
 import arc.math.Interp;
 import arc.math.Mathf;
+import arc.scene.event.InputEvent;
+import arc.scene.event.InputListener;
 import arc.scene.event.Touchable;
 import arc.scene.style.TextureRegionDrawable;
 import arc.scene.ui.ImageButton;
 import arc.scene.ui.ImageButton.ImageButtonStyle;
+import arc.scene.ui.layout.Scl;
 import arc.scene.ui.layout.WidgetGroup;
+import arc.input.KeyCode;
 import arc.struct.Seq;
 import arc.util.Log;
 import crystal.magic.Skill;
@@ -27,15 +31,18 @@ import mindustry.ui.Styles;
  * buttons animate out from underneath it and form a clickable ring.
  */
 public final class SkillHUD {
-  private static final float MAIN_SIZE_DESKTOP = 64f;
-  private static final float MAIN_SIZE_MOBILE = 128f;
+  private static final float MAIN_SIZE_DESKTOP = 56f;
+  private static final float MAIN_SIZE_MOBILE = 96f;
   private static final float SKILL_SIZE_DESKTOP = 48f;
   private static final float SKILL_SIZE_MOBILE = 96f;
   private static final float RING_GAP = 14f;
   private static final float MIN_RING_RADIUS_DESKTOP = 76f;
   private static final float MIN_RING_RADIUS_MOBILE = 160f;
-  private static final float MAIN_ICON_INSET = 16f;
+  private static final float MAIN_ICON_INSET = 12f;
   private static final float SKILL_ICON_INSET = 12f;
+  private static final float DRAG_THRESHOLD = 6f;
+  private static final String POSITION_X = "crystal-skill-button-nx";
+  private static final String POSITION_Y = "crystal-skill-button-ny";
   private static final Color MAIN_BACKGROUND = Color.valueOf("171d24");
   private static final Color SKILL_BACKGROUND = Color.valueOf("252d36");
   private static final Color ACTIVE_COLOR = Color.valueOf("ffd36a");
@@ -68,14 +75,19 @@ public final class SkillHUD {
     private boolean open;
     private float progress;
     private boolean layoutLogged;
+    private boolean positionLoaded;
+    private float positionX;
+    private float positionY;
+    private float lastWidth = -1f;
+    private float lastHeight = -1f;
 
     SkillWheel() {
       touchable = Touchable.childrenOnly;
       mainButton = createCircleButton(new TextureRegionDrawable(Core.atlas.find("crystal-skills")), mainSize(),
           MAIN_BACKGROUND, ACTIVE_COLOR);
-      scaleImageForMobile(mainButton, mainSize(), MAIN_ICON_INSET);
+      mainButton.getImageCell().size(mainSize() - MAIN_ICON_INSET);
       mainButton.name = "skill-menu";
-      mainButton.clicked(this::toggle);
+      mainButton.addListener(new DragTap());
     }
 
     private void toggle() {
@@ -119,19 +131,21 @@ public final class SkillHUD {
       float mainSize = mainSize();
       float skillSize = skillSize();
       float edgeInset = radius + skillSize / 2f + 18f;
-      float centerX = width - edgeInset;
       float minY = radius + skillSize / 2f + 24f;
       float maxY = height - radius - skillSize / 2f - 24f;
-      float centerY = Mathf.clamp(
+      float defaultCenterY = Mathf.clamp(
           height * (Vars.mobile ? 0.38f : 0.34f),
           minY,
           Math.max(minY, maxY));
       float eased = Interp.pow2Out.apply(progress);
 
       mainButton.setSize(mainSize, mainSize);
-      mainButton.setPosition(centerX - mainSize / 2f, centerY - mainSize / 2f);
+      positionMainButton(width, height, width - edgeInset - mainSize / 2f,
+          defaultCenterY - mainSize / 2f);
       mainButton.setColor(open ? ACTIVE_COLOR : Color.white);
       mainButton.touchable = show ? Touchable.enabled : Touchable.disabled;
+      float centerX = mainButton.x + mainSize / 2f;
+      float centerY = mainButton.y + mainSize / 2f;
 
       int count = skillButtons.size;
       for (int i = 0; i < count; i++) {
@@ -155,6 +169,89 @@ public final class SkillHUD {
         button.touchable = open && progress > 0.92f
             ? Touchable.enabled
             : Touchable.disabled;
+      }
+    }
+
+    private void positionMainButton(float width, float height, float defaultX, float defaultY) {
+      if (!positionLoaded || width != lastWidth || height != lastHeight) {
+        if (!positionLoaded) {
+          float savedX = Core.settings == null ? Float.NaN : Core.settings.getFloat(POSITION_X, Float.NaN);
+          float savedY = Core.settings == null ? Float.NaN : Core.settings.getFloat(POSITION_Y, Float.NaN);
+          if (!Float.isNaN(savedX) && !Float.isNaN(savedY)) {
+            positionX = savedX;
+            positionY = savedY;
+          } else {
+            positionX = defaultX / width;
+            positionY = defaultY / height;
+          }
+          positionLoaded = true;
+        }
+        mainButton.setPosition(positionX * width, positionY * height);
+        lastWidth = width;
+        lastHeight = height;
+      }
+      clampMainButton();
+    }
+
+    private void clampMainButton() {
+      if (getWidth() <= 0f || getHeight() <= 0f) {
+        return;
+      }
+      mainButton.setPosition(
+          Mathf.clamp(mainButton.x, 0f, Math.max(0f, getWidth() - mainButton.getWidth())),
+          Mathf.clamp(mainButton.y, 0f, Math.max(0f, getHeight() - mainButton.getHeight())));
+    }
+
+    private void saveMainButtonPosition() {
+      if (Core.settings == null || getWidth() <= 0f || getHeight() <= 0f) {
+        return;
+      }
+      positionX = mainButton.x / getWidth();
+      positionY = mainButton.y / getHeight();
+      Core.settings.putFloat(POSITION_X, positionX);
+      Core.settings.putFloat(POSITION_Y, positionY);
+    }
+
+    private class DragTap extends InputListener {
+      private float downX;
+      private float downY;
+      private float startX;
+      private float startY;
+      private boolean moved;
+
+      @Override
+      public boolean touchDown(InputEvent event, float x, float y, int pointer, KeyCode button) {
+        if (button != KeyCode.mouseLeft && button != KeyCode.mouseRight && button != KeyCode.mouseMiddle) {
+          return false;
+        }
+        downX = event.stageX;
+        downY = event.stageY;
+        startX = mainButton.x;
+        startY = mainButton.y;
+        moved = false;
+        return true;
+      }
+
+      @Override
+      public void touchDragged(InputEvent event, float x, float y, int pointer) {
+        float dx = event.stageX - downX;
+        float dy = event.stageY - downY;
+        if (!moved && Math.abs(dx) + Math.abs(dy) < Scl.scl(DRAG_THRESHOLD)) {
+          return;
+        }
+        moved = true;
+        mainButton.setPosition(startX + dx, startY + dy);
+        clampMainButton();
+      }
+
+      @Override
+      public void touchUp(InputEvent event, float x, float y, int pointer, KeyCode button) {
+        if (moved) {
+          saveMainButtonPosition();
+        } else {
+          toggle();
+        }
+        moved = false;
       }
     }
 
