@@ -30,6 +30,7 @@ public class SkillFrameworkTest {
         }
       };
       instant.baseCost = 10f;
+      instant.unlock();
 
       Skill continuous = new Skill("test-continuous") {
         @Override
@@ -39,6 +40,7 @@ public class SkillFrameworkTest {
       };
       continuous.continuous = true;
       continuous.duration = 2f;
+      continuous.unlock();
 
       Player player = Player.create();
       player.id = 4242;

@@ -21,6 +21,8 @@ public class CSettings {
   private static final String KEY_PLAYER_NAME = "crystal_player_name";
   private static final String KEY_DIALOGUE_HISTORY = "crystal_gal_history";
   private static final String KEY_ALLOW_REPLAY_COMPLETED = "crystal_allow_replay_completed";
+  public static final String KEY_SHOW_SKILL_HUD = "showSkillHUD";
+  public static final String KEY_SHOW_FABAO_HUD = "showFaBaoHUD";
 
   static {
     JsonIO.json.addClassTag("DialogueHistory", crystal.ui.gal.DialogueHistory.class);
@@ -52,6 +54,26 @@ public class CSettings {
     return Core.settings.getBool(KEY_ALLOW_REPLAY_COMPLETED, true);
   }
 
+  public static boolean showSkillHUD() {
+    return Core.settings == null || Core.settings.getBool(KEY_SHOW_SKILL_HUD, true);
+  }
+
+  public static boolean showFaBaoHUD() {
+    return Core.settings == null || Core.settings.getBool(KEY_SHOW_FABAO_HUD, true);
+  }
+
+  public static void setShowSkillHUD(boolean visible) {
+    if (Core.settings != null) {
+      Core.settings.put(KEY_SHOW_SKILL_HUD, visible);
+    }
+  }
+
+  public static void setShowFaBaoHUD(boolean visible) {
+    if (Core.settings != null) {
+      Core.settings.put(KEY_SHOW_FABAO_HUD, visible);
+    }
+  }
+
   public ObjectMap<String, Object> getAllSettings() {
     ObjectMap<String, Object> result = new ObjectMap<>();
     for (String key : Core.settings.keys()) {
@@ -67,6 +89,10 @@ public class CSettings {
       table.checkPref("showContinueButton", true);
       table.row();
       table.checkPref("showgongfabuquan", true);
+      table.row();
+      table.checkPref(KEY_SHOW_SKILL_HUD, true);
+      table.row();
+      table.checkPref(KEY_SHOW_FABAO_HUD, true);
       table.row();
       table.checkPref(KEY_ALLOW_REPLAY_COMPLETED, true);
       table.row();

@@ -4,6 +4,7 @@ import crystal.core.CultivationState;
 import arc.Core;
 import arc.graphics.Color;
 import arc.math.Mathf;
+import arc.scene.ui.Button;
 import arc.scene.ui.ScrollPane;
 import arc.scene.ui.Label;
 import arc.scene.ui.layout.Scl;
@@ -13,12 +14,19 @@ import arc.util.Scaling;
 import arc.util.Time;
 import crystal.CVars;
 import crystal.content.GongFas;
+import crystal.core.CSettings;
 import crystal.core.FaBaoSystem;
 import crystal.core.PlayerXiuWeiSystem;
+import crystal.core.ScrollSystem;
+import crystal.core.ShenWuSystem;
 import crystal.entities.units.UnitEnum.JingJie;
 import crystal.entities.units.UnitEnum.XiuWei;
 import crystal.magic.FaBao;
+import crystal.magic.ShenWu;
+import crystal.magic.Skill;
+import crystal.magic.SkillUnlockable;
 import crystal.type.GongFa;
+import mindustry.gen.Icon;
 import mindustry.gen.Tex;
 import mindustry.ui.Bar;
 import mindustry.ui.Styles;
@@ -59,17 +67,45 @@ public class XiuWeiDialog extends BaseDialog {
     cont.pane(t -> {
       t.defaults().pad(4f);
       buildHeader(t);
+      buildHudVisibility(t);
       buildPowerBar(t);
       buildRealmProgress(t);
       buildDuJie(t);
       buildGongFa(t);
+      buildMagicSkills(t);
+      buildShenWuSkills(t);
+      buildScrollInventory(t);
       buildFaBaoSlots(t);
-      buildSlots(t, Core.bundle.get("shenwu", "神武"), CultivationState.shenwuHave, SHENWU_SLOTS,
-          Core.bundle.get("shenwu.empty", "尚未炼化任何神武"));
+      buildShenWuSlots(t);
     }).grow()
         .width(contentWidth + 20f)
         .maxHeight(Math.max(260f, screenHeight - 150f))
         .scrollX(false);
+  }
+
+  /** The same checkboxes exposed in SettingsMenuDialog, kept close to gameplay. */
+  private void buildHudVisibility(Table t) {
+    sectionTitle(t, Core.bundle.get("hud.buttons", "界面按钮"));
+    t.table(Styles.black6, s -> {
+      s.check(
+          Core.bundle.get("setting.showSkillHUD.name", "显示技能呼出按钮"),
+          CSettings.showSkillHUD(),
+          CSettings::setShowSkillHUD)
+          .left()
+          .height(42f)
+          .pad(4f, 10f, 4f, 10f)
+          .growX();
+      s.row();
+      s.check(
+          Core.bundle.get("setting.showFaBaoHUD.name", "显示法宝呼出按钮"),
+          CSettings.showFaBaoHUD(),
+          CSettings::setShowFaBaoHUD)
+          .left()
+          .height(42f)
+          .pad(4f, 10f, 6f, 10f)
+          .growX();
+    }).growX().padBottom(6f);
+    t.row();
   }
 
   /** 头部：修为标签 + 大号境界名（随修为档位变色）+ 道号 */
@@ -231,6 +267,77 @@ public class XiuWeiDialog extends BaseDialog {
     t.row();
   }
 
+  /** Standalone magic skills. ShenWu skills intentionally stay in their own section. */
+  private void buildMagicSkills(Table t) {
+    sectionTitle(t, Core.bundle.get("skills.unlocked.title", "已解锁技能"));
+
+    Seq<SkillUnlockable> unlocked = new Seq<>();
+    for (Skill skill : Skill.list) {
+      if (skill.unlocked()) {
+        unlocked.add(skill);
+      }
+    }
+    buildSkillGrid(t, unlocked, "skills.unlocked.empty");
+  }
+
+  /** Skills belonging to ShenWu, displayed separately from standalone magic skills. */
+  private void buildShenWuSkills(Table t) {
+    sectionTitle(t, Core.bundle.get("shenwu.skills.unlocked.title", "已解锁神武技能"));
+
+    Seq<SkillUnlockable> unlocked = new Seq<>();
+    for (ShenWu shenWu : ShenWu.list) {
+      for (ShenWu.Skill skill : shenWu.skills) {
+        if (skill.unlocked()) {
+          unlocked.add(skill);
+        }
+      }
+    }
+    buildSkillGrid(t, unlocked, "shenwu.skills.unlocked.empty");
+  }
+
+  private void buildSkillGrid(Table t, Seq<SkillUnlockable> skills, String emptyKey) {
+    t.table(Styles.black6, grid -> {
+      if (skills.isEmpty()) {
+        grid.add(Core.bundle.get(emptyKey, "尚未解锁任何技能"))
+            .color(EMPTY_COLOR)
+            .pad(8f);
+        return;
+      }
+
+      int columns = contentWidth < 360f ? 1 : 2;
+      float cardWidth = (contentWidth - 28f) / columns;
+      int index = 0;
+      for (SkillUnlockable skill : skills) {
+        Button card = new Button(Tex.button);
+        card.margin(6f);
+        card.image(skill.unlockIcon()).size(38f).scaling(Scaling.fit).padRight(7f);
+        card.add(skill.displayName()).wrap().left().growX().get().setFontScale(0.9f);
+        card.clicked(() -> new SkillDetailDialog(skill, false).show());
+        grid.add(card).width(cardWidth).height(62f).pad(3f).left();
+        if (++index % columns == 0) {
+          grid.row();
+        }
+      }
+    }).growX().padBottom(6f);
+    t.row();
+  }
+
+  private void buildScrollInventory(Table t) {
+    sectionTitle(t, Core.bundle.get("scroll.inventory.section", "卷轴"));
+    t.table(Styles.black6, s -> {
+      s.button(
+          Core.bundle.format(
+              "scroll.inventory.button",
+              ScrollSystem.owned().size),
+          Icon.bookOpen,
+          Styles.flatt,
+          () -> new ScrollInventoryDialog().show())
+          .size(Math.min(300f, contentWidth - 24f), 54f)
+          .pad(8f);
+    }).growX().padBottom(6f);
+    t.row();
+  }
+
   /** 法宝槽位区：栏位数量与持有类型数一致，最多显示两行，超出后纵向滚动。 */
   private void buildFaBaoSlots(Table t) {
     sectionTitle(t, Core.bundle.get("fabao", "法宝"));
@@ -271,25 +378,46 @@ public class XiuWeiDialog extends BaseDialog {
     t.row();
   }
 
-  /** 神武槽位区：固定槽位，有内容显示名字，空槽显示 "?" */
-  private void buildSlots(Table t, String title, Seq<String> owned, int slots, String emptyTip) {
-    sectionTitle(t, title);
-
+  /** Obtained ShenWu, replacing the former placeholder-string slots. */
+  private void buildShenWuSlots(Table t) {
+    sectionTitle(t, Core.bundle.get("shenwu", "神武"));
     t.table(Styles.black6, s -> {
-      for (int i = 0; i < slots; i++) {
-        int idx = i;
-        s.table(Tex.button, slot -> {
-          if (idx < owned.size) {
-            slot.add(owned.get(idx)).pad(8f);
-          } else {
-            slot.add("?").color(EMPTY_COLOR).pad(8f).get().setFontScale(1.6f);
-          }
-        }).size(76f).pad(4f);
+      Seq<ShenWu> owned = ShenWuSystem.obtained;
+      for (int i = 0; i < SHENWU_SLOTS; i++) {
+        int index = i;
+        if (index >= owned.size) {
+          s.add("?").color(EMPTY_COLOR).pad(8f).size(76f)
+              .get().setFontScale(1.6f);
+          continue;
+        }
+
+        ShenWu shenWu = owned.get(index);
+        Button slot = new Button(Tex.button);
+        slot.image(shenWu.uiIcon()).size(34f).scaling(Scaling.fit);
+        slot.row();
+        slot.add(shenWu.localizedName).get().setFontScale(0.75f);
+        slot.clicked(() -> ShenWuSystem.equip(shenWu));
+        s.add(slot).size(92f, 82f).pad(4f);
       }
       s.row();
       if (owned.isEmpty()) {
-        s.add(emptyTip).colspan(slots).color(Color.darkGray).wrap()
-            .width(contentWidth - 28f).padBottom(4f);
+        s.add(Core.bundle.get("shenwu.empty", "尚未炼化任何神武"))
+            .colspan(SHENWU_SLOTS)
+            .color(Color.darkGray)
+            .wrap()
+            .width(contentWidth - 28f)
+            .padBottom(4f);
+      } else {
+        Label equipped = s.add("").colspan(SHENWU_SLOTS)
+            .color(Color.lightGray)
+            .padBottom(5f)
+            .get();
+        equipped.update(() -> equipped.setText(
+            ShenWuSystem.equipped == null
+                ? Core.bundle.get("shenwu.equipped.none", "当前未装备神武")
+                : Core.bundle.format(
+                    "shenwu.equipped",
+                    ShenWuSystem.equipped.localizedName)));
       }
     }).growX().padBottom(6f);
     t.row();

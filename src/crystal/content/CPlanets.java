@@ -112,17 +112,19 @@ public class CPlanets {
         landCloudColor = Color.valueOf("#CB5DA8").cpy().a(0.5f);
       }
     };
-    milkyWay = new Galaxy("milky-way", null, 10f) {
-      {
-        grid = PlanetGrid.create(sectorSize);
-        sectors.ensureCapacity(grid.tiles.length);
-        for (int i = 0; i < grid.tiles.length; i++) {
-          sectors.add(new Sector(this, grid.tiles[i]));
-        }
-        alwaysUnlocked = true;
-        accessible = true;
-      }
-    };
-    milkyWay.setStyle(GalaxyStyle.artistic);
+    /*
+     * milkyWay = new Galaxy("milky-way", null, 10f) {
+     * {
+     * grid = PlanetGrid.create(sectorSize);
+     * sectors.ensureCapacity(grid.tiles.length);
+     * for (int i = 0; i < grid.tiles.length; i++) {
+     * sectors.add(new Sector(this, grid.tiles[i]));
+     * }
+     * alwaysUnlocked = true;
+     * accessible = true;
+     * }
+     * };
+     * milkyWay.setStyle(GalaxyStyle.artistic);
+     */
   }
 }

@@ -28,11 +28,15 @@ import crystal.content.GongFas;
 import crystal.content.LxMaps;
 import crystal.content.SpecialUnits;
 import crystal.content.Skills;
+import crystal.content.Scrolls;
+import crystal.content.ShenWus;
 import crystal.content.hzr.HZRBlocks;
 import crystal.core.Affection;
 import crystal.core.CSettings;
 import crystal.core.FaBaoSystem;
 import crystal.core.PlayerXiuWeiSystem;
+import crystal.core.ScrollSystem;
+import crystal.core.ShenWuSystem;
 import crystal.core.Storys;
 import crystal.core.UnitInfoSystem;
 import crystal.editor.MagicWaves;
@@ -53,6 +57,7 @@ import crystal.net.CCall;
 import crystal.ui.CStyles;
 import crystal.ui.FaBaoHUD;
 import crystal.ui.Hints;
+import crystal.ui.ScrollUI;
 import crystal.ui.SkillHUD;
 import crystal.ui.dialogs.CPlanetDialog;
 import crystal.util.DLog;
@@ -120,6 +125,9 @@ public class Crystal extends Mod {
     CUnits.load();
     SpecialUnits.load();
     Skills.load();
+    ShenWus.load();
+    Scrolls.load();
+    ScrollSystem.init();
     CBlocks.load();
     HZRBlocks.load();
     CrystalAviationSystemCore.loadAllContent();
@@ -129,7 +137,7 @@ public class Crystal extends Mod {
     CLoadouts.load();
     CWeather.load();
     CPlanets.load();
-    CAsteroidBelts.load();
+    // CAsteroidBelts.load();
     LxMaps.load();
     CrystalTechTree.load();
     MoveBlockSystem.init();
@@ -210,6 +218,7 @@ public class Crystal extends Mod {
     UnitInfoSystem.saveUnitInfo();
     PlayerXiuWeiSystem.init();
     FaBaoSystem.init();
+    ShenWuSystem.init();
     Events.on(ClientLoadEvent.class, e -> {
       constructor();
     });
@@ -221,6 +230,7 @@ public class Crystal extends Mod {
       BlackHoleRenderer.init();
       FaBaoHUD.init();
       SkillHUD.init();
+      ScrollUI.init();
       CIcons.load();
       CSettings.load();
       replaceUI();

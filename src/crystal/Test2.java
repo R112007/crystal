@@ -64,7 +64,7 @@ import static mindustry.type.ItemStack.*;
 
 public class Test2 {
 
-  public static boolean allow = true;
+  public static boolean allow = false;
   public static Block payloadAssembler, dronePayloadAssembler, healbulletturret, DeployUnitShieldBlock;
   public static UnitType u1, u2, u3, u4, u5, u7;
   public static UnitType eastWind;

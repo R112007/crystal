@@ -23,6 +23,7 @@ import arc.util.Time;
 import arc.util.Tmp;
 import arc.util.Log;
 import crystal.CVars;
+import crystal.core.CSettings;
 import crystal.core.FaBaoSystem;
 import crystal.magic.FaBao;
 import mindustry.Vars;
@@ -68,6 +69,8 @@ public class FaBaoHUD {
   private static Table bar;
   private static Table barContent;
   private static Table trigger;
+  private static Table barRoot;
+  private static Table triggerRoot;
   private static Cell<?> triggerRootCell;
   private static Cell<?> triggerHandleCell;
   private static Table aimCatcher;
@@ -98,6 +101,7 @@ public class FaBaoHUD {
 
     Events.on(ClientLoadEvent.class, e -> buildUI());
     Events.run(Trigger.draw, FaBaoHUD::drawAimOverlay);
+    Events.run(Trigger.update, FaBaoHUD::updateVisibility);
     Events.on(StateChangeEvent.class, e -> stopAiming(false));
     Events.on(WorldLoadEvent.class, e -> stopAiming(false));
   }
@@ -105,21 +109,33 @@ public class FaBaoHUD {
   private static void buildUI() {
     // ========== 1. 法宝栏面板（先添加，在底层） ==========
     Vars.ui.hudGroup.fill(null, table -> {
+      barRoot = table;
       table.table(null, t -> {
         bar = new Table(Tex.pane);
         rebuildBar();
         t.add(bar).width(PANEL_WIDTH).height(PANEL_HEIGHT);
       }).size(PANEL_WIDTH, PANEL_HEIGHT);
       table.center().right().update(() -> {
+        boolean show = Vars.state.isPlaying() && Vars.state.rules != null && !Vars.state.rules.editor
+            && CSettings.showFaBaoHUD();
+        table.visible = show;
+        table.touchable = show ? Touchable.childrenOnly : Touchable.disabled;
+        if (!show && panelOpen) {
+          panelOpen = false;
+          stopAiming(false);
+        }
         float target = panelOpen ? -SLIDE_IN_LEFT : SLIDE_OUT_RIGHT;
         panelX = Mathf.lerpDelta(panelX, target, ANIM_SPEED);
         table.translation.set(panelX, BAR_OFFSET_Y);
-        bar.touchable = (panelX < SLIDE_OUT_RIGHT * 0.5f) ? Touchable.enabled : Touchable.disabled;
+        bar.touchable = show && panelX < SLIDE_OUT_RIGHT * 0.5f
+            ? Touchable.enabled
+            : Touchable.disabled;
       });
     });
 
     // ========== 2. 触发条（后添加，在最上层，钉死最右边缘） ==========
     Vars.ui.hudGroup.fill(null, table -> {
+      triggerRoot = table;
       triggerRootCell = table.table(null, t -> {
         trigger = new Table(((TextureRegionDrawable) Tex.whiteui).tint(Color.white));
         trigger.touchable = Touchable.enabled;
@@ -140,6 +156,11 @@ public class FaBaoHUD {
       Log.info("[FaBaoHUD] trigger size=@x@ mobile=@ portrait=@",
           TRIGGER_WIDTH, triggerHeight(), Vars.mobile, Core.graphics.isPortrait());
       table.center().right().update(() -> {
+        boolean show = Vars.state.isPlaying() && Vars.state.rules != null && !Vars.state.rules.editor
+            && CSettings.showFaBaoHUD();
+        table.visible = show;
+        table.touchable = show ? Touchable.childrenOnly : Touchable.disabled;
+        trigger.touchable = show ? Touchable.enabled : Touchable.disabled;
         updateTriggerHeight(table);
         float maxOffset = Math.max(0f, table.getHeight() / 2f - trigger.getHeight() - 12f);
         table.translation.set(0, Math.min(TRIGGER_OFFSET_Y, maxOffset));
@@ -198,6 +219,28 @@ public class FaBaoHUD {
     return Vars.mobile && Core.graphics.isPortrait()
         ? TRIGGER_HEIGHT_PORTRAIT
         : TRIGGER_HEIGHT_COMPACT;
+  }
+
+  private static void updateVisibility() {
+    boolean show = Vars.state.isPlaying()
+        && Vars.state.rules != null
+        && !Vars.state.rules.editor
+        && CSettings.showFaBaoHUD();
+    if (barRoot != null) {
+      barRoot.visible = show;
+      barRoot.touchable = show ? Touchable.childrenOnly : Touchable.disabled;
+    }
+    if (triggerRoot != null) {
+      triggerRoot.visible = show;
+      triggerRoot.touchable = show ? Touchable.childrenOnly : Touchable.disabled;
+    }
+    if (trigger != null) {
+      trigger.touchable = show ? Touchable.enabled : Touchable.disabled;
+    }
+    if (!show && panelOpen) {
+      panelOpen = false;
+      stopAiming(false);
+    }
   }
 
   private static void updateTriggerHeight(Table root) {

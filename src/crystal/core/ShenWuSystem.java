@@ -7,6 +7,7 @@ import arc.struct.ObjectMap;
 import arc.struct.Seq;
 import arc.util.Time;
 import crystal.CVars;
+import crystal.game.CEventType.SkillUnlockedEvent;
 import crystal.magic.ShenWu;
 import crystal.magic.ShenWu.Skill;
 import mindustry.Vars;
@@ -31,6 +32,7 @@ public class ShenWuSystem {
   private static final String SAVE_KEY_OBTAINED = "crystal.shenwu.obtained";
   private static final String SAVE_KEY_EQUIPPED = "crystal.shenwu.equipped";
   private static final String SAVE_KEY_SKILL_LV = "crystal.shenwu.skillLv";
+  private static final String SAVE_KEY_SKILL_UNLOCKED = "crystal.shenwu.skillUnlocked";
 
   public static void init() {
     if (initialized)
@@ -91,8 +93,9 @@ public class ShenWuSystem {
   public static boolean unlockSkill(Skill skill) {
     if (skill == null || skill.unlocked())
       return false;
-    skill.level = 1;
+    skill.markUnlocked();
     save();
+    Events.fire(new SkillUnlockedEvent(skill));
     return true;
   }
 
@@ -144,12 +147,33 @@ public class ShenWuSystem {
     else
       Core.settings.remove(SAVE_KEY_SKILL_LV);
 
+    StringBuilder unlocked = new StringBuilder();
+    int uc = 0;
+    for (ShenWu sw : ShenWu.list) {
+      for (Skill sk : sw.skills) {
+        if (sk.unlocked()) {
+          if (uc++ > 0)
+            unlocked.append(",");
+          unlocked.append(sw.name).append(":").append(sk.name);
+        }
+      }
+    }
+    if (uc > 0)
+      Core.settings.put(SAVE_KEY_SKILL_UNLOCKED, unlocked.toString());
+    else
+      Core.settings.remove(SAVE_KEY_SKILL_UNLOCKED);
+
     Core.settings.manualSave();
   }
 
   public static void load() {
     obtained.clear();
     equipped = null;
+    for (ShenWu sw : ShenWu.list) {
+      for (Skill skill : sw.skills) {
+        skill.markLocked();
+      }
+    }
 
     // 读已获得
     String obs = Core.settings.getString(SAVE_KEY_OBTAINED, "");
@@ -179,13 +203,38 @@ public class ShenWuSystem {
         String[] names = parts[0].split(":");
         if (names.length != 2)
           continue;
-        int level = Integer.parseInt(parts[1].trim());
+        int level;
+        try {
+          level = Integer.parseInt(parts[1].trim());
+        } catch (NumberFormatException ignored) {
+          continue;
+        }
         ShenWu sw = ShenWu.all.get(names[0].trim());
         if (sw == null)
           continue;
         for (Skill sk : sw.skills) {
           if (sk.name.equals(names[1].trim())) {
             sk.level = level;
+            // Level > 0 was the old unlock representation.
+            sk.unlocked = level > 0;
+            break;
+          }
+        }
+      }
+    }
+
+    String unlocked = Core.settings.getString(SAVE_KEY_SKILL_UNLOCKED, "");
+    if (!unlocked.isEmpty()) {
+      for (String entry : unlocked.split(",")) {
+        String[] names = entry.split(":");
+        if (names.length != 2)
+          continue;
+        ShenWu sw = ShenWu.all.get(names[0].trim());
+        if (sw == null)
+          continue;
+        for (Skill skill : sw.skills) {
+          if (skill.name.equals(names[1].trim())) {
+            skill.markUnlocked();
             break;
           }
         }

@@ -22,7 +22,7 @@ import arc.struct.ObjectMap;
 import arc.struct.Seq;
 import arc.util.Nullable;
 import arc.util.Scaling;
-import crystal.CVars;
+import crystal.core.ShenWuSystem;
 import mindustry.Vars;
 import mindustry.game.EventType.ClientLoadEvent;
 import mindustry.game.EventType.Trigger;
@@ -57,8 +57,11 @@ public abstract class ShenWu {
     Events.on(ClientLoadEvent.class, e -> {
       for (ShenWu s : list) {
         s.loadIcon();
-        for (Skill sk : s.skills)
+        s.refreshLocalization();
+        for (Skill sk : s.skills) {
           sk.loadIcon();
+          sk.refreshLocalization();
+        }
       }
     });
     // 渲染线程：绘制所有激活中的技能
@@ -81,8 +84,8 @@ public abstract class ShenWu {
       throw new IllegalArgumentException("Two shenwu cannot have the same name! (issue: '" + name + "')");
     all.put(name, this);
     list.add(this);
-    this.localizedName = Core.bundle.get("shenwu." + fullName + ".name", name);
-    this.description = Core.bundle.getOrNull("shenwu." + fullName + ".description");
+    this.localizedName = Core.bundle.get("shenwu." + name + ".name", name);
+    this.description = Core.bundle.getOrNull("shenwu." + name + ".description");
     setStats();
   }
 
@@ -112,6 +115,14 @@ public abstract class ShenWu {
     return new TextureRegionDrawable(uiIcon());
   }
 
+  /** Refreshes bundle-backed text after all mod bundles are available. */
+  public void refreshLocalization() {
+    if (Core.bundle != null) {
+      localizedName = Core.bundle.get("shenwu." + name + ".name", name);
+      description = Core.bundle.getOrNull("shenwu." + name + ".description");
+    }
+  }
+
   /** 更新所有技能冷却 */
   public void update(float delta) {
     for (Skill s : skills)
@@ -125,12 +136,14 @@ public abstract class ShenWu {
    * level = 0 未解锁；level >= 1 已解锁，可升级到 maxLevel。
    * 解锁/升级由 ShenWuSystem + 科技树统一处理，Skill 只负责战斗逻辑。
    */
-  public static abstract class Skill {
+  public static abstract class Skill implements SkillUnlockable {
     public String name, localizedName;
     public @Nullable String description;
 
-    /** 当前等级（0 = 未解锁） */
+    /** 当前等级；只有解锁后才会大于 0。 */
     public int level = 0;
+    /** 独立于等级的永久解锁状态。 */
+    public boolean unlocked;
     /** 最大等级 */
     public int maxLevel = 3;
 
@@ -162,6 +175,7 @@ public abstract class ShenWu {
       this.name = name;
       this.localizedName = Core.bundle.get("shenwu.skill." + name + ".name", name);
       this.description = Core.bundle.getOrNull("shenwu.skill." + name + ".description");
+      loadUnlock();
     }
 
     /** 快捷添加解锁条件 */
@@ -181,13 +195,69 @@ public abstract class ShenWu {
     }
 
     /** 是否已解锁 */
+    @Override
     public boolean unlocked() {
-      return level > 0;
+      return unlocked;
+    }
+
+    @Override
+    public String unlockKey() {
+      return "shenwu.skill." + name + "-unlocked";
+    }
+
+    @Override
+    public String displayName() {
+      return localizedName == null || localizedName.isEmpty() ? name : localizedName;
+    }
+
+    @Override
+    public @Nullable String displayDescription() {
+      return description;
+    }
+
+    @Override
+    public TextureRegion unlockIcon() {
+      return uiIcon();
+    }
+
+    /** Loads the persistent unlock flag from player settings. */
+    public void loadUnlock() {
+      if (Core.settings != null) {
+        unlocked = Core.settings.getBool(unlockKey(), unlocked);
+      }
+      if (unlocked && level <= 0) {
+        level = 1;
+      }
+    }
+
+    /** Refreshes bundle-backed text after all mod bundles are available. */
+    public void refreshLocalization() {
+      if (Core.bundle != null) {
+        localizedName = Core.bundle.get("shenwu.skill." + name + ".name", name);
+        description = Core.bundle.getOrNull("shenwu.skill." + name + ".description");
+      }
+    }
+
+    @Override
+    public boolean unlock() {
+      return ShenWuSystem.unlockSkill(this);
+    }
+
+    /** Applies the state after ShenWuSystem has persisted it. */
+    public void markUnlocked() {
+      unlocked = true;
+      level = Math.max(1, level);
+    }
+
+    /** Used by debug/reset code. */
+    public void markLocked() {
+      unlocked = false;
+      level = 0;
     }
 
     /** 是否满级 */
     public boolean maxed() {
-      return level >= maxLevel;
+      return unlocked && level >= maxLevel;
     }
 
     /** 激活：传入目标坐标和方向 */

@@ -20,6 +20,7 @@ import arc.input.KeyCode;
 import arc.struct.Seq;
 import arc.util.Log;
 import crystal.magic.Skill;
+import crystal.core.CSettings;
 import crystal.ui.style.CircleButton;
 import mindustry.Vars;
 import mindustry.game.EventType.ClientLoadEvent;
@@ -103,7 +104,10 @@ public final class SkillHUD {
       refreshSkills();
 
       boolean show = canShow() && !skillButtons.isEmpty();
-      visible = show;
+      // Keep this group active even while hidden. arc's Group.act skips
+      // invisible children, so hiding the group itself would make the setting
+      // impossible to turn back on without rebuilding the HUD.
+      visible = true;
       if (!show) {
         open = false;
       } else {
@@ -140,6 +144,7 @@ public final class SkillHUD {
       float eased = Interp.pow2Out.apply(progress);
 
       mainButton.setSize(mainSize, mainSize);
+      mainButton.visible = show;
       positionMainButton(width, height, width - edgeInset - mainSize / 2f,
           defaultCenterY - mainSize / 2f);
       mainButton.setColor(open ? ACTIVE_COLOR : Color.white);
@@ -259,7 +264,8 @@ public final class SkillHUD {
       return Vars.state != null
           && Vars.state.isPlaying()
           && Vars.state.rules != null
-          && !Vars.state.rules.editor;
+          && !Vars.state.rules.editor
+          && CSettings.showSkillHUD();
     }
 
     private float ringRadius() {

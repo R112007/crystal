@@ -1,6 +1,8 @@
 package crystal.game;
 
 import crystal.entities.units.UnitEnum.JingJie;
+import crystal.magic.Scroll;
+import crystal.magic.SkillUnlockable;
 import crystal.type.GongFa;
 import crystal.type.UnitStack;
 import mindustry.entities.Effect;
@@ -104,6 +106,37 @@ public class CEventType {
 
     public ResearchGongFaEvent(GongFa gongFa) {
       this.gongFa = gongFa;
+    }
+  }
+
+  /** A skill was permanently unlocked by research, a scroll, or debug code. */
+  public static class SkillUnlockedEvent {
+    public final SkillUnlockable skill;
+
+    public SkillUnlockedEvent(SkillUnlockable skill) {
+      this.skill = skill;
+    }
+  }
+
+  /** A scroll entered the player's unused inventory. */
+  public static class ScrollObtainedEvent {
+    public final Scroll scroll;
+    public final int amount;
+
+    public ScrollObtainedEvent(Scroll scroll, int amount) {
+      this.scroll = scroll;
+      this.amount = amount;
+    }
+  }
+
+  /** A scroll was consumed and its target skill was unlocked. */
+  public static class ScrollUsedEvent {
+    public final Scroll scroll;
+    public final SkillUnlockable skill;
+
+    public ScrollUsedEvent(Scroll scroll, SkillUnlockable skill) {
+      this.scroll = scroll;
+      this.skill = skill;
     }
   }
 

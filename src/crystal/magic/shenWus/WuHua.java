@@ -20,7 +20,6 @@ public class WuHua extends ShenWu {
         baseCooldown = 4f;
         baseCost = 15f;
         maxLevel = 1;
-        level = 1;
         directional = false;
         iconColor = Color.sky;
       }

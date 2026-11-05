@@ -11,6 +11,7 @@ import arc.struct.Seq;
 import arc.util.Nullable;
 import arc.util.Time;
 import crystal.core.CultivationState;
+import crystal.game.CEventType.SkillUnlockedEvent;
 import crystal.gen.SkillEntity;
 import crystal.gen.SkillEntityc;
 import ent.anno.Annotations.EntityComponent;
@@ -28,14 +29,16 @@ import mindustry.gen.Timedc;
  * A player skill that can either run immediately or be hosted by a
  * {@link SkillEntity}.
  *
- * <p>Instant skills implement {@link #influence()}. Continuous skills set
+ * <p>
+ * Instant skills implement {@link #influence()}. Continuous skills set
  * {@link #continuous} to {@code true} and implement
  * {@link #influence(SkillEntity)}; the entity calls that method once per game
  * update until its lifetime ends. The target and caster used by an instant
  * skill are available through {@link #aimX}, {@link #aimY}, {@link #angle} and
- * {@link #caster} for the duration of the call.</p>
+ * {@link #caster} for the duration of the call.
+ * </p>
  */
-public abstract class Skill {
+public abstract class Skill implements SkillUnlockable {
 
   private static final AtomicInteger maxId = new AtomicInteger(0);
   public static final ObjectMap<Integer, Skill> map = new ObjectMap<>();
@@ -58,7 +61,7 @@ public abstract class Skill {
   /** Entity lifetime in seconds for continuous skills. */
   public float duration = 1f;
   /** Whether the skill has been unlocked. */
-  public boolean unlocked = true;
+  public boolean unlocked = false;
 
   /** Runtime cooldown, in seconds. */
   public float cooldownTimer;
@@ -74,6 +77,7 @@ public abstract class Skill {
     Events.on(ClientLoadEvent.class, e -> {
       for (Skill skill : list) {
         skill.loadIcon();
+        skill.refreshLocalization();
       }
     });
     Events.run(Trigger.update, () -> {
@@ -98,6 +102,7 @@ public abstract class Skill {
     list.add(this);
     this.localizedName = Core.bundle.get("skill." + name + ".name", name);
     this.description = Core.bundle.getOrNull("skill." + name + ".description");
+    loadUnlock();
   }
 
   /**
@@ -124,7 +129,69 @@ public abstract class Skill {
 
   /** Whether the skill should appear in the radial HUD. */
   public boolean visible() {
+    return unlocked();
+  }
+
+  @Override
+  public boolean unlocked() {
     return unlocked;
+  }
+
+  /** Loads the persistent unlock flag from player settings. */
+  public void loadUnlock() {
+    if (Core.settings != null) {
+      unlocked = Core.settings.getBool(unlockKey(), unlocked);
+    }
+  }
+
+  /** Refreshes bundle-backed text after all mod bundles are available. */
+  public void refreshLocalization() {
+    if (Core.bundle != null) {
+      localizedName = Core.bundle.get("skill." + name + ".name", name);
+      description = Core.bundle.getOrNull("skill." + name + ".description");
+    }
+  }
+
+  @Override
+  public String unlockKey() {
+    return "skill." + name + "-unlocked";
+  }
+
+  @Override
+  public String displayName() {
+    return localizedName == null || localizedName.isEmpty() ? name : localizedName;
+  }
+
+  @Override
+  public @Nullable String displayDescription() {
+    return description;
+  }
+
+  @Override
+  public TextureRegion unlockIcon() {
+    return uiIcon();
+  }
+
+  @Override
+  public boolean unlock() {
+    if (unlocked) {
+      return false;
+    }
+    unlocked = true;
+    if (Core.settings != null) {
+      Core.settings.put(unlockKey(), true);
+      Core.settings.manualSave();
+    }
+    Events.fire(new SkillUnlockedEvent(this));
+    return true;
+  }
+
+  public void lock() {
+    unlocked = false;
+    if (Core.settings != null) {
+      Core.settings.put(unlockKey(), false);
+      Core.settings.manualSave();
+    }
   }
 
   public boolean ready() {
@@ -208,7 +275,7 @@ public abstract class Skill {
   }
 
   public boolean continuous() {
-    return continuous ;
+    return continuous;
   }
 
   public float cooldown() {

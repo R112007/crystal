@@ -30,7 +30,8 @@ public final class CoreUnitSkill extends Skill {
         && Vars.state.isPlaying()
         && Vars.state.rules != null
         && !Vars.state.rules.editor
-        && Vars.player != null;
+        && Vars.player != null
+        && unlocked();
   }
 
   @Override
