@@ -254,9 +254,6 @@ public abstract class Skill {
       return;
     }
     TextureRegion found = Core.atlas.find("skill-" + fullName);
-    if (!found.found()) {
-      found = Core.atlas.find("shenwu-skill-" + name);
-    }
     loadedIcon = found.found() ? found : Icon.bookOpen.getRegion();
     icon = loadedIcon;
     iconLoaded = true;

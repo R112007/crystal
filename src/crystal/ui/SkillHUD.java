@@ -19,7 +19,6 @@ import crystal.magic.Skill;
 import crystal.ui.style.CircleButton;
 import mindustry.Vars;
 import mindustry.game.EventType.ClientLoadEvent;
-import mindustry.gen.Icon;
 import mindustry.gen.Player;
 import mindustry.ui.Styles;
 
@@ -29,12 +28,14 @@ import mindustry.ui.Styles;
  */
 public final class SkillHUD {
   private static final float MAIN_SIZE_DESKTOP = 64f;
-  private static final float MAIN_SIZE_MOBILE = 84f;
+  private static final float MAIN_SIZE_MOBILE = 128f;
   private static final float SKILL_SIZE_DESKTOP = 48f;
-  private static final float SKILL_SIZE_MOBILE = 64f;
-  private static final float RING_GAP = 7f;
+  private static final float SKILL_SIZE_MOBILE = 96f;
+  private static final float RING_GAP = 14f;
   private static final float MIN_RING_RADIUS_DESKTOP = 76f;
-  private static final float MIN_RING_RADIUS_MOBILE = 96f;
+  private static final float MIN_RING_RADIUS_MOBILE = 160f;
+  private static final float MAIN_ICON_INSET = 16f;
+  private static final float SKILL_ICON_INSET = 12f;
   private static final Color MAIN_BACKGROUND = Color.valueOf("171d24");
   private static final Color SKILL_BACKGROUND = Color.valueOf("252d36");
   private static final Color ACTIVE_COLOR = Color.valueOf("ffd36a");
@@ -70,7 +71,9 @@ public final class SkillHUD {
 
     SkillWheel() {
       touchable = Touchable.childrenOnly;
-      mainButton = createCircleButton(Icon.bookOpen, mainSize(), MAIN_BACKGROUND, ACTIVE_COLOR);
+      mainButton = createCircleButton(new TextureRegionDrawable(Core.atlas.find("crystal-skills")), mainSize(),
+          MAIN_BACKGROUND, ACTIVE_COLOR);
+      scaleImageForMobile(mainButton, mainSize(), MAIN_ICON_INSET);
       mainButton.name = "skill-menu";
       mainButton.clicked(this::toggle);
     }
@@ -223,7 +226,10 @@ public final class SkillHUD {
       backgroundColor = SKILL_BACKGROUND;
       strokeColor = skill.iconColor.cpy().mul(0.8f);
       strokeWidth = 2f;
+      drawBackground = false;
+      drawStroke = false;
       setColor(skill.usingFallbackIcon() ? skill.iconColor : Color.white);
+      scaleImageForMobile(this, SKILL_SIZE_MOBILE, SKILL_ICON_INSET);
       name = "skill-" + skill.name;
       touchable = Touchable.disabled;
       clicked(this::cast);
@@ -273,9 +279,22 @@ public final class SkillHUD {
     button.backgroundColor = background;
     button.strokeColor = Color.valueOf("778596");
     button.strokeWidth = 2f;
+    button.drawBackground = false;
+    button.drawStroke = false;
     button.setColor(iconColor);
     button.setSize(size, size);
     return button;
+  }
+
+  /**
+   * ImageButton keeps its child image at the texture's native size unless the
+   * image cell is explicitly resized. Mobile needs both a larger hit target and
+   * a correspondingly larger icon inside it.
+   */
+  private static void scaleImageForMobile(ImageButton button, float buttonSize, float inset) {
+    if (Vars.mobile) {
+      button.getImageCell().size(buttonSize - inset);
+    }
   }
 
   private static ImageButtonStyle createStyle(arc.scene.style.Drawable icon) {

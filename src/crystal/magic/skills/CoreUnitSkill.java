@@ -1,14 +1,11 @@
 package crystal.magic.skills;
 
-import arc.Core;
 import arc.graphics.Color;
-import arc.graphics.g2d.TextureRegion;
 import crystal.core.CultivationState;
 import crystal.gen.SkillEntity;
 import crystal.magic.Skill;
 import crystal.world.blocks.stroage.MobileCoreControlSystem;
 import mindustry.Vars;
-import mindustry.gen.Icon;
 import mindustry.gen.Player;
 
 /**
@@ -25,18 +22,6 @@ public final class CoreUnitSkill extends Skill {
     continuous = true;
     duration = 0f;
     iconColor = Color.valueOf("8fd8ff");
-  }
-
-  @Override
-  public void loadIcon() {
-    TextureRegion found = Core.atlas.find("crystal-core1");
-    if (!found.found()) {
-      found = Core.atlas.find("crystal-core");
-    }
-    if (!found.found()) {
-      found = Icon.units.getRegion();
-    }
-    setIcon(found);
   }
 
   @Override

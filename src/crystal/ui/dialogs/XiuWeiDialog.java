@@ -60,6 +60,7 @@ public class XiuWeiDialog extends BaseDialog {
       t.defaults().pad(4f);
       buildHeader(t);
       buildPowerBar(t);
+      buildRealmProgress(t);
       buildDuJie(t);
       buildGongFa(t);
       buildFaBaoSlots(t);
@@ -125,6 +126,50 @@ public class XiuWeiDialog extends BaseDialog {
           .color(Color.lightGray).fontScale(0.9f).padBottom(6f);
     }).growX().padBottom(6f);
     t.row();
+  }
+
+  /** 境界进度：从当前境界门槛到下一境界门槛，显示总修为与尚差数值。 */
+  private void buildRealmProgress(Table t) {
+    JingJie current = CultivationState.currentJingJie();
+    JingJie next = PlayerXiuWeiSystem.getNextJingJie();
+    boolean maxed = next == current;
+    float power = Math.max(0f, CultivationState.playerMagicPower);
+    float currentThreshold = current.amount;
+    float nextThreshold = maxed ? currentThreshold : next.amount;
+    float ratio = maxed ? 1f : Mathf.clamp(
+        (power - currentThreshold) / Math.max(1f, nextThreshold - currentThreshold));
+    float remaining = maxed ? 0f : Math.max(0f, nextThreshold - power);
+    String progressText = formatRealmValue(power) + " / " + formatRealmValue(nextThreshold);
+    String detail = maxed
+        ? "已达当前修行路线最高境界"
+        : "距离「" + next.str + "」还差 " + formatRealmValue(remaining) + " 修为";
+    Color progressColor = CultivationState.currentXiuWei().color;
+
+    t.table(Styles.black6, p -> {
+      p.table(head -> {
+        head.add("境 界 进 度").color(SECTION_COLOR).fontScale(1.05f);
+        head.add().growX();
+        head.add(maxed ? "MAX" : "下一境界：" + next.str)
+            .color(maxed ? Color.gold : Color.lightGray).fontScale(0.9f);
+      }).growX().pad(8f, 12f, 3f, 12f);
+      p.row();
+
+      Bar bar = new Bar(
+          () -> progressText,
+          () -> progressColor.cpy().lerp(Color.white, 0.12f + Mathf.absin(Time.time, 6f, 0.10f)),
+          () -> ratio);
+      bar.outline(progressColor.cpy().a(0.9f), 3f);
+      p.add(bar).growX().height(54f).pad(8f, 10f, 5f, 10f);
+      p.row();
+      p.add(detail).color(maxed ? Color.gold : Color.lightGray)
+          .wrap().width(contentWidth - 28f).fontScale(0.9f)
+          .pad(0f, 10f, 8f, 10f);
+    }).growX().padBottom(6f);
+    t.row();
+  }
+
+  private static String formatRealmValue(float value) {
+    return String.format("%,.1f", value);
   }
 
   /** 渡劫目标：渡劫中显示当前目标（猩红），否则显示下一境界目标（金）；神途渡劫附带实时击杀进度 */
