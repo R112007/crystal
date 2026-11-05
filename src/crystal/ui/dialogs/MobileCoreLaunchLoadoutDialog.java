@@ -466,7 +466,7 @@ public class MobileCoreLaunchLoadoutDialog extends LaunchLoadoutDialog {
 
     cont.add("[accent]移动核心发射[]").left().row();
     cont.add(marked
-        ? "[lightgray]默认控制移动核心，可消耗灵力召唤核心机；灵力耗尽后返回移动核心。"
+        ? "[lightgray]玩家将直接控制移动核心本体，不召唤或附身其他单位。"
         : "[lightgray]移动核心将作为本区块核心，玩家控制其配置的核心机。")
         .left().row();
 

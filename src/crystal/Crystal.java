@@ -27,6 +27,7 @@ import crystal.content.FaBaos;
 import crystal.content.GongFas;
 import crystal.content.LxMaps;
 import crystal.content.SpecialUnits;
+import crystal.content.Skills;
 import crystal.content.hzr.HZRBlocks;
 import crystal.core.Affection;
 import crystal.core.CSettings;
@@ -52,6 +53,7 @@ import crystal.net.CCall;
 import crystal.ui.CStyles;
 import crystal.ui.FaBaoHUD;
 import crystal.ui.Hints;
+import crystal.ui.SkillHUD;
 import crystal.ui.dialogs.CPlanetDialog;
 import crystal.util.DLog;
 import crystal.util.PlotBundle;
@@ -117,6 +119,7 @@ public class Crystal extends Mod {
     CUnitCommands.load();
     CUnits.load();
     SpecialUnits.load();
+    Skills.load();
     CBlocks.load();
     HZRBlocks.load();
     CrystalAviationSystemCore.loadAllContent();
@@ -200,35 +203,40 @@ public class Crystal extends Mod {
   public void init() {
     AsteroidBeltSystem.init();
     ClassMapLoader.load();
-    CVars.cui.init();
-    // 尽早把原版 PlacementFragment 替换成带空指针防护的 SafePlacementFragment，
-    // 并把旧实例隔离到 dummy parent，防止其残留的 WorldLoadEvent/UnlockEvent 监听崩溃
-    SatelliteManager.ensureSafePlacementFragment();
     UnitInfoSystem.init();
     UnitInfoSystem.loadUnitInfo();
     MultiSectorWaveTrigger.get().init();
     UnitInfoSystem.checkAllSector();
     UnitInfoSystem.saveUnitInfo();
-    BlackHoleRenderer.init();
     PlayerXiuWeiSystem.init();
     FaBaoSystem.init();
-    FaBaoHUD.init();
     Events.on(ClientLoadEvent.class, e -> {
       constructor();
     });
-    CIcons.load();
-    CSettings.load();
-    replaceUI();
+    if (!headless) {
+      CVars.cui.init();
+      // 尽早把原版 PlacementFragment 替换成带空指针防护的 SafePlacementFragment，
+      // 并把旧实例隔离到 dummy parent，防止其残留的 WorldLoadEvent/UnlockEvent 监听崩溃
+      SatelliteManager.ensureSafePlacementFragment();
+      BlackHoleRenderer.init();
+      FaBaoHUD.init();
+      SkillHUD.init();
+      CIcons.load();
+      CSettings.load();
+      replaceUI();
+    }
     Events.run(Trigger.update, () -> {
       update();
     });
     SummonUnit.init();
-    timeRewind = new TimeRewind();
-    // 在逻辑更新前驱动：正向时捕获快照，回溯时恢复旧快照
-    Events.run(Trigger.beforeGameUpdate, () -> {
-      if (timeRewind != null)
-        timeRewind.update();
-    });
+    if (!headless) {
+      timeRewind = new TimeRewind();
+      // 在逻辑更新前驱动：正向时捕获快照，回溯时恢复旧快照
+      Events.run(Trigger.beforeGameUpdate, () -> {
+        if (timeRewind != null)
+          timeRewind.update();
+      });
+    }
   }
 
   public void update() {

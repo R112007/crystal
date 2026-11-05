@@ -12,6 +12,11 @@
 .\verify\run-headless.ps1 verify\build\data crystal.dbg.XXXTest   # 跑某个场景类
 .\verify\run-headless.ps1 verify\build\data crystal.dbg.XXXTest write   # 场景参数照传
 
+# 完整平台验证
+.\verify\run-desktop-validator.ps1
+.\verify\run-android-validator.ps1 -StartEmulator
+.\verify\run-all-validators.ps1 -StartEmulator
+
 # 三个完整回归场景
 .\verify\run-headless.ps1 verify\build\data crystal.dbg.SatelliteItemSimulationTest
 .\verify\run-headless.ps1 verify\build\data crystal.dbg.GalSystemTest
@@ -34,6 +39,22 @@
 - 临时探针、调试打印用完就删；`verify\build\` 是产物，不提交。
 - 跑挂过会在数据目录的 settings 里留下 `mod-crystal-failed`，之后模组根本不会被加载（测试会"假过"）；
   运行器见到退出码 3 会自动把 settings 挪走重跑一次。
+
+## 平台验证器
+
+- `run-desktop-validator.ps1`：检查 `Crystal.jar` 含 `classes.dex`，运行移动核心与 Skill 场景，再启动真实
+  headless 服务端并验证 `Crystal` 模组加载完成。
+- `run-server-smoke.ps1`：单独启动服务端，使用与桌面客户端同版本的资源包，等待日志出现
+  `Server loaded.`，并拒绝任何 `Error loading mod crystal`。
+- `run-android-validator.ps1`：自动查找下载目录 APK，校验模组 dex，启动 AVD、安装 APK、把
+  `Crystal.jar` 写入 `/sdcard/Android/data/io.anuke.mindustry/files/mods/`，重启客户端并检查
+  `last_log.txt` 中的模组加载标记。
+- `run-all-validators.ps1`：统一执行桌面客户端、桌面服务端、Android 客户端三条链路。
+
+> 官方 Mindustry 160.5 APK 在 Android API 37 上会隐藏 `Android/data` 外的真实路径，且内置
+> “Import File” 会把 DocumentsUI 的 `content://` 当作文件路径打开，触发 `EACCES`。因此该环境
+> 可以完成 APK 安装、dex 模组注入和客户端启动，但无法自动完成客户端内部 mods 导入；验证器
+> 会把这种情况报告为失败，需在较低 Android 版本或可写应用数据目录中完成运行级验证。
 
 ## 历史发现（160.4 时期验出来的两个模组缺陷，已修）
 

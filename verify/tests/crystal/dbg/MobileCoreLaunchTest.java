@@ -7,6 +7,7 @@ import crystal.content.CPlanets;
 import crystal.content.LxMaps;
 import crystal.content.SpecialUnits;
 import crystal.content.blocks.CStroage;
+import crystal.core.CultivationState;
 import crystal.gen.Corec;
 import crystal.type.MobileCoreSectorPreset;
 import crystal.ui.dialogs.CPlanetDialog;
@@ -18,6 +19,10 @@ import mindustry.game.EventType.WorldLoadEvent;
 import mindustry.content.UnitTypes;
 import mindustry.game.Team;
 import mindustry.game.Teams;
+import mindustry.gen.Groups;
+import mindustry.gen.Player;
+import mindustry.gen.Unit;
+import mindustry.input.Binding;
 import mindustry.type.Sector;
 import mindustry.world.Tile;
 import mindustry.world.Tiles;
@@ -98,6 +103,7 @@ public class MobileCoreLaunchTest {
     mindustry.Vars.state.set(State.playing);
     mindustry.Vars.state.rules.defaultTeam = Team.sharded;
     mindustry.Vars.state.rules.waveTeam = Team.crux;
+    mindustry.Vars.state.rules.sector = LxMaps.jianglindian.sector;
 
     mindustry.Vars.world = new World();
     Tiles tiles = new Tiles(32, 32);
@@ -119,6 +125,97 @@ public class MobileCoreLaunchTest {
             && converted.proxy() != null
             && converted.isAdded()
             && tile.build == null);
+
+    if (converted == null) {
+      return;
+    }
+
+    Player previousPlayer = mindustry.Vars.player;
+    Player testPlayer = Player.create();
+    testPlayer.id = 9001;
+    testPlayer.team(Team.sharded);
+    mindustry.Vars.player = testPlayer;
+    try {
+      Unit legacyAvatar = CUnits.taichu.create(Team.sharded);
+      legacyAvatar.set(converted.x(), converted.y());
+      legacyAvatar.spawnedByCore(true);
+      legacyAvatar.controller(testPlayer);
+      legacyAvatar.add();
+      testPlayer.unit(legacyAvatar);
+
+      MobileCoreControlSystem.createPlayerMobileCore(testPlayer);
+      check("integrated mode binds the core itself", converted, testPlayer.unit());
+      check("integrated mode reports core control", true,
+          MobileCoreControlSystem.isControllingCore(testPlayer));
+      check("integrated core is marked as core-spawned", true, converted.spawnedByCore());
+      check("integrated mode suppresses vanilla respawn key", true, Binding.respawn.isUnset());
+      check("legacy possessed avatar is removed", false, legacyAvatar.isAdded());
+
+      testPlayer.clearUnit();
+      check("clearing core control does not crash or leave the core", converted,
+          testPlayer.unit());
+
+      CultivationState.availableMagicPower = 100f;
+      int avatarCount = countConfiguredAvatar();
+      check("no configured avatar is spawned", avatarCount, countConfiguredAvatar());
+
+      MobileCoreControlSystem.togglePlayerUnit();
+      check("core skill creates one independent companion", avatarCount + 1,
+          countConfiguredAvatar());
+      check("core skill possesses the companion", true,
+          testPlayer.unit() != null && testPlayer.unit() != converted);
+      check("possessing the companion does not remove the mobile core", true,
+          converted.isAdded() && converted.proxy() != null);
+      check("core skill reports its companion active", true,
+          MobileCoreControlSystem.isPlayerUnitActive());
+      check("V respawn key is available while possessing", false,
+          Binding.respawn.isUnset());
+
+      MobileCoreControlSystem.togglePlayerUnit();
+      check("core skill returns player to the core", converted, testPlayer.unit());
+      check("returning restores the mobile core", true,
+          converted.isAdded() && converted.proxy() != null);
+      check("voluntary detach removes the companion", avatarCount,
+          countConfiguredAvatar());
+      check("core skill reports companion not possessed", false,
+          MobileCoreControlSystem.isPlayerUnitActive());
+      check("V respawn key is suppressed while on the core", true,
+          Binding.respawn.isUnset());
+
+      MobileCoreControlSystem.togglePlayerUnit();
+      check("core skill creates a fresh companion", avatarCount + 1,
+          countConfiguredAvatar());
+
+      testPlayer.clearUnit();
+      testPlayer.checkSpawn();
+      check("V-style respawn returns the player to the core", converted, testPlayer.unit());
+      check("V-style respawn removes the companion", avatarCount,
+          countConfiguredAvatar());
+      check("V-style respawn releases companion control", false,
+          MobileCoreControlSystem.isPlayerUnitActive());
+
+      CultivationState.availableMagicPower = 1f;
+      MobileCoreControlSystem.togglePlayerUnit();
+      check("companion forms with available spirit power", avatarCount + 1,
+          countConfiguredAvatar());
+      CultivationState.availableMagicPower = 0f;
+      MobileCoreControlSystem.updateIntegratedControl();
+      check("zero spirit power dismisses the companion", avatarCount,
+          countConfiguredAvatar());
+      check("zero spirit power returns control to the core", converted, testPlayer.unit());
+    } finally {
+      mindustry.Vars.player = previousPlayer;
+    }
+  }
+
+  private static int countConfiguredAvatar() {
+    int count = 0;
+    for (Unit unit : Groups.unit) {
+      if (unit.type == CUnits.taichu) {
+        count++;
+      }
+    }
+    return count;
   }
 
   private static <T> T allocateWithoutConstructor(Class<T> type) {

@@ -16,10 +16,12 @@ import arc.scene.event.Touchable;
 import arc.scene.style.TextureRegionDrawable;
 import arc.scene.ui.Image;
 import arc.scene.ui.ScrollPane;
+import arc.scene.ui.layout.Cell;
 import arc.scene.ui.layout.Table;
 import arc.util.Scaling;
 import arc.util.Time;
 import arc.util.Tmp;
+import arc.util.Log;
 import crystal.CVars;
 import crystal.core.FaBaoSystem;
 import crystal.magic.FaBao;
@@ -46,7 +48,8 @@ public class FaBaoHUD {
   private static final float PANEL_WIDTH = 110f;
   private static final float PANEL_HEIGHT = 360f;
   private static final float TRIGGER_WIDTH = 24f;
-  private static final float TRIGGER_HEIGHT = 72f;
+  private static final float TRIGGER_HEIGHT_PORTRAIT = 72f;
+  private static final float TRIGGER_HEIGHT_COMPACT = 30f;
 
   /* ========== 滑出参数（独立控制） ========== */
   /** 收起时：面板向右滑出多少（正值，越大越彻底离屏） */
@@ -65,6 +68,8 @@ public class FaBaoHUD {
   private static Table bar;
   private static Table barContent;
   private static Table trigger;
+  private static Cell<?> triggerRootCell;
+  private static Cell<?> triggerHandleCell;
   private static Table aimCatcher;
   private static Image dragGhost;
   /** 屏幕上方法宝信息面板（瞄准时显示） */
@@ -115,7 +120,7 @@ public class FaBaoHUD {
 
     // ========== 2. 触发条（后添加，在最上层，钉死最右边缘） ==========
     Vars.ui.hudGroup.fill(null, table -> {
-      table.table(null, t -> {
+      triggerRootCell = table.table(null, t -> {
         trigger = new Table(((TextureRegionDrawable) Tex.whiteui).tint(Color.white));
         trigger.touchable = Touchable.enabled;
         trigger.addListener(new InputListener() {
@@ -130,10 +135,14 @@ public class FaBaoHUD {
           }
         });
         trigger.add().size(16f).pad(4f);
-        t.add(trigger).width(TRIGGER_WIDTH).height(TRIGGER_HEIGHT);
-      }).size(TRIGGER_WIDTH, TRIGGER_HEIGHT);
+        triggerHandleCell = t.add(trigger).width(TRIGGER_WIDTH).height(triggerHeight());
+      }).size(TRIGGER_WIDTH, triggerHeight());
+      Log.info("[FaBaoHUD] trigger size=@x@ mobile=@ portrait=@",
+          TRIGGER_WIDTH, triggerHeight(), Vars.mobile, Core.graphics.isPortrait());
       table.center().right().update(() -> {
-        table.translation.set(0, TRIGGER_OFFSET_Y);
+        updateTriggerHeight(table);
+        float maxOffset = Math.max(0f, table.getHeight() / 2f - trigger.getHeight() - 12f);
+        table.translation.set(0, Math.min(TRIGGER_OFFSET_Y, maxOffset));
       });
     });
 
@@ -183,6 +192,27 @@ public class FaBaoHUD {
         }
       });
     });
+  }
+
+  private static float triggerHeight() {
+    return Vars.mobile && Core.graphics.isPortrait()
+        ? TRIGGER_HEIGHT_PORTRAIT
+        : TRIGGER_HEIGHT_COMPACT;
+  }
+
+  private static void updateTriggerHeight(Table root) {
+    if (trigger == null || triggerRootCell == null || triggerHandleCell == null) {
+      return;
+    }
+    float target = triggerHeight();
+    if (Math.abs(trigger.getHeight() - target) < 0.5f) {
+      return;
+    }
+    triggerRootCell.height(target);
+    triggerHandleCell.height(target);
+    trigger.setHeight(target);
+    trigger.invalidateHierarchy();
+    root.invalidateHierarchy();
   }
 
   private static void togglePanel() {

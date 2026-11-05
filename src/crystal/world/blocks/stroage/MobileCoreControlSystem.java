@@ -3,11 +3,9 @@ package crystal.world.blocks.stroage;
 import arc.Core;
 import arc.Events;
 import arc.input.KeyBind;
-import arc.input.KeyCode;
 import arc.struct.ObjectMap;
 import arc.util.Log;
 import arc.util.Nullable;
-import arc.util.Time;
 import crystal.content.SpecialUnits;
 import crystal.core.CultivationState;
 import crystal.core.PlayerXiuWeiSystem;
@@ -25,36 +23,41 @@ import mindustry.game.Team;
 import mindustry.gen.Groups;
 import mindustry.gen.Player;
 import mindustry.gen.Unit;
+import mindustry.input.Binding;
 import mindustry.type.UnitType;
+import mindustry.ui.fragments.HintsFragment.DefaultHint;
 import mindustry.world.Tile;
 import mindustry.world.blocks.storage.CoreBlock.CoreBuild;
 import mindustry.world.modules.ItemModule;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+
 import static mindustry.Vars.*;
 
 /**
- * Coordinates player control between a mobile core and its configured core unit.
+ * Coordinates player control between a mobile core and its configured unit.
  *
- * <p>The mobile core remains the team's core while the player controls the
- * {@link CoreUnit#playerUnitType()} configured on that core. Ordinary sectors
- * spawn that unit automatically. Sectors marked by
- * {@link MobileCoreSectorPreset} start on the mobile core and require the
- * spirit-powered summon command. Unit changes are checked here as well because
- * upgrades can call {@link Player#unit(Unit)} directly and bypass normal input
- * restrictions.</p>
+ * <p>In an ordinary sector, a requested mobile core can coexist with its
+ * configured player unit. In sectors marked by {@link MobileCoreSectorPreset},
+ * the player and {@link Corec} are one entity: the player always controls the
+ * core itself and never possesses a separate summon unit. Unit changes are
+ * checked here as well because upgrades can call {@link Player#unit(Unit)}
+ * directly and bypass normal input restrictions.</p>
  */
 public final class MobileCoreControlSystem {
   public static final String preferredCoreSetting = "mobile_core_type";
   public static final String launchCoreSetting = "mobile_core_launch";
-  public static final KeyBind playerUnitKey = KeyBind.add(
-      "crystal_core_unit_skill", KeyCode.u, "crystal");
-  private static final float PLAYER_UNIT_MAGIC_DRAIN_PER_FRAME = 0.0033333f;
+  private static final float COMPANION_MAGIC_DRAIN_PER_FRAME = 0.0033333f;
   private static boolean initialized;
   private static boolean enforcing;
   private static boolean rebinding;
+  private static boolean companionControlled;
   private static final ObjectMap<Integer, Unit> playerUnits = new ObjectMap<>();
-  private static boolean playerUnitActive;
-  private static int activePlayerUnitId = -1;
+  private static boolean respawnHintHandled;
+  private static KeyBind.Axis savedRespawnBinding;
+  private static Field hintCurrentField;
+  private static Method hintHideMethod;
   private static float magicSaveTimer;
 
   private MobileCoreControlSystem() {
@@ -93,10 +96,11 @@ public final class MobileCoreControlSystem {
     });
     Events.on(ResetEvent.class, e -> {
       enforcing = false;
-      playerUnitActive = false;
-      activePlayerUnitId = -1;
-      magicSaveTimer = 0f;
+      companionControlled = false;
       playerUnits.clear();
+      respawnHintHandled = false;
+      magicSaveTimer = 0f;
+      restoreRespawnBinding();
     });
 
     // Catch direct player.unit(...) calls, including unit upgrades and saves.
@@ -106,17 +110,19 @@ public final class MobileCoreControlSystem {
       }
       Corec core = findPlayerCore(e.player);
       if (core != null) {
-        if (playerUnitActive) {
-          Unit avatar = activePlayerUnit(e.player, core);
-          if (avatar != null) {
-            if (e.unit != avatar) {
-              bind(e.player, avatar);
-            }
-          } else {
-            returnToCore(e.player, core);
-          }
+        Unit companion = activeCompanion(e.player, core);
+        if (companion != null && e.unit == companion) {
+          companionControlled = true;
+          core.spawnedByCore(false);
+          companion.controller(e.player);
+          setRespawnSuppressed(false);
+        } else if (e.unit == (Unit) core || e.unit == null) {
+          companionControlled = false;
+          removeCompanion(e.player, core, companion);
+          setRespawnSuppressed(true);
         } else {
-          bind(e.player, core);
+          Unit expected = companionControlled && companion != null ? companion : (Unit) core;
+          bind(e.player, expected);
         }
       } else if (e.unit != null) {
         e.player.unit((Unit) null);
@@ -128,41 +134,35 @@ public final class MobileCoreControlSystem {
       // Always restore this mod-owned flag before the early exit, so a marked
       // sector cannot leak possession restrictions into ordinary sectors.
       applyWorldRules();
-      if (isEnabledHere() && state.isPlaying() && !Core.scene.hasDialog()
-          && !Core.scene.hasKeyboard() && Core.input.keyTap(playerUnitKey)) {
-        togglePlayerUnit();
-      }
-      if (!enforcing || player == null || !state.isPlaying() || !isEnabledHere()) {
-        return;
-      }
-
-      Corec core = findPlayerCore(player);
-      if (core != null) {
-        if (playerUnitActive) {
-          updatePlayerUnitMagic(player, core);
-        } else if (player.unit() != (Unit) core) {
-          bind(player, core);
-        }
-      }
+      updateIntegratedControl();
     });
   }
 
-  public static void togglePlayerUnit() {
-    if (headless || player == null || !state.isPlaying() || !isEnabledHere()) {
+  /** Applies one integrated-control tick; called by Trigger.update and tests. */
+  public static void updateIntegratedControl() {
+    if (!enforcing || player == null || !state.isPlaying() || !isEnabledHere()) {
       return;
     }
+
     Corec core = findPlayerCore(player);
     if (core == null) {
       return;
     }
-    if (playerUnitActive && activePlayerUnit(player, core) != null) {
-      returnToCore(player, core);
-    } else {
-      summonPlayerUnit(core);
+    Unit companion = activeCompanion(player, core);
+    if (companionControlled && companion != null
+        && updateCompanionMagic(player, core, companion)) {
+      return;
+    }
+    Unit expected = companionControlled && companion != null ? companion : (Unit) core;
+    if (companionControlled && companion == null) {
+      companionControlled = false;
+    }
+    if (player.unit() != expected) {
+      bind(player, expected);
     }
   }
 
-  /** Whether the mobile-core avatar command is currently available to the HUD. */
+  /** Whether the player can focus the mobile core through the skill HUD. */
   public static boolean canTogglePlayerUnit() {
     return !headless
         && player != null
@@ -174,9 +174,63 @@ public final class MobileCoreControlSystem {
         && findPlayerCore(player) != null;
   }
 
-  /** Used by the touch button so it mirrors the U key's summon/return state. */
+  /**
+   * Skill entry used by the existing continuous skill runtime. It creates the
+   * configured companion if needed, then switches control between that
+   * companion and the mobile core without destroying the companion.
+   */
+  public static void togglePlayerUnit() {
+    if (player == null || !state.isPlaying() || !isEnabledHere()) {
+      return;
+    }
+    Corec core = findPlayerCore(player);
+    if (core == null) {
+      return;
+    }
+
+    Unit active = activeCompanion(player, core);
+    if (active != null) {
+      companionControlled = false;
+      removeCompanion(player, core, active);
+      setRespawnSuppressed(true);
+      Log.info("[MobileCoreControl] dismissed companion=@, core=@", active.id(), core.id());
+      return;
+    }
+
+    if (active == null) {
+      if (CultivationState.availableMagicPower <= 0f) {
+        return;
+      }
+      UnitType unitType = playerUnitType(core);
+      if (unitType == null || unitType == core.type() || unitType.constructor == null) {
+        return;
+      }
+      active = spawnCompanion(player, core, unitType);
+      if (active == null) {
+        return;
+      }
+      playerUnits.put(core.id(), active);
+      Log.info("[MobileCoreControl] companion spawned=@, core=@, type=@",
+          active.id(), core.id(), active.type.name);
+    }
+    companionControlled = true;
+    core.spawnedByCore(false);
+    bind(player, active);
+    active.controller(player);
+    setRespawnSuppressed(false);
+    Log.info("[MobileCoreControl] player possessed companion=@, core=@", active.id(), core.id());
+  }
+
+  /** Whether the player is currently possessing the skill's companion unit. */
   public static boolean isPlayerUnitActive() {
-    return playerUnitActive;
+    Corec core = findPlayerCore(player);
+    return core != null && player.unit() == activeCompanion(player, core);
+  }
+
+  /** Whether this player is currently controlling the mobile core entity itself. */
+  public static boolean isControllingCore(@Nullable Player target) {
+    Corec core = findPlayerCore(target);
+    return core != null && target != null && target.unit() == (Unit) core;
   }
 
   /** Returns the existing player-owned mobile core, or creates one from the team's core. */
@@ -203,16 +257,13 @@ public final class MobileCoreControlSystem {
       Log.info("[MobileCoreControl] core=@, created=@, marked=@, launch=@",
           core.id(), created, restrictControl, requestedType == null ? "none" : requestedType.name);
       if (restrictControl) {
-        if (created) {
-          // A newly launched sector may already have a vanilla core unit.
-          // It was not summoned by the player and must not start the skill.
-          clearPlayerUnitState(core);
-          bind(target, core);
-        } else {
-          restoreMarkedControl(target, core);
-        }
+        companionControlled = false;
+        clearPlayerUnits();
+        removeLegacyAvatar(target, core);
+        bind(target, core);
+        setRespawnSuppressed(true);
       } else {
-        clearPlayerUnitState(core);
+        clearPlayerUnits();
         ensurePlayerAvatar(target, core);
       }
       enforcing = restrictControl;
@@ -235,18 +286,12 @@ public final class MobileCoreControlSystem {
     Corec core = findPlayerCore(target);
     if (core != null) {
       if (isEnabledHere()) {
-        if (playerUnitActive) {
-          Unit avatar = activePlayerUnit(target, core);
-          if (avatar != null) {
-            bind(target, avatar);
-          } else {
-            returnToCore(target, core);
-          }
-        } else {
-          bind(target, core);
-        }
+        Unit companion = activeCompanion(target, core);
+        Unit expected = companionControlled && companion != null ? companion : (Unit) core;
+        bind(target, expected);
+        setRespawnSuppressed(!companionControlled);
       } else {
-        clearPlayerUnitState(core);
+        clearPlayerUnits();
         ensurePlayerAvatar(target, core);
       }
       enforcing = isEnabledHere();
@@ -257,7 +302,7 @@ public final class MobileCoreControlSystem {
 
   /**
    * Handles a respawn request. Ordinary sectors spawn the configured unit;
-   * marked sectors return to the mobile core unless its summoned unit is alive.
+   * marked sectors always respawn as the mobile core itself.
    */
   public static @Nullable Unit spawnPlayerFromCore(Player target, Corec core) {
     if (target == null || core == null || core.dead()) {
@@ -266,62 +311,19 @@ public final class MobileCoreControlSystem {
     Fx.spawn.at(core);
     Unit avatar;
     if (isEnabledHere()) {
-      avatar = playerUnitActive ? activePlayerUnit(target, core) : null;
-      if (avatar == null) {
-        returnToCore(target, core);
-        return (Unit) core;
-      }
-      bind(target, avatar);
+      companionControlled = false;
+      removeLegacyAvatar(target, core);
+      removeCompanion(target, core, activeCompanion(target, core));
+      bind(target, core);
+      setRespawnSuppressed(true);
+      enforcing = true;
+      return (Unit) core;
     } else {
-      clearPlayerUnitState(core);
+      clearPlayerUnits();
       avatar = ensurePlayerAvatar(target, core);
     }
     enforcing = isEnabledHere();
     return avatar;
-  }
-
-  /**
-   * Summons the mobile core's configured unit in a marked sector. The summon
-   * costs spirit power up front and keeps draining it while the unit exists.
-   */
-  public static boolean summonPlayerUnit(Corec core) {
-    if (headless || player == null || core == null || !isEnabledHere()
-        || !isUsable(core, player.team()) || core != findPlayerCore(player)) {
-      return false;
-    }
-    if (playerUnitActive) {
-      Unit existing = activePlayerUnit(player, core);
-      if (existing != null) {
-        bind(player, existing);
-        return true;
-      }
-      clearPlayerUnitState(core);
-    }
-
-    UnitType unitType = configuredPlayerUnit(core);
-    if (unitType == null) {
-      return false;
-    }
-
-    if (CultivationState.availableMagicPower <= 0f) {
-      if (ui != null) {
-        ui.showInfoToast(Core.bundle.get("mobilecore.summon.nomagic"), 3f);
-      }
-      return false;
-    }
-
-    Unit avatar = spawnPlayerUnit(player, core, unitType);
-    if (avatar == null) {
-      return false;
-    }
-
-    playerUnitActive = true;
-    activePlayerUnitId = avatar.id;
-    playerUnits.put(core.id(), avatar);
-    magicSaveTimer = 0f;
-    bind(player, avatar);
-    Fx.spawn.at(core);
-    return true;
   }
 
   /** Converts a normal core block into a mobile core while preserving its items. */
@@ -419,6 +421,10 @@ public final class MobileCoreControlSystem {
   }
 
   private static void bind(Player target, Corec core) {
+    // Vanilla treats non-core-spawned bodies as possession and offers the
+    // respawn tutorial/action. The integrated Corec is the player's core-born
+    // body, so mark it accordingly to bypass that entire path.
+    core.spawnedByCore(true);
     bind(target, (Unit) core);
   }
 
@@ -444,91 +450,25 @@ public final class MobileCoreControlSystem {
     return unit != null && unit.team == team && !unit.dead() && unit.isAdded();
   }
 
-  private static void restoreMarkedControl(Player target, Corec core) {
+  private static void clearPlayerUnits() {
+    playerUnits.clear();
+  }
+
+  /**
+   * Removes an avatar created by the old marked-sector summon flow so loading
+   * a legacy save cannot leave a second controlled-looking player body behind.
+   */
+  private static void removeLegacyAvatar(Player target, Corec core) {
+    Unit current = target.unit();
+    Unit companion = activeCompanion(target, core);
     UnitType avatarType = playerUnitType(core);
-    Unit avatar = avatarType != null && avatarType != core.type()
-        ? playerUnitFor(target, core)
-        : null;
-    if (avatar != null && avatar != core) {
-      playerUnitActive = true;
-      activePlayerUnitId = avatar.id;
-      playerUnits.put(core.id(), avatar);
-      bind(target, avatar);
-    } else {
-      clearPlayerUnitState(core);
-      bind(target, core);
+    if (current != companion
+        && current != null
+        && current != core
+        && current.spawnedByCore()
+        && (avatarType == null || current.type == avatarType)) {
+      current.remove();
     }
-  }
-
-  private static void updatePlayerUnitMagic(Player target, Corec core) {
-    Unit avatar = activePlayerUnit(target, core);
-    if (avatar == null) {
-      returnToCore(target, core);
-      return;
-    }
-
-    float drain = coreUnitMagicDrainPerFrame();
-    if (CultivationState.availableMagicPower <= 0f && drain > 0f) {
-      returnToCore(target, core);
-      return;
-    }
-
-    if (drain > 0f) {
-      CultivationState.availableMagicPower = Math.max(
-          0f, CultivationState.availableMagicPower - drain);
-      magicSaveTimer += 1f;
-      if (magicSaveTimer >= 60f) {
-        PlayerXiuWeiSystem.savePower();
-        magicSaveTimer = 0f;
-      }
-      if (CultivationState.availableMagicPower <= 0f) {
-        returnToCore(target, core);
-        return;
-      }
-    }
-
-    if (target.unit() != avatar) {
-      bind(target, avatar);
-    }
-  }
-
-  private static @Nullable Unit activePlayerUnit(Player target, Corec core) {
-    Unit tracked = activePlayerUnitId >= 0
-        ? Groups.unit.getByID(activePlayerUnitId)
-        : null;
-    UnitType avatarType = playerUnitType(core);
-    if (!isUsableUnit(tracked, target.team())
-        || (avatarType != null && tracked.type != avatarType)) {
-      tracked = playerUnits.get(core.id());
-    }
-    if (isUsableUnit(tracked, target.team())
-        && tracked != core
-        && (avatarType == null || tracked.type == avatarType)) {
-      playerUnits.put(core.id(), tracked);
-      activePlayerUnitId = tracked.id;
-      return tracked;
-    }
-    playerUnits.remove(core.id());
-    activePlayerUnitId = -1;
-    return null;
-  }
-
-  private static void returnToCore(Player target, Corec core) {
-    clearPlayerUnitState(core);
-    if (isUsable(core, target.team())) {
-      bind(target, core);
-      if (target == player && Core.camera != null) {
-        Core.camera.position.set(core);
-      }
-    }
-    magicSaveTimer = 0f;
-    PlayerXiuWeiSystem.savePower();
-  }
-
-  private static void clearPlayerUnitState(Corec core) {
-    playerUnitActive = false;
-    activePlayerUnitId = -1;
-    playerUnits.remove(core.id());
   }
 
   private static @Nullable Unit playerUnitFor(Player target, Corec core) {
@@ -579,6 +519,72 @@ public final class MobileCoreControlSystem {
     return avatar;
   }
 
+  private static @Nullable Unit spawnCompanion(Player target, Corec core, UnitType unitType) {
+    Unit companion = unitType.create(target.team());
+    companion.set(core.x(), core.y());
+    companion.rotation(90f);
+    companion.spawnedByCore(true);
+    if (unitType.controller != null) {
+      companion.controller(unitType.controller.get(companion));
+    }
+    companion.add();
+    return companion;
+  }
+
+  private static void removeCompanion(
+      Player target, Corec core, @Nullable Unit companion) {
+    playerUnits.remove(core.id());
+    if (companion != null && companion.isAdded()) {
+      companion.remove();
+    }
+    companionControlled = false;
+    bind(target, core);
+    magicSaveTimer = 0f;
+    PlayerXiuWeiSystem.savePower();
+  }
+
+  private static boolean updateCompanionMagic(
+      Player target, Corec core, Unit companion) {
+    float drain = coreUnitMagicDrainPerFrame();
+    if (drain <= 0f) {
+      return false;
+    }
+    if (CultivationState.availableMagicPower <= 0f) {
+      removeCompanion(target, core, companion);
+      return true;
+    }
+
+    CultivationState.availableMagicPower = Math.max(
+        0f, CultivationState.availableMagicPower - drain);
+    magicSaveTimer += 1f;
+    if (magicSaveTimer >= 60f) {
+      PlayerXiuWeiSystem.savePower();
+      magicSaveTimer = 0f;
+    }
+    if (CultivationState.availableMagicPower <= 0f) {
+      removeCompanion(target, core, companion);
+      return true;
+    }
+    return false;
+  }
+
+  public static float coreUnitMagicDrainPerFrame() {
+    JingJie realm = CultivationState.currentJingJie();
+    return COMPANION_MAGIC_DRAIN_PER_FRAME * Math.max(realm.multiplier(), 1f);
+  }
+
+  private static @Nullable Unit activeCompanion(Player target, Corec core) {
+    Unit tracked = playerUnits.get(core.id());
+    UnitType companionType = playerUnitType(core);
+    if (isUsableUnit(tracked, target.team())
+        && tracked != core
+        && (companionType == null || tracked.type == companionType)) {
+      return tracked;
+    }
+    playerUnits.remove(core.id());
+    return null;
+  }
+
   private static @Nullable Unit ensurePlayerAvatar(Player target, Corec core) {
     Unit avatar = playerUnitFor(target, core);
     if (avatar == null) {
@@ -603,16 +609,6 @@ public final class MobileCoreControlSystem {
 
   private static @Nullable UnitType playerUnitType(Corec core) {
     return core.type() instanceof CoreUnit type ? type.playerUnitType() : null;
-  }
-
-  private static @Nullable UnitType configuredPlayerUnit(Corec core) {
-    UnitType unit = playerUnitType(core);
-    return unit == null || unit == core.type() || unit.constructor == null ? null : unit;
-  }
-
-  public static float coreUnitMagicDrainPerFrame() {
-    JingJie realm = CultivationState.currentJingJie();
-    return PLAYER_UNIT_MAGIC_DRAIN_PER_FRAME * Math.max(realm.multiplier(), 1f);
   }
 
   private static @Nullable CoreBuild findSourceCore(Player target) {
@@ -645,6 +641,60 @@ public final class MobileCoreControlSystem {
       // Marked sectors are mobile-core-only. Ordinary sectors must explicitly
       // restore possession so the flag cannot leak across sector transitions.
       state.rules.possessionAllowed = !isEnabledHere();
+      if (isEnabledHere()) {
+        suppressRespawnHint();
+        setRespawnSuppressed(!companionControlled);
+      } else {
+        restoreRespawnBinding();
+      }
     }
   }
+
+  /**
+   * The player's body is the core in integral mode, so vanilla's "press V to
+   * respawn as the initial unit" tutorial is both misleading and unusable.
+   */
+  private static void suppressRespawnHint() {
+    if (respawnHintHandled || ui == null || ui.hints == null) {
+      return;
+    }
+    respawnHintHandled = true;
+    ui.hints.hints.remove(DefaultHint.respawn);
+
+    try {
+      if (hintCurrentField == null) {
+        hintCurrentField = ui.hints.getClass().getDeclaredField("current");
+        hintCurrentField.setAccessible(true);
+      }
+      if (hintCurrentField.get(ui.hints) == DefaultHint.respawn) {
+        if (hintHideMethod == null) {
+          hintHideMethod = ui.hints.getClass().getDeclaredMethod("hide");
+          hintHideMethod.setAccessible(true);
+        }
+        hintHideMethod.invoke(ui.hints);
+      }
+    } catch (ReflectiveOperationException ignored) {
+      // The hint is already removed from the queue; older game versions may
+      // use different private field names, so keep this best-effort.
+    }
+  }
+
+  private static void setRespawnSuppressed(boolean suppress) {
+    if (suppress) {
+      if (savedRespawnBinding == null && Binding.respawn.value != null) {
+        savedRespawnBinding = Binding.respawn.value;
+        Binding.respawn.unset();
+      }
+    } else {
+      restoreRespawnBinding();
+    }
+  }
+
+  private static void restoreRespawnBinding() {
+    if (savedRespawnBinding != null) {
+      Binding.respawn.value = savedRespawnBinding;
+      savedRespawnBinding = null;
+    }
+  }
+
 }

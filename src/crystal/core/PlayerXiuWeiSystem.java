@@ -3,7 +3,6 @@ package crystal.core;
 import arc.Core;
 import arc.Events;
 import arc.graphics.Color;
-import arc.scene.ui.TextButton;
 import arc.scene.ui.layout.Table;
 import arc.struct.Seq;
 import arc.util.Nullable;
@@ -20,7 +19,6 @@ import crystal.game.CEventType.MagicPowerChange;
 import crystal.type.GongFa;
 import crystal.ui.dialogs.XiuWeiDialog;
 import crystal.util.DLog;
-import crystal.world.blocks.stroage.MobileCoreControlSystem;
 import mindustry.Vars;
 import mindustry.core.GameState.State;
 import mindustry.game.EventType.ClientLoadEvent;
@@ -208,17 +206,6 @@ public class PlayerXiuWeiSystem {
           t.button(Core.bundle.get("stat.xiuwei"), () -> showMagic()).size(100, 80);
           t.row();
 
-          TextButton coreUnitButton = new TextButton("", Styles.defaultt);
-          coreUnitButton.clicked(MobileCoreControlSystem::togglePlayerUnit);
-          coreUnitButton.update(() -> coreUnitButton.setText(Core.bundle.get(
-              MobileCoreControlSystem.isPlayerUnitActive()
-                  ? "mobilecore.recall.button"
-                  : "mobilecore.summon.button",
-              MobileCoreControlSystem.isPlayerUnitActive() ? "收回核心机" : "召唤核心机")));
-          t.add(coreUnitButton)
-              .size(Vars.mobile ? 136f : 148f, 44f)
-              .padTop(5f)
-              .visible(MobileCoreControlSystem::canTogglePlayerUnit);
         }).size(Vars.mobile ? 136f : 148f, 136f);
         table.center().right().update(() -> {
           if (Core.settings.getBool("showXiuWei")) {
