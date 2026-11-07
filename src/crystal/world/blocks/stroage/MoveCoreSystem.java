@@ -12,7 +12,6 @@ import crystal.net.CCall;
 import crystal.ui.fragments.CoreInventoryFragment;
 import mindustry.Vars;
 import mindustry.content.Fx;
-import mindustry.entities.Units;
 import mindustry.game.Team;
 import mindustry.gen.Groups;
 import mindustry.gen.Legsc;
@@ -25,7 +24,6 @@ import static mindustry.Vars.*;
 public class MoveCoreSystem {
   public static final ObjectMap<Team, Seq<Corec>> mobileCores = new ObjectMap<>();
   public static final CoreInventoryFragment coreInventory = new CoreInventoryFragment();
-  private static final float tapRange = 2.5f;
 
   // ===== 长按判定参数 =====
   private static final long longPressMs = 300; // 长按触发时长（毫秒）
@@ -48,15 +46,8 @@ public class MoveCoreSystem {
           longPressTriggered = false;
           pressTarget = null;
 
-          // 按下时就判定是否点在核心上
-          Tile tile = Vars.world.tileWorld(Core.input.mouseWorld().x, Core.input.mouseWorld().y);
-          if (tile != null) {
-            Unit unit = Units.closest(player.team(), tile.worldx(), tile.worldy(),
-                tapRange * tilesize, u -> !u.dead && u instanceof Corec && u instanceof Legsc);
-            if (unit instanceof Corec core) {
-              pressTarget = core;
-            }
-          }
+          // 按下时就判定实际触摸点是否落在核心身体上
+          pressTarget = touchedCore(player.team(), Core.input.mouseWorldX(), Core.input.mouseWorldY(), true);
         }
 
         // 按住过程中
@@ -85,10 +76,8 @@ public class MoveCoreSystem {
       if (longPressTriggered)
         return;
 
-      Unit unit = Units.closest(e.player.team(), e.tile.worldx(), e.tile.worldy(),
-          tapRange * tilesize, u -> !u.dead && u instanceof Corec);
-
-      if (unit instanceof Corec core) {
+      Corec core = touchedCore(e.player.team(), Core.input.mouseWorldX(), Core.input.mouseWorldY(), false);
+      if (core != null) {
         Log.info("点击核心单位: " + core.type().name);
         coreInventory.showFor(core);
       } else {
@@ -130,6 +119,26 @@ public class MoveCoreSystem {
         Vars.state.getSector().saveInfo();
       }
     });
+  }
+
+  /** 只匹配实际触摸点与单位碰撞体重叠的核心。 */
+  private static Corec touchedCore(Team team, float worldX, float worldY, boolean requireLegs) {
+    Corec result = null;
+    float closestDst = Float.MAX_VALUE;
+    for (Unit unit : Groups.unit) {
+      if (unit.team != team || unit.dead || !(unit instanceof Corec core))
+        continue;
+      if (requireLegs && !(unit instanceof Legsc))
+        continue;
+
+      float radius = unit.hitSize() / 2f;
+      float dst = unit.dst2(worldX, worldY);
+      if (dst <= radius * radius && dst < closestDst) {
+        result = core;
+        closestDst = dst;
+      }
+    }
+    return result;
   }
 
   public static void showCoreInventory(Corec core) {

@@ -346,7 +346,7 @@ public class MobileCoreLaunchLoadoutDialog extends LaunchLoadoutDialog {
     Runnable update = () -> {
       mobileRequirements.clear();
       if (!(selectedCore instanceof CoreUnitType coreType)
-          || !selectedCore.unlockedNow()
+          || !isUnlockedMobileCore(selectedCore)
           || !selectedCore.isOnPlanet(from.planet)) {
         mobileCapacity = 0;
         mobileTotal.clear();
@@ -475,11 +475,10 @@ public class MobileCoreLaunchLoadoutDialog extends LaunchLoadoutDialog {
     cont.pane(table -> {
       int index = 0;
       for (UnitType type : mobileCores) {
-        if (!(type instanceof CoreUnit coreType)
-            || !type.unlockedNow()
-            || !type.isOnPlanet(from.planet)) {
+        if (!isUnlockedMobileCore(type) || !type.isOnPlanet(from.planet)) {
           continue;
         }
+        CoreUnit coreType = (CoreUnit) type;
         table.button(button -> {
           button.left();
           button.image(type.uiIcon).size(iconMed).padRight(8f);
@@ -517,7 +516,7 @@ public class MobileCoreLaunchLoadoutDialog extends LaunchLoadoutDialog {
   private void refreshCoreTypes() {
     mobileCores.clear();
     for (UnitType type : content.units()) {
-      if (type instanceof CoreUnit) {
+      if (isUnlockedMobileCore(type)) {
         mobileCores.add(type);
       }
     }
@@ -537,7 +536,15 @@ public class MobileCoreLaunchLoadoutDialog extends LaunchLoadoutDialog {
   }
 
   private boolean isSelectable(UnitType type, Sector destination) {
-    return type instanceof CoreUnit && type.unlockedNow() && type.isOnPlanet(destination.planet);
+    return isUnlockedMobileCore(type) && type.isOnPlanet(destination.planet);
+  }
+
+  /**
+   * Uses the persistent unlock state instead of {@code unlockedNow()}, which
+   * treats every core as available in non-campaign games.
+   */
+  public static boolean isUnlockedMobileCore(UnitType type) {
+    return type instanceof CoreUnit && type.unlocked();
   }
 
   public static boolean isFreeStartLaunch(Sector destination) {

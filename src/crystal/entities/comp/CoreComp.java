@@ -473,7 +473,7 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
     updateAutoCommand();
 
     // === 逃跑时强制移动 ===
-    if (fleeing && fleeTarget.x != 0 && fleeTarget.y != 0) {
+    if (!deployed && fleeing && fleeTarget.x != 0 && fleeTarget.y != 0) {
       float dist = Mathf.dst(x(), y(), fleeTarget.x, fleeTarget.y);
       if (dist > tilesize * 0.5f) {
         float angle = Mathf.atan2(fleeTarget.x - x(), fleeTarget.y - y()) * Mathf.radDeg;
@@ -737,6 +737,10 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
   }
 
   public void updateAutoCommand() {
+    if (deployed) {
+      stopForDeployment();
+      return;
+    }
     if (isPlayer()) {
       // Player control must never be overridden by autonomous movement or
       // the idle-to-auxiliary-AI transition.
@@ -834,6 +838,31 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
         autoSwitched = false;
       }
     }
+  }
+
+  /** Deployment freezes both the controller and the core's fallback flee movement. */
+  private void stopForDeployment() {
+    fleeing = false;
+    fleeTarget.setZero();
+    fleeRetargetTimer = 0f;
+    fleeStuckTimer = 0f;
+    idleTimer = 0f;
+    autoSwitched = false;
+
+    if (controller() instanceof CommandAI ai) {
+      ai.clearCommands();
+      ai.command = UnitCommand.moveCommand;
+    }
+
+    vel().setZero();
+    deltaX(0);
+    deltaY(0);
+  }
+
+  @Replace
+  @Override
+  public boolean shouldUpdateController() {
+    return !deployed;
   }
 
   @Replace

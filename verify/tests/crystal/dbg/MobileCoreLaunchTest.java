@@ -11,6 +11,7 @@ import crystal.core.CultivationState;
 import crystal.gen.Corec;
 import crystal.type.MobileCoreSectorPreset;
 import crystal.ui.dialogs.CPlanetDialog;
+import crystal.ui.dialogs.MobileCoreLaunchLoadoutDialog;
 import crystal.world.blocks.stroage.MCoreBlock;
 import crystal.world.blocks.stroage.MobileCoreControlSystem;
 import mindustry.core.GameState.State;
@@ -55,6 +56,7 @@ public class MobileCoreLaunchTest {
           CStroage.core1.storageCapacity());
       check("planet default core is not a mobile-core proxy", false,
           CPlanets.lx.defaultCore instanceof MCoreBlock);
+      checkLockedMobileCoresAreHidden();
 
       check("marked sector is detected", true,
           MobileCoreSectorPreset.isMarked(LxMaps.jianglindian.sector));
@@ -98,6 +100,27 @@ public class MobileCoreLaunchTest {
         + (pass ? " OK" : " FAIL"));
   }
 
+  private static void checkLockedMobileCoresAreHidden() {
+    String unlockKey = SpecialUnits.moveCore1.name + "-unlocked";
+    boolean wasUnlocked = Core.settings.getBool(unlockKey, false);
+    mindustry.Vars.state.set(State.menu);
+    try {
+      SpecialUnits.moveCore1.clearUnlock();
+      check("locked mobile core stays hidden outside campaign", false,
+          MobileCoreLaunchLoadoutDialog.isUnlockedMobileCore(SpecialUnits.moveCore1));
+
+      SpecialUnits.moveCore1.quietUnlock();
+      check("unlocked mobile core is selectable", true,
+          MobileCoreLaunchLoadoutDialog.isUnlockedMobileCore(SpecialUnits.moveCore1));
+    } finally {
+      if (wasUnlocked) {
+        SpecialUnits.moveCore1.quietUnlock();
+      } else {
+        SpecialUnits.moveCore1.clearUnlock();
+      }
+    }
+  }
+
   private static void checkPhysicalCoreConversion() {
     mindustry.Vars.state.teams = new Teams();
     mindustry.Vars.state.set(State.playing);
@@ -129,6 +152,17 @@ public class MobileCoreLaunchTest {
     if (converted == null) {
       return;
     }
+
+    converted.deployed(false);
+    check("undeployed mobile core keeps controller updates", true,
+        converted.shouldUpdateController());
+    converted.deployed(true);
+    check("deployed mobile core freezes its controller", false,
+        converted.shouldUpdateController());
+    converted.updateAutoCommand();
+    check("deployed mobile core exits flee mode", false, converted.fleeing());
+    converted.deployed(false);
+    converted.updateAutoCommand();
 
     Player previousPlayer = mindustry.Vars.player;
     Player testPlayer = Player.create();

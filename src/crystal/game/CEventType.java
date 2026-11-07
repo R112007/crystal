@@ -4,190 +4,186 @@ import crystal.entities.units.UnitEnum.JingJie;
 import crystal.magic.Scroll;
 import crystal.magic.SkillUnlockable;
 import crystal.type.GongFa;
-import crystal.type.UnitStack;
 import mindustry.entities.Effect;
 import mindustry.game.Team;
 import mindustry.maps.Map;
 import mindustry.type.Sector;
-import mindustry.type.SectorPreset;
 import mindustry.type.UnitType;
 import mindustry.world.Block;
 import mindustry.world.Tile;
 
 public class CEventType {
-  public static class CreateNewUnitInfo {
-  }
 
-  public static class LaunchUnitEvent {
-    public final UnitStack stack;
+    public static class SummonUnitEvent {
+        public UnitType type;
+        public float x, y, delay;
+        public Effect effect;
+        public Team team;
 
-    public LaunchUnitEvent(UnitStack stack) {
-      this.stack = stack;
-    }
-  }
-
-  public static class SummonUnitEvent {
-    public UnitType type;
-    public float x, y, delay;
-    public Effect effect;
-    public Team team;
-
-    public SummonUnitEvent(UnitType type, float x, float y, Effect effect, Team team, float delay) {
-      this.type = type;
-      this.x = x;
-      this.y = y;
-      this.effect = effect;
-      this.team = team;
-      this.delay = delay;
-    }
-  }
-
-  public static class SectorChangeEvent {
-    public Sector from;
-    public Sector to;
-
-    public SectorChangeEvent(Sector from, Sector to) {
-      this.from = from;
-      this.to = to;
-    }
-  }
-
-  public static class MapChangeEvent {
-    public Map map;
-
-    public MapChangeEvent(Map map) {
-      this.map = map;
-    }
-  }
-
-  public static class GenerateBuild {
-    public Block block;
-    public Tile tile;
-    public Team team;
-    public int rotation;
-
-    public GenerateBuild(Block block, Tile tile, Team team, int rotation) {
-      this.block = block;
-      this.tile = tile;
-      this.team = team;
-      this.rotation = rotation;
-    }
-  }
-
-  public static class MagicPowerChange {
-    public float amount;
-
-    public MagicPowerChange(float amount) {
-      this.amount = amount;
-    }
-  }
-
-  /** 灵力已变化，需要重算境界。载荷：当前灵力值，不是境界（原 JingJieChange，名字与载荷错位已修正） */
-  public static class JingJieRecalc {
-    public final float magicPower;
-
-    public JingJieRecalc(float magicPower) {
-      this.magicPower = magicPower;
-    }
-  }
-
-  public static class GongFaBuQuanEvent {
-    public JingJie jingJie;
-    public GongFa gongFa;
-
-    public GongFaBuQuanEvent(JingJie jingJie, GongFa gongFa) {
-      this.jingJie = jingJie;
-      this.gongFa = gongFa;
-    }
-  }
-
-  public static class ResearchGongFaEvent {
-    public GongFa gongFa;
-
-    public ResearchGongFaEvent(GongFa gongFa) {
-      this.gongFa = gongFa;
-    }
-  }
-
-  /** A skill was permanently unlocked by research, a scroll, or debug code. */
-  public static class SkillUnlockedEvent {
-    public final SkillUnlockable skill;
-
-    public SkillUnlockedEvent(SkillUnlockable skill) {
-      this.skill = skill;
-    }
-  }
-
-  /** A scroll entered the player's unused inventory. */
-  public static class ScrollObtainedEvent {
-    public final Scroll scroll;
-    public final int amount;
-
-    public ScrollObtainedEvent(Scroll scroll, int amount) {
-      this.scroll = scroll;
-      this.amount = amount;
-    }
-  }
-
-  /** A scroll was consumed and its target skill was unlocked. */
-  public static class ScrollUsedEvent {
-    public final Scroll scroll;
-    public final SkillUnlockable skill;
-
-    public ScrollUsedEvent(Scroll scroll, SkillUnlockable skill) {
-      this.scroll = scroll;
-      this.skill = skill;
-    }
-  }
-
-  public static class GalDialogShowEvent {
-    // 人物立绘名称（对应mod assets里的纹理名）
-    public String characterSprite;
-    // 人物名称
-    public String characterName;
-    // 对话文本
-    public String dialogText;
-    // 对话关闭后的回调（可选）
-    public Runnable onDismiss;
-
-    // 快速构造方法
-    public GalDialogShowEvent(String characterSprite, String characterName, String dialogText) {
-      this.characterSprite = characterSprite;
-      this.characterName = characterName;
-      this.dialogText = dialogText;
+        public SummonUnitEvent(UnitType type, float x, float y, Effect effect, Team team, float delay) {
+            this.type = type;
+            this.x = x;
+            this.y = y;
+            this.effect = effect;
+            this.team = team;
+            this.delay = delay;
+        }
     }
 
-    public GalDialogShowEvent(String characterSprite, String characterName, String dialogText, Runnable onDismiss) {
-      this.characterSprite = characterSprite;
-      this.characterName = characterName;
-      this.dialogText = dialogText;
-      this.onDismiss = onDismiss;
+    public static class SectorChangeEvent {
+        public Sector from;
+        public Sector to;
+
+        public SectorChangeEvent(Sector from, Sector to) {
+            this.from = from;
+            this.to = to;
+        }
     }
-  }
 
-  public static class DuJieStartEvent {
-    public final JingJie targetJingJie;
+    public static class MapChangeEvent {
+        public Map map;
 
-    public DuJieStartEvent(JingJie targetJingJie) {
-      this.targetJingJie = targetJingJie;
+        public MapChangeEvent(Map map) {
+            this.map = map;
+        }
     }
-  }
 
-  public static class DuJieEndEvent {
-    public final JingJie targetJingJie;
-    public final boolean success;
+    public static class GenerateBuild {
+        public Block block;
+        public Tile tile;
+        public Team team;
+        public int rotation;
 
-    public DuJieEndEvent(JingJie targetJingJie, boolean success) {
-      this.targetJingJie = targetJingJie;
-      this.success = success;
+        public GenerateBuild(Block block, Tile tile, Team team, int rotation) {
+            this.block = block;
+            this.tile = tile;
+            this.team = team;
+            this.rotation = rotation;
+        }
     }
-  }
 
-  public static class SectorEnterEvent {
-    public Sector sector;
+    public static class MagicPowerChange {
+        public float amount;
 
-    public SectorEnterEvent(Sector sector) {
-      this.sector = sector;
+        public MagicPowerChange(float amount) {
+            this.amount = amount;
+        }
     }
-  }
+
+    /**
+     * 灵力已变化，需要重算境界。载荷：当前灵力值，不是境界（原 JingJieChange，名字与载荷错位已修正）
+     */
+    public static class JingJieRecalc {
+        public final float magicPower;
+
+        public JingJieRecalc(float magicPower) {
+            this.magicPower = magicPower;
+        }
+    }
+
+    public static class GongFaBuQuanEvent {
+        public JingJie jingJie;
+        public GongFa gongFa;
+
+        public GongFaBuQuanEvent(JingJie jingJie, GongFa gongFa) {
+            this.jingJie = jingJie;
+            this.gongFa = gongFa;
+        }
+    }
+
+    public static class ResearchGongFaEvent {
+        public GongFa gongFa;
+
+        public ResearchGongFaEvent(GongFa gongFa) {
+            this.gongFa = gongFa;
+        }
+    }
+
+    /**
+     * A skill was permanently unlocked by research, a scroll, or debug code.
+     */
+    public static class SkillUnlockedEvent {
+        public final SkillUnlockable skill;
+
+        public SkillUnlockedEvent(SkillUnlockable skill) {
+            this.skill = skill;
+        }
+    }
+
+    /**
+     * A scroll entered the player's unused inventory.
+     */
+    public static class ScrollObtainedEvent {
+        public final Scroll scroll;
+        public final int amount;
+
+        public ScrollObtainedEvent(Scroll scroll, int amount) {
+            this.scroll = scroll;
+            this.amount = amount;
+        }
+    }
+
+    /**
+     * A scroll was consumed and its target skill was unlocked.
+     */
+    public static class ScrollUsedEvent {
+        public final Scroll scroll;
+        public final SkillUnlockable skill;
+
+        public ScrollUsedEvent(Scroll scroll, SkillUnlockable skill) {
+            this.scroll = scroll;
+            this.skill = skill;
+        }
+    }
+
+    public static class GalDialogShowEvent {
+        // 人物立绘名称（对应mod assets里的纹理名）
+        public String characterSprite;
+        // 人物名称
+        public String characterName;
+        // 对话文本
+        public String dialogText;
+        // 对话关闭后的回调（可选）
+        public Runnable onDismiss;
+
+        // 快速构造方法
+        public GalDialogShowEvent(String characterSprite, String characterName, String dialogText) {
+            this.characterSprite = characterSprite;
+            this.characterName = characterName;
+            this.dialogText = dialogText;
+        }
+
+        public GalDialogShowEvent(String characterSprite, String characterName, String dialogText, Runnable onDismiss) {
+            this.characterSprite = characterSprite;
+            this.characterName = characterName;
+            this.dialogText = dialogText;
+            this.onDismiss = onDismiss;
+        }
+    }
+
+    public static class DuJieStartEvent {
+        public final JingJie targetJingJie;
+
+        public DuJieStartEvent(JingJie targetJingJie) {
+            this.targetJingJie = targetJingJie;
+        }
+    }
+
+    public static class DuJieEndEvent {
+        public final JingJie targetJingJie;
+        public final boolean success;
+
+        public DuJieEndEvent(JingJie targetJingJie, boolean success) {
+            this.targetJingJie = targetJingJie;
+            this.success = success;
+        }
+    }
+
+    public static class SectorEnterEvent {
+        public Sector sector;
+
+        public SectorEnterEvent(Sector sector) {
+            this.sector = sector;
+        }
+    }
 }

@@ -2,202 +2,183 @@ package crystal.core;
 
 import arc.Core;
 import arc.Events;
-import arc.math.Mathf;
 import arc.scene.ui.Button;
 import arc.scene.ui.TextButton;
 import arc.scene.ui.layout.Table;
 import arc.struct.Seq;
 import crystal.CVars;
-import crystal.Crystal;
-import crystal.aviation.CrystalAviationSystemCore;
 import crystal.aviation.ui.SatelliteDebugDialog;
 import crystal.content.WorldStuffs;
-import crystal.entities.SwordLight;
-import crystal.graphics.BlackHoleRenderer;
 import crystal.type.Contributor;
-import crystal.ui.dialogs.AsteroidTestDialog;
-import crystal.ui.dialogs.CPausedDialog;
-import crystal.ui.dialogs.CPlanetDialog;
-import crystal.ui.dialogs.CResearchDialog;
-import crystal.ui.dialogs.GongFaDialog;
-import crystal.ui.dialogs.MagicWaveDialog;
-import crystal.ui.dialogs.RelativeDialog;
-import crystal.ui.dialogs.ShenWuSkillTreeDialog;
-import crystal.ui.dialogs.WorldStuffDialog;
+import crystal.ui.dialogs.*;
 import crystal.ui.gal.GalgameDialogueManager;
 import crystal.world.time.TimeRewindEvent;
 import mindustry.Vars;
-import mindustry.game.EventType.TapEvent;
 import mindustry.gen.Icon;
 import mindustry.ui.Styles;
 import mindustry.ui.dialogs.BaseDialog;
 
-import static mindustry.Vars.*;
 import static crystal.CVars.debug;
 
 public class UI {
-  public CResearchDialog cresearch;
-  public CPlanetDialog cplanet;
-  public CPausedDialog cpaused;
-  public WorldStuffDialog stuff;
-  public GongFaDialog gongFa;
-  float height = 100;
-  public BaseDialog generalMagicDialog;
-  public RelativeDialog relativeDialog;
-  public ShenWuSkillTreeDialog shenwu;
+    public CResearchDialog cresearch;
+    public CPlanetDialog cplanet;
+    public CPausedDialog cpaused;
+    public WorldStuffDialog stuff;
+    public GongFaDialog gongFa;
+    public BaseDialog generalMagicDialog;
+    public RelativeDialog relativeDialog;
+    public ShenWuSkillTreeDialog shenwu;
+    float height = 100;
 
-  public Button timeButton(float time) {
-    Button but = new TextButton(time + "");
-    but.add().pad(7);
-    but.clicked(() -> {
-      Events.fire(new TimeRewindEvent(time));
-    });
-    return but;
-  }
-
-  public void init() {
-    WorldStuffs.load();
-    cresearch = new CResearchDialog();
-    cplanet = new CPlanetDialog();
-    cpaused = new CPausedDialog();
-    stuff = new WorldStuffDialog();
-    gongFa = new GongFaDialog();
-    shenwu = new ShenWuSkillTreeDialog();
-    setupGeneralMagicDialog();
-    setupRelativeDialog();
-
-    cpaused.shown(() -> {
-      cpaused.cont.row();
-      cpaused.cont.button(
-          Core.bundle.get("showgongfas"),
-          Icon.bookOpen,
-          gongFa::show).size(Vars.mobile ? 130f : 220f, Vars.mobile ? 130f : 55f).pad(5f).colspan(2);
-      cpaused.cont.button(
-          "历史记录",
-          Icon.book, () -> {
-            GalgameDialogueManager.instance.historyUI.show();
-          }).size(Vars.mobile ? 130f : 220f, Vars.mobile ? 130f : 55f)
-          .pad(5f).colspan(20);
-    });
-
-    if (debug)
-      Vars.ui.hudGroup.fill(null, table -> {
-        table.table(null, t -> {
-          t.button("调试面板", Styles.flatt, () -> {
-            GalgameDialogueManager.instance.debugDialog.show();
-          }).size(100, 70);
-        }).size(100, 70);
-        table.center().left().update(() -> {
-          table.translation.set(100, height);
+    public Button timeButton(float time) {
+        Button but = new TextButton(time + "");
+        but.add().pad(7);
+        but.clicked(() -> {
+            Events.fire(new TimeRewindEvent(time));
         });
-      });
-    if (debug)
-      Vars.ui.hudGroup.fill(null, table -> {
-        table.table(null, t -> {
-          t.button("调试星球", Styles.flatt, () -> {
-            new SatelliteDebugDialog().show();
-          }).size(100, 70);
-        }).size(100, 70);
-        table.center().left().update(() -> {
-          table.translation.set(100, height + 150);
+        return but;
+    }
+
+    public void init() {
+        WorldStuffs.load();
+        cresearch = new CResearchDialog();
+        cplanet = new CPlanetDialog();
+        cpaused = new CPausedDialog();
+        stuff = new WorldStuffDialog();
+        gongFa = new GongFaDialog();
+        shenwu = new ShenWuSkillTreeDialog();
+        setupGeneralMagicDialog();
+        setupRelativeDialog();
+
+        cpaused.shown(() -> {
+            cpaused.cont.row();
+            cpaused.cont.button(
+                    Core.bundle.get("showgongfas"),
+                    Icon.bookOpen,
+                    gongFa::show).size(Vars.mobile ? 130f : 220f, Vars.mobile ? 130f : 55f).pad(5f).colspan(2);
+            cpaused.cont.button(
+                            "历史记录",
+                            Icon.book, GalgameDialogueManager.instance.historyUI::show).size(Vars.mobile ? 130f : 220f, Vars.mobile ? 130f : 55f)
+                    .pad(5f).colspan(20);
         });
-      });
-    if (CVars.debug)
-      Vars.ui.hudGroup.fill(null, table -> {
-        table.table(null, t -> {
-          t.button("回溯", Styles.flatt, () -> {
-            Table buttonTable = new Table();
-            buttonTable.add(timeButton(5f)).size(80, 60).padRight(6f);
-            buttonTable.add(timeButton(5f)).size(80, 60).padRight(6f);
-            buttonTable.add(timeButton(15f)).size(80, 60).padRight(6f);
-            buttonTable.add(timeButton(20f)).size(80, 60).padRight(6f);
-            t.add(buttonTable);
-          }).size(100, 70);
-        }).size(100, 70);
-        table.center().left().update(() -> {
-          table.translation.set(100, height + 150);
+
+        if (debug)
+            Vars.ui.hudGroup.fill(null, table -> {
+                table.table(null, t -> {
+                    t.button("调试面板", Styles.flatt, GalgameDialogueManager.instance.debugDialog::show).size(100, 70);
+                }).size(100, 70);
+                table.center().left().update(() -> {
+                    table.translation.set(100, height);
+                });
+            });
+        if (debug)
+            Vars.ui.hudGroup.fill(null, table -> {
+                table.table(null, t -> {
+                    t.button("调试星球", Styles.flatt, () -> {
+                        new SatelliteDebugDialog().show();
+                    }).size(100, 70);
+                }).size(100, 70);
+                table.center().left().update(() -> {
+                    table.translation.set(100, height + 150);
+                });
+            });
+        if (CVars.debug)
+            Vars.ui.hudGroup.fill(null, table -> {
+                table.table(null, t -> {
+                    t.button("回溯", Styles.flatt, () -> {
+                        Table buttonTable = new Table();
+                        buttonTable.add(timeButton(5f)).size(80, 60).padRight(6f);
+                        buttonTable.add(timeButton(5f)).size(80, 60).padRight(6f);
+                        buttonTable.add(timeButton(15f)).size(80, 60).padRight(6f);
+                        buttonTable.add(timeButton(20f)).size(80, 60).padRight(6f);
+                        t.add(buttonTable);
+                    }).size(100, 70);
+                }).size(100, 70);
+                table.center().left().update(() -> {
+                    table.translation.set(100, height + 150);
+                });
+            });
+        if (debug)
+            Vars.ui.hudGroup.fill(null, table -> {
+                table.table(null, t -> {
+                    t.button("修为调试面板", Styles.flatt, () -> {
+                        new MagicWaveDialog().show();
+                    }).size(100, 70);
+                }).size(100, 70);
+                table.center().left().update(() -> {
+                    table.translation.set(0, height + 260);
+                });
+            });
+        if (debug)
+            Vars.ui.hudGroup.fill(null, table -> {
+                table.table(null, t -> {
+                    t.button("对话", () -> {
+                        // 以前写死的模块 ID "main" 根本不存在（剧情模块叫 jianglindian_*），
+                        // 点一下就是 NPE 崩在这里
+                        GalgameDialogueManager.instance.getModule("jianglindian_lanuch").resetProgress();
+                        GalgameDialogueManager.instance.playModule("jianglindian_lanuch");
+                    }).size(100, 70);
+                }).size(100, 70);
+                table.center().left().update(() -> {
+                    table.translation.set(0, height);
+                });
+            });
+        // 小行星测试入口不依赖 CVars.debug，普通游戏里也能直接用。
+        Vars.ui.hudGroup.fill(null, table -> {
+            table.visible = false;
+            table.table(null, t -> {
+                t.button("小行星测试", Styles.flatt, () -> new AsteroidTestDialog().show()).size(100, 70);
+            }).size(100, 70);
+            table.center().left().update(() -> {
+                table.translation.set(100, height + 390);
+            });
         });
-      });
-    if (debug)
-      Vars.ui.hudGroup.fill(null, table -> {
-        table.table(null, t -> {
-          t.button("修为调试面板", Styles.flatt, () -> {
-            new MagicWaveDialog().show();
-          }).size(100, 70);
-        }).size(100, 70);
-        table.center().left().update(() -> {
-          table.translation.set(0, height + 260);
-        });
-      });
-    if (debug)
-      Vars.ui.hudGroup.fill(null, table -> {
-        table.table(null, t -> {
-          t.button("对话", () -> {
-            // 以前写死的模块 ID "main" 根本不存在（剧情模块叫 jianglindian_*），
-            // 点一下就是 NPE 崩在这里
-            GalgameDialogueManager.instance.getModule("jianglindian_lanuch").resetProgress();
-            GalgameDialogueManager.instance.playModule("jianglindian_lanuch");
-          }).size(100, 70);
-        }).size(100, 70);
-        table.center().left().update(() -> {
-          table.translation.set(0, height);
-        });
-      });
-    // 小行星测试入口不依赖 CVars.debug，普通游戏里也能直接用。
-    Vars.ui.hudGroup.fill(null, table -> {
-      table.visible = false;
-      table.table(null, t -> {
-        t.button("小行星测试", Styles.flatt, () -> new AsteroidTestDialog().show()).size(100, 70);
-      }).size(100, 70);
-      table.center().left().update(() -> {
-        table.translation.set(100, height + 390);
-      });
-    });
-  }
+    }
 
-  void setupGeneralMagicDialog() {
-    generalMagicDialog = new BaseDialog(Core.bundle.get("generalMagic", "综合术法"));
-    generalMagicDialog.cont.defaults().size(Vars.mobile ? 130f : 220f, Vars.mobile ? 55f : 55f).pad(12f);
+    void setupGeneralMagicDialog() {
+        generalMagicDialog = new BaseDialog(Core.bundle.get("generalMagic", "综合术法"));
+        generalMagicDialog.cont.defaults().size(Vars.mobile ? 130f : 220f, Vars.mobile ? 55f : 55f).pad(12f);
 
-    generalMagicDialog.cont.button(Core.bundle.get("showgongfas", "功法"), Icon.bookOpen, () -> {
-      generalMagicDialog.hide();
-      gongFa.show();
-    }).row();
+        generalMagicDialog.cont.button(Core.bundle.get("showgongfas", "功法"), Icon.bookOpen, () -> {
+            generalMagicDialog.hide();
+            gongFa.show();
+        }).row();
 
-    generalMagicDialog.cont.button(Core.bundle.get("showmemory", "回忆"), Icon.bookOpen, () -> {
-      generalMagicDialog.hide();
-      GalgameDialogueManager.instance.openModuleGallery();
-    }).row();
+        generalMagicDialog.cont.button(Core.bundle.get("showmemory", "回忆"), Icon.bookOpen, () -> {
+            generalMagicDialog.hide();
+            GalgameDialogueManager.instance.openModuleGallery();
+        }).row();
 
-    generalMagicDialog.addCloseButton();
+        generalMagicDialog.addCloseButton();
 
-    Vars.ui.menufrag.addButton(Core.bundle.get("generalMagic", "综合术法"), Icon.book, () -> generalMagicDialog.show());
-  }
+        Vars.ui.menufrag.addButton(Core.bundle.get("generalMagic", "综合术法"), Icon.book, () -> generalMagicDialog.show());
+    }
 
-  void setupRelativeDialog() {
-    relativeDialog = new RelativeDialog(Core.bundle.get("contributors", "制作组"));
+    void setupRelativeDialog() {
+        relativeDialog = new RelativeDialog(Core.bundle.get("contributors", "制作组"));
 
-    Contributor root = new Contributor(
-        "R",
-        "主创",
-        true,
-        "鸽了鸽了，臭写代码的",
-        Core.atlas.find("crystal-r"), "瑟瑟的始发点");
+        Contributor root = new Contributor(
+                "R",
+                "主创",
+                true,
+                "鸽了鸽了，臭写代码的",
+                Core.atlas.find("crystal-r"), "瑟瑟的始发点");
 
-    Seq<Contributor> others = Seq.with(
-        new Contributor("白小惜", "会画画的老婆", false, "香香软软的群主老婆，负责画画。", Core.atlas.find("crystal-bai"), "小惜老婆"),
-        new Contributor("花开了吗", "会画画的基友", false, "画画外加提供猎奇想法", Core.atlas.find("crystal-hua"), "合晶"),
-        new Contributor("小凡", "大人", false, "小凡大人的恩情还不完~🤚😭🖐️", Core.atlas.find("crystal-fan"), "小凡大人"),
-        new Contributor("ZXS", "eve的父母", false, "eve真好用", Core.atlas.find("crystal-zxs"), "猫娘"),
-        new Contributor("江某", "代码方面的帮助者", false, "帮作者解决了单位实体适配X端的问题", Core.atlas.find("crystal-jm")),
-        new Contributor("CPTPC", "借给作者代码的大佬", false, "把异形方块的码借给作者，感激不尽", Core.atlas.find("crystal-sybs")),
-        new Contributor("一只一只铼铱合金", "会画画的基友", false, "画画，并且分享猎奇东西", Core.atlas.find("crystal-hj"), "神人之神"),
-        new Contributor("RC-C814", "测试伙伴", false, "群主好朋友，天天聊天，交换想法", Core.atlas.find("crystal-rc"), "望星"),
-        new Contributor("CN方柠喵FNM ~喵", "可rua猫", false, "陪群主玩", Core.atlas.find("crystal-js"), "随便rua"),
-        new Contributor("豆瓣酱", "留有遗产的基友", false, "我直接偷吃遗产（", Core.atlas.find("crystal-qin"), "高人红红~"));
+        Seq<Contributor> others = Seq.with(
+                new Contributor("白小惜", "会画画的老婆", false, "香香软软的群主老婆，负责画画。", Core.atlas.find("crystal-bai"), "小惜老婆"),
+                new Contributor("花开了吗", "会画画的基友", false, "画画外加提供猎奇想法", Core.atlas.find("crystal-hua"), "合晶"),
+                new Contributor("小凡", "大人", false, "小凡大人的恩情还不完~🤚😭🖐️", Core.atlas.find("crystal-fan"), "小凡大人"),
+                new Contributor("ZXS", "eve的父母", false, "eve真好用", Core.atlas.find("crystal-zxs"), "猫娘"),
+                new Contributor("江某", "代码方面的帮助者", false, "帮作者解决了单位实体适配X端的问题", Core.atlas.find("crystal-jm")),
+                new Contributor("CPTPC", "借给作者代码的大佬", false, "把异形方块的码借给作者，感激不尽", Core.atlas.find("crystal-sybs")),
+                new Contributor("一只一只铼铱合金", "会画画的基友", false, "画画，并且分享猎奇东西", Core.atlas.find("crystal-hj"), "神人之神"),
+                new Contributor("RC-C814", "测试伙伴", false, "群主好朋友，天天聊天，交换想法", Core.atlas.find("crystal-rc"), "望星"),
+                new Contributor("CN方柠喵FNM ~喵", "可rua猫", false, "陪群主玩", Core.atlas.find("crystal-js"), "随便rua"),
+                new Contributor("豆瓣酱", "留有遗产的基友", false, "我直接偷吃遗产（", Core.atlas.find("crystal-qin"), "高人红红~"));
 
-    relativeDialog.setContributors(root, others);
+        relativeDialog.setContributors(root, others);
 
-    Vars.ui.menufrag.addButton("群主关系网", Icon.chat, () -> relativeDialog.show());
-  }
+        Vars.ui.menufrag.addButton("群主关系网", Icon.chat, () -> relativeDialog.show());
+    }
 }

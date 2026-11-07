@@ -14,18 +14,14 @@ import arc.scene.ui.Label;
 import arc.scene.ui.TextField.TextFieldFilter;
 import arc.scene.ui.layout.Table;
 import arc.struct.Seq;
-import arc.util.Align;
-import arc.util.Log;
-import arc.util.Scaling;
-import arc.util.Strings;
-import arc.util.Structs;
+import arc.util.*;
+import crystal.content.CIcons;
 import crystal.entities.shentong.ShenTong;
 import crystal.entities.units.UnitEnum.JingJie;
 import mindustry.content.StatusEffects;
 import mindustry.editor.MapObjectivesDialog;
 import mindustry.editor.WaveGraph;
 import mindustry.game.SpawnGroup;
-import mindustry.game.Team;
 import mindustry.game.Waves;
 import mindustry.gen.Icon;
 import mindustry.gen.Tex;
@@ -69,31 +65,31 @@ public class MagicWaveEditor extends BaseDialog {
 
         addCloseButton();
 
-        buttons.button(Core.bundle.get("waves.edit"), Icon.edit, () -> {
-            BaseDialog dialog = new BaseDialog(Core.bundle.get("waves.edit"));
+        buttons.button(Core.bundle.get("edit"), Icon.edit, () -> {
+            BaseDialog dialog = new BaseDialog(Core.bundle.get("edit"));
             dialog.addCloseButton();
             dialog.setFillParent(false);
             dialog.cont.table(Tex.button, t -> {
                 var style = Styles.cleart;
                 t.defaults().size(280f, 64f).pad(2f);
 
-                t.button(Core.bundle.get("waves.copy"), Icon.copy, style, () -> {
+                t.button(Core.bundle.get("copy.clipboard"), Icon.copy, style, () -> {
                     ui.showInfoFade(Core.bundle.get("waves.copied"));
                     Core.app.setClipboardText(maps.writeWaves(groups));
                     dialog.hide();
                 }).disabled(b -> groups == null || groups.isEmpty()).marginLeft(12f).row();
 
-                t.button(Core.bundle.get("waves.load"), Icon.download, style, () -> {
-                    try {
-                        Seq<SpawnGroup> loaded = maps.readWaves(Core.app.getClipboardText());
-                        groups = convertAll(loaded);
-                        buildGroups();
-                    } catch (Exception e) {
-                        Log.err(e);
-                        ui.showErrorMessage("@waves.invalid");
-                    }
-                    dialog.hide();
-                }).disabled(Core.app.getClipboardText() == null || !Core.app.getClipboardText().startsWith("["))
+                t.button(Core.bundle.get("load.clipboard"), Icon.download, style, () -> {
+                            try {
+                                Seq<SpawnGroup> loaded = maps.readWaves(Core.app.getClipboardText());
+                                groups = convertAll(loaded);
+                                buildGroups();
+                            } catch (Exception e) {
+                                Log.err(e);
+                                ui.showErrorMessage("@waves.invalid");
+                            }
+                            dialog.hide();
+                        }).disabled(Core.app.getClipboardText() == null || !Core.app.getClipboardText().startsWith("["))
                         .marginLeft(12f).row();
 
                 t.button("@clear", Icon.none, style, () -> ui.showConfirm("@confirm", "@settings.clear.confirm", () -> {
@@ -217,12 +213,12 @@ public class MagicWaveEditor extends BaseDialog {
                         }).pad(-4).size(40f).tooltip("@editor.copy");
 
                         b.button(
-                                group.effect != null ? new TextureRegionDrawable(group.effect.uiIcon) : Icon.logicSmall,
-                                Styles.emptyi, () -> showEffects(group)).pad(-4).size(40f).scaling(Scaling.fit)
+                                        group.effect != null ? new TextureRegionDrawable(group.effect.uiIcon) : Icon.logicSmall,
+                                        Styles.emptyi, () -> showEffects(group)).pad(-4).size(40f).scaling(Scaling.fit)
                                 .tooltip(group.effect != null ? group.effect.localizedName : "@none");
 
                         if (group instanceof MagicSpawnGroup mg) {
-                            b.button(mg.jingJie.str+mg.jingJie.multiplier(), Styles.flatTogglet, () -> showJingJie(mg))
+                            b.button(mg.jingJie.str + mg.jingJie.multiplier(), Styles.flatTogglet, () -> showJingJie(mg))
                                     .pad(-4).size(86f, 40f)
                                     .tooltip(Core.bundle.get("stat.jingjie", "境界"));
                         }
@@ -237,7 +233,7 @@ public class MagicWaveEditor extends BaseDialog {
                                 if (st != null && st.icon != null)
                                     icon = st.icon;
                             }
-                            stBtn.getStyle().imageUp = icon != null ? icon : Icon.logicSmall;
+                            stBtn.getStyle().imageUp = icon != null ? icon : CIcons.shentong;
                         });
 
                         b.button(Icon.unitsSmall, Styles.emptyi, () -> showUnits(type -> group.type = type, false))
@@ -303,7 +299,7 @@ public class MagicWaveEditor extends BaseDialog {
 
                             a.add(" + ");
                             a.field(Strings.fixed(
-                                    Math.max((Mathf.zero(group.unitScaling) ? 0 : 1f / group.unitScaling), 0), 2),
+                                            Math.max((Mathf.zero(group.unitScaling) ? 0 : 1f / group.unitScaling), 0), 2),
                                     TextFieldFilter.floatsOnly, text -> {
                                         if (Strings.canParsePositiveFloat(text)) {
                                             group.unitScaling = 1f / Strings.parseFloat(text);
@@ -351,10 +347,10 @@ public class MagicWaveEditor extends BaseDialog {
                             a.add("@waves.team").padRight(8);
 
                             a.button(
-                                    b -> b.image(Tex.whiteui).size(iconSmall).update(
-                                            i -> i.setColor(group.team == null ? Color.clear : group.team.color)),
-                                    Styles.squarei,
-                                    () -> MapObjectivesDialog.showTeamSelect(true, team -> group.team = team))
+                                            b -> b.image(Tex.whiteui).size(iconSmall).update(
+                                                    i -> i.setColor(group.team == null ? Color.clear : group.team.color)),
+                                            Styles.squarei,
+                                            () -> MapObjectivesDialog.showTeamSelect(true, team -> group.team = team))
                                     .size(38f);
                         }).padTop(0).row();
 
@@ -362,50 +358,50 @@ public class MagicWaveEditor extends BaseDialog {
                             a.add("@waves.spawn").padRight(8);
 
                             a.button("", () -> {
-                                if (!checkedSpawns) {
-                                    spawner.reset();
-                                    checkedSpawns = true;
-                                }
-
-                                BaseDialog dialog = new BaseDialog("@waves.spawn.select");
-                                dialog.cont.pane(p -> {
-                                    p.background(Tex.button).margin(10f);
-                                    int i = 0;
-                                    int cols = 4;
-                                    int max = 20;
-
-                                    if (spawner.getSpawns().size >= max) {
-                                        p.add(Core.bundle.format("waves.spawn.first", max)).colspan(cols).padBottom(4)
-                                                .row();
-                                    }
-
-                                    for (var spawn : spawner.getSpawns()) {
-                                        p.button(spawn.x + ", " + spawn.y, Styles.flatTogglet, () -> {
-                                            group.spawn = Point2.pack(spawn.x, spawn.y);
-                                            dialog.hide();
-                                        }).size(110f, 45f).checked(spawn.pos() == group.spawn);
-
-                                        if (++i % cols == 0) {
-                                            p.row();
+                                        if (!checkedSpawns) {
+                                            spawner.reset();
+                                            checkedSpawns = true;
                                         }
 
-                                        if (i >= max)
-                                            break;
-                                    }
+                                        BaseDialog dialog = new BaseDialog("@waves.spawn.select");
+                                        dialog.cont.pane(p -> {
+                                            p.background(Tex.button).margin(10f);
+                                            int i = 0;
+                                            int cols = 4;
+                                            int max = 20;
 
-                                    if (spawner.getSpawns().isEmpty()) {
-                                        p.add("@waves.spawn.none");
-                                    } else {
-                                        p.button("@waves.spawn.all", Styles.flatTogglet, () -> {
-                                            group.spawn = -1;
-                                            dialog.hide();
-                                        }).size(110f, 45f).checked(-1 == group.spawn);
-                                    }
-                                }).grow();
-                                dialog.setFillParent(false);
-                                dialog.addCloseButton();
-                                dialog.show();
-                            }).width(160f).height(36f).get().getLabel()
+                                            if (spawner.getSpawns().size >= max) {
+                                                p.add(Core.bundle.format("waves.spawn.first", max)).colspan(cols).padBottom(4)
+                                                        .row();
+                                            }
+
+                                            for (var spawn : spawner.getSpawns()) {
+                                                p.button(spawn.x + ", " + spawn.y, Styles.flatTogglet, () -> {
+                                                    group.spawn = Point2.pack(spawn.x, spawn.y);
+                                                    dialog.hide();
+                                                }).size(110f, 45f).checked(spawn.pos() == group.spawn);
+
+                                                if (++i % cols == 0) {
+                                                    p.row();
+                                                }
+
+                                                if (i >= max)
+                                                    break;
+                                            }
+
+                                            if (spawner.getSpawns().isEmpty()) {
+                                                p.add("@waves.spawn.none");
+                                            } else {
+                                                p.button("@waves.spawn.all", Styles.flatTogglet, () -> {
+                                                    group.spawn = -1;
+                                                    dialog.hide();
+                                                }).size(110f, 45f).checked(-1 == group.spawn);
+                                            }
+                                        }).grow();
+                                        dialog.setFillParent(false);
+                                        dialog.addCloseButton();
+                                        dialog.show();
+                                    }).width(160f).height(36f).get().getLabel()
                                     .setText(() -> group.spawn == -1 ? "@waves.spawn.all"
                                             : Point2.x(group.spawn) + ", " + Point2.y(group.spawn));
 
@@ -539,8 +535,8 @@ public class MagicWaveEditor extends BaseDialog {
         float[] values = group.shenTongId == shenTong.id
                 && group.shenTongValues != null
                 && group.shenTongValues.length == parameters.length
-                        ? group.shenTongValues.clone()
-                        : group.defaultShenTongValues(shenTong);
+                ? group.shenTongValues.clone()
+                : group.defaultShenTongValues(shenTong);
 
         BaseDialog dialog = new BaseDialog(Core.bundle.format("waves.shentong.config", shenTong.name()));
         dialog.cont.add(shenTong.name()).color(Pal.accent).left().row();
@@ -630,6 +626,18 @@ public class MagicWaveEditor extends BaseDialog {
         return m;
     }
 
+    void updateWaves() {
+        graph.groups = groups;
+        graph.rebuild();
+    }
+
+    /**
+     * 左侧配置面板宽度：给境界、buff 和神通按钮留出同一行空间。
+     */
+    float panelWidth() {
+        return Math.min(Core.graphics.getWidth() * 0.68f, 720f);
+    }
+
     enum Sort {
         begin(g -> g.begin, g -> g.type.id),
         health(g -> g.type.health),
@@ -647,15 +655,5 @@ public class MagicWaveEditor extends BaseDialog {
             this.sort = sort;
             this.secondary = secondary;
         }
-    }
-
-    void updateWaves() {
-        graph.groups = groups;
-        graph.rebuild();
-    }
-
-    /** 左侧配置面板宽度：给境界、buff 和神通按钮留出同一行空间。 */
-    float panelWidth() {
-        return Math.min(Core.graphics.getWidth() * 0.68f, 720f);
     }
 }

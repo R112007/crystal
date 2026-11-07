@@ -215,6 +215,16 @@ public class GalSystemTest {
                 manager.waitingModuleIds().contains("probe-gal-missing"));
         check("valid waiting id is restored", true,
                 manager.waitingModuleIds().contains(dependent.moduleId));
+
+        manager.waitingModuleIds().clear();
+        manager.conditionalWaitingIds().clear();
+        manager.conditionalWaitingIds().add(dependent.moduleId);
+        manager.saveWaitingQueue();
+        manager.loadWaitingQueue();
+        check("eligible persisted conditional enters play queue", true,
+                manager.waitingModuleIds().contains(dependent.moduleId));
+        check("eligible persisted conditional leaves conditional queue", false,
+                manager.conditionalWaitingIds().contains(dependent.moduleId));
     }
 
     private static void testPlaybackStateMachine() {

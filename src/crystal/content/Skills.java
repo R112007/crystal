@@ -3,29 +3,33 @@ package crystal.content;
 import crystal.magic.Skill;
 import crystal.magic.skills.CoreUnitSkill;
 
-/** Registers the skills exposed by the radial skill HUD. */
+/**
+ * Registers the skills exposed by the radial skill HUD.
+ */
 public final class Skills {
-  public static CoreUnitSkill coreUnit;
+    public static Skill coreUnit;
 
-  private Skills() {
-  }
-
-  public static void load() {
-    if (coreUnit != null) {
-      return;
+    private Skills() {
     }
-    coreUnit = new CoreUnitSkill();
-  }
 
-  /** Returns the registered core-unit skill, loading it lazily if necessary. */
-  public static CoreUnitSkill coreUnit() {
-    if (coreUnit == null) {
-      load();
+    public static void load() {
+        if (coreUnit != null) {
+            return;
+        }
+        coreUnit = new CoreUnitSkill();
     }
-    return coreUnit;
-  }
 
-  public static Skill skill(String name) {
-    return Skill.all.get(name);
-  }
+    /**
+     * Returns the registered core-unit skill, loading it lazily if necessary.
+     */
+    public static CoreUnitSkill coreUnit() {
+        if (coreUnit == null) {
+            load();
+        }
+        return (CoreUnitSkill) coreUnit;
+    }
+
+    public static Skill skill(String name) {
+        return Skill.all.get(name);
+    }
 }

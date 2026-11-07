@@ -228,10 +228,22 @@ public class GalgameDialogueManager {
 
   public void loadWaitingQueue() {
     queues.load(id -> getModule(id) != null);
+    Seq<String> ready = new Seq<>();
     queues.conditional.removeAll(id -> {
       DialogueModule module = getModule(id);
-      return module == null || module.prerequisiteMet(this::getModule);
+      if (module == null)
+        return true;
+      if (module.prerequisiteMet(this::getModule)) {
+        ready.add(id);
+        return true;
+      }
+      return false;
     });
+    for (String id : ready) {
+      if (!queues.waiting.contains(id)) {
+        queues.waiting.add(id);
+      }
+    }
     queues.save();
   }
 

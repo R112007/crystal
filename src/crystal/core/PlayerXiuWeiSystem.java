@@ -37,10 +37,9 @@ import static mindustry.Vars.*;
 public class PlayerXiuWeiSystem {
   public static float height = 0;
 
-  private static final long TOAST_COOLDOWN_MS = 3000;
-  private static long lastToastTimestamp = 0;
-  // 渡劫提示 toast 独立冷却：原来与功法不足 toast 共用 lastToastTimestamp，
-  // 会导致功法提示把渡劫确认弹窗吞掉 3 秒
+  private static final long DUJIE_TOAST_COOLDOWN_MS = 3000;
+  /** 当前已提示过的功法门槛，用于避免同一门槛重复发事件。 */
+  private static @Nullable JingJie lastBlockedJingJie = null;
   private static long lastDuJieToastTimestamp = 0;
   // 灵力落盘节流：灵力变动只标脏，最多每 5 秒真正写一次盘（原来每杀一个单位就 manualSave 一次）
   private static final long POWER_FLUSH_INTERVAL_MS = 5000;
@@ -296,15 +295,15 @@ public class PlayerXiuWeiSystem {
         if (currentMagic > targetPower) {
           CultivationState.playerMagicPower = targetPower;
           savePower();
-          long currentTime = Time.millis();
-          if (currentTime - lastToastTimestamp >= TOAST_COOLDOWN_MS) {
-            Events.fire(new GongFaBuQuanEvent(blockJingJie, blockJingJie.gongFa));
-            lastToastTimestamp = currentTime;
-          }
-          Events.fire(new JingJieRecalc(CultivationState.playerMagicPower));
-          return;
         }
+        if (lastBlockedJingJie != blockJingJie) {
+          Events.fire(new GongFaBuQuanEvent(blockJingJie, blockJingJie.gongFa));
+          lastBlockedJingJie = blockJingJie;
+        }
+        applyJingJie(finalTargetJingJie);
+        return;
       }
+      lastBlockedJingJie = null;
 
       // 渡劫拦截：锁定灵力 + 弹出确认
       if (needDuJieJingJie != null && !CultivationState.isInDuJie) {
@@ -315,30 +314,19 @@ public class PlayerXiuWeiSystem {
         }
 
         long currentTime = Time.millis();
-        if (currentTime - lastDuJieToastTimestamp >= TOAST_COOLDOWN_MS) {
+        if (currentTime - lastDuJieToastTimestamp >= DUJIE_TOAST_COOLDOWN_MS) {
           Vars.ui.hudfrag.showToast(Icon.warning, Core.bundle.format("dujie.need", needDuJieJingJie.str));
           lastDuJieToastTimestamp = currentTime;
         }
         // 弹窗有自己的 60s 冷却（showDuJieConfirm 内），不再受 toast 冷却门控
         showDuJieConfirm(needDuJieJingJie);
 
+        applyJingJie(finalTargetJingJie);
         return;
       }
 
       // 境界更新
-      boolean isLevelUp = finalTargetJingJie.amount > currentJingJie.amount;
-      boolean isLevelDown = finalTargetJingJie.amount < currentJingJie.amount;
-      CultivationState.playerJingJie = finalTargetJingJie;
-      updateCurrentAvailableJingJie();
-
-      if (isLevelUp) {
-        updateReachedJingJie(finalTargetJingJie);
-        Vars.ui.hudfrag.showToast(Icon.up, Core.bundle.get("xiuweitupo") + finalTargetJingJie.str);
-      } else if (isLevelDown) {
-        Vars.ui.hudfrag.showToast(Icon.down, Core.bundle.get("xiuweidieluo") + finalTargetJingJie.str);
-      }
-
-      DLog.info("当前境界更新为：" + finalTargetJingJie.str + "，当前灵力：" + CultivationState.playerMagicPower);
+      applyJingJie(finalTargetJingJie);
     });
 
     Events.on(MagicPowerChange.class, e -> {
@@ -365,6 +353,23 @@ public class PlayerXiuWeiSystem {
         flushPowerIfNeeded(true);
       }
     });
+  }
+
+  private static void applyJingJie(JingJie finalTargetJingJie) {
+    JingJie currentJingJie = CultivationState.playerJingJie;
+    boolean isLevelUp = finalTargetJingJie.amount > currentJingJie.amount;
+    boolean isLevelDown = finalTargetJingJie.amount < currentJingJie.amount;
+    CultivationState.playerJingJie = finalTargetJingJie;
+    updateCurrentAvailableJingJie();
+
+    if (isLevelUp) {
+      updateReachedJingJie(finalTargetJingJie);
+      Vars.ui.hudfrag.showToast(Icon.up, Core.bundle.get("xiuweitupo") + finalTargetJingJie.str);
+    } else if (isLevelDown) {
+      Vars.ui.hudfrag.showToast(Icon.down, Core.bundle.get("xiuweidieluo") + finalTargetJingJie.str);
+    }
+
+    DLog.info("当前境界更新为：" + finalTargetJingJie.str + "，当前灵力：" + CultivationState.playerMagicPower);
   }
 
   /** 每帧检查渡劫条件，失败优先 */

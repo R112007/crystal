@@ -1770,7 +1770,7 @@ public class CPlanetDialog extends BaseDialog implements PlanetInterfaceRenderer
             return;
         lockPlanetReplace = true;
         arc.util.Time.runTask(120f, () -> lockPlanetReplace = false);
-        hide();
+        // Match vanilla PlanetDialog: keep this view until launch is confirmed.
         Sector sector = selected;
 
         if (sector.isBeingPlayed()) {

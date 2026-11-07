@@ -11,9 +11,11 @@ import crystal.entities.units.UnitEnum.JingJie;
 import crystal.entities.units.UnitEnum.XiuWei;
 import crystal.entities.units.UnitSpawner;
 import crystal.game.CEventType.DuJieStartEvent;
+import crystal.game.CEventType.GongFaBuQuanEvent;
 import crystal.game.CEventType.JingJieRecalc;
 import crystal.gen.Magicc;
 import mindustry.game.Team;
+import arc.struct.Seq;
 
 /** Headless logic test for cultivation ranks, gongfa gates, dujie and persistence. */
 public class CultivationSystemTest {
@@ -98,14 +100,17 @@ public class CultivationSystemTest {
     private static void testGongfaGates() {
         PlayerXiuWeiSystem.clear();
         CVars.chooseNewRoad = false;
+        Seq<JingJie> blockedGates = new Seq<>();
+        Events.on(GongFaBuQuanEvent.class, e -> blockedGates.add(e.jingJie));
         CultivationState.playerMagicPower = 4.9f;
         Events.fire(new JingJieRecalc(CultivationState.playerMagicPower));
         check("below-threshold cultivation stays mortal", JingJie.fan, CultivationState.playerJingJie);
 
         GongFas.taiXuanTianGong1.unlock();
-        CultivationState.playerMagicPower = JingJie.kaiqiao.amount;
+        CultivationState.playerMagicPower = JingJie.huayuan.amount;
         Events.fire(new JingJieRecalc(CultivationState.playerMagicPower));
-        check("first gongfa unlocks kaiqiao", JingJie.kaiqiao, CultivationState.playerJingJie);
+        check("first missing gongfa blocks its gate", JingJie.zhenyuan, CultivationState.playerJingJie);
+        check("first gongfa gate event fires", true, blockedGates.contains(JingJie.huayuan));
         check("fajing maps to mortal cultivation tier", XiuWei.fan, CultivationState.currentXiuWei());
 
         CultivationState.playerMagicPower = 1000f;
@@ -113,11 +118,19 @@ public class CultivationSystemTest {
         check("missing second gongfa blocks huayuan", JingJie.zhenyuan, CultivationState.playerJingJie);
         check("blocked power is clamped below gate", JingJie.huayuan.amount - 0.1f,
                 CultivationState.playerMagicPower);
+        check("same blocked gate does not duplicate its event", 1, blockedGates.count(j -> j == JingJie.huayuan));
 
         GongFas.taiXuanTianGong2.unlock();
         CultivationState.playerMagicPower = 1000f;
         Events.fire(new JingJieRecalc(CultivationState.playerMagicPower));
         check("second gongfa allows tianren", JingJie.tianren, CultivationState.playerJingJie);
+
+        CultivationState.playerMagicPower = JingJie.shenhai.amount;
+        Events.fire(new JingJieRecalc(CultivationState.playerMagicPower));
+        check("third missing gongfa blocks its own gate", JingJie.tianren, CultivationState.playerJingJie);
+        check("later gongfa gate still fires an event", true, blockedGates.contains(JingJie.shenhai));
+        check("later gongfa gate power is clamped", JingJie.shenhai.amount - 0.1f,
+                CultivationState.playerMagicPower);
 
         GongFas.taiXuanTianGong3.unlock();
         GongFas.xinHuang.unlock();
