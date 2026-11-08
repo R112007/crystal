@@ -38,17 +38,19 @@ import static mindustry.Vars.*;
 /**
  * Coordinates player control between a mobile core and its configured unit.
  *
- * <p>In an ordinary sector, a requested mobile core can coexist with its
+ * <p>
+ * In an ordinary sector, a requested mobile core can coexist with its
  * configured player unit. In sectors marked by {@link MobileCoreSectorPreset},
  * the player and {@link Corec} are one entity: the player always controls the
  * core itself and never possesses a separate summon unit. Unit changes are
  * checked here as well because upgrades can call {@link Player#unit(Unit)}
- * directly and bypass normal input restrictions.</p>
+ * directly and bypass normal input restrictions.
+ * </p>
  */
 public final class MobileCoreControlSystem {
   public static final String preferredCoreSetting = "mobile_core_type";
   public static final String launchCoreSetting = "mobile_core_launch";
-  private static final float COMPANION_MAGIC_DRAIN_PER_FRAME = 0.0033333f;
+  private static final float COMPANION_MAGIC_DRAIN_PER_FRAME = 0.0033333f * 2;
   private static boolean initialized;
   private static boolean enforcing;
   private static boolean rebinding;
@@ -72,7 +74,8 @@ public final class MobileCoreControlSystem {
     Events.on(WorldLoadEvent.class, e -> applyWorldRules());
     Events.on(WorldLoadEndEvent.class, e -> {
       applyWorldRules();
-      // Player spawning can finish after WorldLoadEndEvent; run once on the next frame.
+      // Player spawning can finish after WorldLoadEndEvent; run once on the next
+      // frame.
       Core.app.post(() -> createPlayerMobileCore(player));
     });
     Events.run(Trigger.newGame, () -> {
@@ -227,13 +230,18 @@ public final class MobileCoreControlSystem {
     return core != null && player.unit() == activeCompanion(player, core);
   }
 
-  /** Whether this player is currently controlling the mobile core entity itself. */
+  /**
+   * Whether this player is currently controlling the mobile core entity itself.
+   */
   public static boolean isControllingCore(@Nullable Player target) {
     Corec core = findPlayerCore(target);
     return core != null && target != null && target.unit() == (Unit) core;
   }
 
-  /** Returns the existing player-owned mobile core, or creates one from the team's core. */
+  /**
+   * Returns the existing player-owned mobile core, or creates one from the team's
+   * core.
+   */
   public static @Nullable Corec createPlayerMobileCore(@Nullable Player target) {
     if (target == null || !state.isGame() || !shouldCreateMobileCore()) {
       enforcing = false;
@@ -326,7 +334,9 @@ public final class MobileCoreControlSystem {
     return avatar;
   }
 
-  /** Converts a normal core block into a mobile core while preserving its items. */
+  /**
+   * Converts a normal core block into a mobile core while preserving its items.
+   */
   public static @Nullable Corec convertCore(@Nullable CoreBuild source, @Nullable UnitType requestedType) {
     if (source == null
         || source instanceof MCoreBlock.MCoreBuild
@@ -360,7 +370,8 @@ public final class MobileCoreControlSystem {
     tile.remove();
     unit.add();
 
-    // injectCore shares the first core's ItemModule; restore the transferred inventory after injection.
+    // injectCore shares the first core's ItemModule; restore the transferred
+    // inventory after injection.
     core.items().set(storedItems);
     return core;
   }
@@ -602,7 +613,8 @@ public final class MobileCoreControlSystem {
       return avatar;
     }
 
-    // Defensive fallback for malformed/legacy core types without a player unit type.
+    // Defensive fallback for malformed/legacy core types without a player unit
+    // type.
     bind(target, core);
     return (Unit) core;
   }

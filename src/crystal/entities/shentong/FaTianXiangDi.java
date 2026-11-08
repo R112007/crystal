@@ -15,26 +15,18 @@ import arc.scene.ui.layout.Table;
 import arc.util.Time;
 import arc.util.io.Reads;
 import arc.util.io.Writes;
-import crystal.entities.effect.MultiEffect;
-import crystal.entities.effect.SeqEffect;
+import crystal.content.CIcons;
 import crystal.entities.units.UnitEnum.JingJie;
 import crystal.gen.FaShen;
 import crystal.gen.Magicc;
 import crystal.graphics.CPal;
 import crystal.type.MagicUnitType;
-import crystal.util.DLog;
 import mindustry.entities.Effect;
 import mindustry.entities.EntityGroup;
 import mindustry.entities.Effect.EffectContainer;
 import mindustry.entities.bullet.*;
-import mindustry.entities.effect.ExplosionEffect;
-import mindustry.entities.effect.ParticleEffect;
-import mindustry.entities.effect.WaveEffect;
 import mindustry.entities.units.WeaponMount;
-import mindustry.gen.Groups;
-import mindustry.gen.Icon;
 import mindustry.gen.Sounds;
-import mindustry.gen.Unit;
 import mindustry.graphics.Drawf;
 import mindustry.type.Weapon;
 import mindustry.ui.Bar;
@@ -283,7 +275,7 @@ public class FaTianXiangDi extends ShenTong {
     this.restoreTime = restoreTime;
     this.createMagicCost = createMagicCost;
     id = 0;
-    icon = Icon.starSmall;
+    icon = CIcons.fatianxiangdi_icon;
   }
 
   public FaTianXiangDi(float baseMultiplier, float baseSizeMultiplier, float regenAmount, float restoreTime) {
@@ -293,7 +285,7 @@ public class FaTianXiangDi extends ShenTong {
     this.restoreTime = restoreTime;
     this.createMagicCost = 300;
     id = 0;
-    icon = Icon.starSmall;
+    icon = CIcons.fatianxiangdi_icon;
   }
 
   @Override
@@ -585,7 +577,7 @@ public class FaTianXiangDi extends ShenTong {
       clone.timer = 0f;
       clone.isCreating = false;
       clone.createTimer = 0f;
-      clone.icon = Icon.starSmall;
+      clone.icon = CIcons.fatianxiangdi_icon;
       return clone;
     } catch (CloneNotSupportedException e) {
       throw new RuntimeException("java sucks", e);
