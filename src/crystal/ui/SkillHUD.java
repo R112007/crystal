@@ -8,6 +8,7 @@ import arc.graphics.g2d.Fill;
 import arc.graphics.g2d.Lines;
 import arc.math.Interp;
 import arc.math.Mathf;
+import arc.math.geom.Vec2;
 import arc.scene.event.InputEvent;
 import arc.scene.event.InputListener;
 import arc.scene.event.Touchable;
@@ -15,6 +16,7 @@ import arc.scene.style.TextureRegionDrawable;
 import arc.scene.ui.ImageButton;
 import arc.scene.ui.ImageButton.ImageButtonStyle;
 import arc.scene.ui.layout.Scl;
+import arc.scene.ui.layout.Table;
 import arc.scene.ui.layout.WidgetGroup;
 import arc.input.KeyCode;
 import arc.struct.Seq;
@@ -24,6 +26,8 @@ import crystal.core.CSettings;
 import crystal.ui.style.CircleButton;
 import mindustry.Vars;
 import mindustry.game.EventType.ClientLoadEvent;
+import mindustry.game.EventType.StateChangeEvent;
+import mindustry.game.EventType.Trigger;
 import mindustry.gen.Player;
 import mindustry.ui.Styles;
 
@@ -49,6 +53,11 @@ public final class SkillHUD {
   private static final Color ACTIVE_COLOR = Color.valueOf("ffd36a");
 
   private static SkillWheel wheel;
+  private static Table targetCatcher;
+  private static Skill targetingSkill;
+  private static float targetStageX, targetStageY;
+  private static boolean targetPlaced;
+  private static int targetPointer = -1;
   private static boolean initialized;
 
   private SkillHUD() {
@@ -59,14 +68,122 @@ public final class SkillHUD {
       return;
     }
     initialized = true;
+    Events.run(Trigger.draw, SkillHUD::drawTargeting);
+    Events.on(StateChangeEvent.class, e -> cancelTargeting());
     Events.on(ClientLoadEvent.class, e -> {
       if (wheel != null) {
         return;
       }
+
+      // This layer is below the wheel, so the wheel can still receive the
+      // cancel/open tap while the rest of the screen selects a cast position.
+      Vars.ui.hudGroup.fill(null, t -> {
+        targetCatcher = t;
+        targetCatcher.touchable = Touchable.disabled;
+        targetCatcher.addListener(new InputListener() {
+          @Override
+          public boolean touchDown(InputEvent event, float x, float y, int pointer, KeyCode button) {
+            if (targetingSkill == null || targetPointer != -1) {
+              return false;
+            }
+            if (button == KeyCode.mouseRight || button == KeyCode.escape) {
+              cancelTargeting();
+              return true;
+            }
+            targetPointer = pointer;
+            updateTarget(event.stageX, event.stageY);
+            return true;
+          }
+
+          @Override
+          public void touchDragged(InputEvent event, float x, float y, int pointer) {
+            if (targetingSkill != null && pointer == targetPointer) {
+              updateTarget(event.stageX, event.stageY);
+            }
+          }
+
+          @Override
+          public void touchUp(InputEvent event, float x, float y, int pointer, KeyCode button) {
+            if (targetingSkill == null || pointer != targetPointer) {
+              return;
+            }
+            targetPointer = -1;
+            updateTarget(event.stageX, event.stageY);
+            castTargeted();
+          }
+
+          @Override
+          public boolean mouseMoved(InputEvent event, float x, float y) {
+            if (targetingSkill != null && targetPointer == -1) {
+              updateTarget(event.stageX, event.stageY);
+            }
+            return false;
+          }
+        });
+      });
+
       wheel = new SkillWheel();
       wheel.setFillParent(true);
       Vars.ui.hudGroup.addChild(wheel);
     });
+  }
+
+  private static void startTargeting(Skill skill) {
+    if (skill == null || !skill.targeted()) {
+      return;
+    }
+    targetingSkill = skill;
+    targetPlaced = false;
+    targetPointer = -1;
+    if (targetCatcher != null) {
+      targetCatcher.touchable = Touchable.enabled;
+      targetCatcher.toFront();
+    }
+    if (wheel != null) {
+      wheel.open = false;
+      wheel.toFront();
+    }
+  }
+
+  private static void updateTarget(float stageX, float stageY) {
+    targetStageX = stageX;
+    targetStageY = stageY;
+    targetPlaced = true;
+  }
+
+  private static void cancelTargeting() {
+    targetingSkill = null;
+    targetPlaced = false;
+    targetPointer = -1;
+    if (targetCatcher != null) {
+      targetCatcher.touchable = Touchable.disabled;
+    }
+  }
+
+  private static void castTargeted() {
+    Skill skill = targetingSkill;
+    Player player = Vars.player;
+    if (skill == null || player == null || !targetPlaced
+        || Vars.net.client() || !Vars.state.isPlaying()) {
+      cancelTargeting();
+      return;
+    }
+
+    Vec2 world = Core.camera.unproject(targetStageX, targetStageY);
+    float angle = Mathf.angle(world.x - player.x(), world.y - player.y());
+    skill.cast(player, world.x, world.y, angle);
+    cancelTargeting();
+  }
+
+  private static void drawTargeting() {
+    if (targetingSkill == null || !targetPlaced || Vars.player == null
+        || !Vars.state.isGame()) {
+      return;
+    }
+    Vec2 world = Core.camera.unproject(targetStageX, targetStageY);
+    boolean valid = targetingSkill.canCast(Vars.player)
+        && targetingSkill.validTarget(Vars.player, world.x, world.y);
+    targetingSkill.drawTargeting(Vars.player, world.x, world.y, valid);
   }
 
   private static class SkillWheel extends WidgetGroup {
@@ -95,6 +212,11 @@ public final class SkillHUD {
       if (skillButtons.isEmpty() || !canShow()) {
         return;
       }
+      if (targetingSkill != null) {
+        cancelTargeting();
+        open = true;
+        return;
+      }
       open = !open;
     }
 
@@ -102,6 +224,10 @@ public final class SkillHUD {
     public void act(float delta) {
       super.act(delta);
       refreshSkills();
+      if (targetingSkill != null
+          && (Vars.player == null || !targetingSkill.canCast(Vars.player))) {
+        cancelTargeting();
+      }
 
       boolean show = canShow() && !skillButtons.isEmpty();
       // Keep this group active even while hidden. arc's Group.act skips
@@ -262,7 +388,7 @@ public final class SkillHUD {
 
     private boolean canShow() {
       return Vars.state != null
-          && Vars.state.isPlaying()
+          && Vars.state.isGame()
           && Vars.state.rules != null
           && !Vars.state.rules.editor
           && CSettings.showSkillHUD();
@@ -335,12 +461,19 @@ public final class SkillHUD {
       scaleImageForMobile(this, SKILL_SIZE_MOBILE, SKILL_ICON_INSET);
       name = "skill-" + skill.name;
       touchable = Touchable.disabled;
-      clicked(this::cast);
+      clicked(this::activate);
     }
 
-    private void cast() {
+    private void activate() {
       Player player = Vars.player;
-      if (player == null || Vars.net.client()) {
+      if (player == null || Vars.net.client() || !Vars.state.isPlaying()) {
+        return;
+      }
+      if (!skill.canCast(player)) {
+        return;
+      }
+      if (skill.targeted()) {
+        startTargeting(skill);
         return;
       }
       float x = player.x(), y = player.y();
@@ -360,7 +493,9 @@ public final class SkillHUD {
       float cooldown = skill.cooldownProgress();
 
       if (cooldown > 0f) {
-        Draw.color(Color.black, 0.62f);
+        // Match SatelliteMissileInputHandler.cooldownOverlay exactly: a dark
+        // circular-sector layer that shrinks clockwise as the cooldown ends.
+        Draw.color(Color.black, 0.55f);
         Fill.arc(cx, cy, radius, cooldown * 360f, 90f);
       } else if (!active && !skill.ready()) {
         Draw.color(Color.black, 0.38f);

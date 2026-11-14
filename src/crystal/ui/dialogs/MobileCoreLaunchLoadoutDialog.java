@@ -10,6 +10,7 @@ import arc.scene.ui.layout.Scl;
 import arc.scene.ui.layout.Table;
 import arc.struct.Seq;
 import arc.util.Align;
+import crystal.core.XianWenSystem;
 import crystal.type.CoreUnit;
 import crystal.type.CoreUnitType;
 import crystal.type.MobileCoreSectorPreset;
@@ -40,6 +41,7 @@ import static mindustry.Vars.*;
  */
 public class MobileCoreLaunchLoadoutDialog extends LaunchLoadoutDialog {
   private final LoadoutDialog resourceEditor = new LoadoutDialog();
+  private final XianWenSelectionDialog xianWenEditor = new XianWenSelectionDialog();
   private final ItemSeq mobileTotal = new ItemSeq();
   private final ItemSeq mobileRequirements = new ItemSeq();
   private final ItemSeq entityTotal = new ItemSeq();
@@ -77,7 +79,11 @@ public class MobileCoreLaunchLoadoutDialog extends LaunchLoadoutDialog {
       return;
     }
 
-    super.show(core, from, destination, confirm);
+    super.show(core, from, destination, () -> {
+      XianWenSystem.commitLaunch(from, destination, null, false);
+      confirm.run();
+    });
+    addXianWenSection(cont);
   }
 
   private void showEntityCoreDialog(CoreBlock core, Sector from, Sector destination, Runnable confirm) {
@@ -241,6 +247,7 @@ public class MobileCoreLaunchLoadoutDialog extends LaunchLoadoutDialog {
       }
       universe.updateLoadout(core, selectedSchematic);
       Core.settings.put(MobileCoreControlSystem.launchCoreSetting, "");
+      XianWenSystem.commitLaunch(from, destination, null, false);
       confirm.run();
       hide();
     }).disabled(b -> !entityValid);
@@ -301,6 +308,7 @@ public class MobileCoreLaunchLoadoutDialog extends LaunchLoadoutDialog {
     cont.pane(resourceTable).growX().row();
     cont.add("@sector.missingresources").visible(() -> !entityValid)
         .color(Color.scarlet).left().row();
+    addXianWenSection(cont);
 
     update.run();
     rebuildResources.run();
@@ -456,6 +464,7 @@ public class MobileCoreLaunchLoadoutDialog extends LaunchLoadoutDialog {
       if (marked) {
         Core.settings.put(MobileCoreControlSystem.launchCoreSetting, "");
       }
+      XianWenSystem.commitLaunch(from, destination, selectedCore, true);
       confirm.run();
       hide();
     }).disabled(b -> !mobileValid || selectedCore == null);
@@ -507,10 +516,33 @@ public class MobileCoreLaunchLoadoutDialog extends LaunchLoadoutDialog {
         .color(Color.scarlet).left().row();
     cont.add(Core.bundle.format("launch.from", from.name()))
         .color(Color.lightGray).left().padTop(6f).row();
+    addXianWenSection(cont);
 
     update.run();
     rebuildResources.run();
     show();
+  }
+
+  /**
+   * Adds the same selection entry to the normal, entity-core and mobile-core
+   * launch layouts. The summary is live because the editor changes the shared
+   * XianWenSystem state immediately.
+   */
+  private void addXianWenSection(Table table) {
+    table.table(Styles.black6, panel -> {
+      panel.left();
+      panel.margin(6f);
+      panel.add(Core.bundle.get("xianwen", "仙纹"))
+          .color(Color.gold).padRight(8f);
+      panel.add("").growX().left()
+          .update(label -> label.setText(XianWenSystem.selectionSummary()));
+      panel.button(
+          Core.bundle.get("xianwen.configure", "配置"),
+          Icon.bookOpen,
+          Styles.flatt,
+          () -> xianWenEditor.show())
+          .size(112f, 48f);
+    }).growX().padTop(6f).row();
   }
 
   private void refreshCoreTypes() {

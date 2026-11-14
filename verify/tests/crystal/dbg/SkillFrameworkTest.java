@@ -15,6 +15,7 @@ public class SkillFrameworkTest {
   private static boolean ok = true;
   private static int instantCalls;
   private static int continuousCalls;
+  private static int targetedCalls;
   private static float seenAimX;
 
   public static void run(String[] args) {
@@ -42,6 +43,17 @@ public class SkillFrameworkTest {
       continuous.duration = 2f;
       continuous.unlock();
 
+      Skill targeted = new Skill("test-targeted") {
+        @Override
+        public void influence() {
+          targetedCalls++;
+          seenAimX = aimX;
+        }
+      };
+      targeted.targeted = true;
+      targeted.targetRange = 32f;
+      targeted.unlock();
+
       Player player = Player.create();
       player.id = 4242;
       player.team(Team.sharded);
@@ -66,6 +78,11 @@ public class SkillFrameworkTest {
 
       continuous.endActive();
       check("endActive removes the entity", false, continuous.isActive(player));
+
+      check("targeted skill rejects out-of-range point", false, targeted.cast(player, 100f, 34f, 0f));
+      check("rejected target does not run influence", 0, targetedCalls);
+      check("targeted skill accepts in-range point", true, targeted.cast(player, 40f, 34f, 0f));
+      check("targeted skill receives cast point", 40f, seenAimX);
     } catch (Throwable t) {
       t.printStackTrace();
       ok = false;

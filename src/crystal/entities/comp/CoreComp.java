@@ -153,6 +153,40 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
     return items;
   }
 
+  /**
+   * Mirrors CoreBuild's campaign bookkeeping. SectorInfo uses these deltas to
+   * calculate production while this sector is unloaded.
+   */
+  private void recordCoreItemChange(Item item, int amount) {
+    if (amount == 0 || !state.isCampaign() || team() != state.rules.defaultTeam
+        || state.rules.sector == null || state.rules.sector.info == null) {
+      return;
+    }
+    state.rules.sector.info.handleCoreItem(item, amount);
+  }
+
+  private void addCoreItems(Item item, int amount) {
+    if (amount <= 0) {
+      return;
+    }
+    items.add(item, amount);
+    recordCoreItemChange(item, amount);
+  }
+
+  /** Removes items from this core and records the loss for background production. */
+  public int removeCoreItems(Item item, int amount) {
+    if (item == null || amount <= 0) {
+      return 0;
+    }
+    int removed = Math.min(items.get(item), amount);
+    if (removed <= 0) {
+      return 0;
+    }
+    items.remove(item, removed);
+    recordCoreItemChange(item, -removed);
+    return removed;
+  }
+
   private void refreshEnemyCoreFields(Team coreTeam) {
     if (Vars.pathfinder == null)
       return;
@@ -407,7 +441,7 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
         stack.set(null, 0);
       } else {
         int canStore = Math.min(stack.amount, max - have);
-        items.add(stack.item, canStore);
+        addCoreItems(stack.item, canStore);
         stack.amount -= canStore;
         if (stack.amount <= 0) {
           stack.set(null, 0);
@@ -454,7 +488,7 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
                       int s = proxy.storageCapacity - items.get(item);
                       int toStore = Math.min(carry, Math.max(s, 0));
                       if (toStore > 0) {
-                        items.add(item, toStore);
+                        addCoreItems(item, toStore);
                       }
                       int burn = carry - toStore;
                       if (burn > 0) {
@@ -630,7 +664,7 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
           return;
         }
         int toStore = Math.min(amount, max - have);
-        items.add(item, toStore);
+        addCoreItems(item, toStore);
         if (toStore < amount) {
           Fx.coreBurn.at(this);
         }
@@ -657,7 +691,7 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
       Fx.coreBurn.at(this);
       return;
     }
-    items.add(item, 1);
+    addCoreItems(item, 1);
   }
 
   @Replace
@@ -727,7 +761,7 @@ public abstract class CoreComp implements Unitc, Corec, Posc, MindustryXc {
       amount = have;
     if (amount <= 0)
       return;
-    items().remove(item, amount);
+    removeCoreItems(item, amount);
     ItemStack stack = machine.stack();
     if (stack.amount <= 0) {
       stack.set(item, amount);

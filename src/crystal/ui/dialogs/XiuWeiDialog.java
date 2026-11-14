@@ -19,12 +19,14 @@ import crystal.core.FaBaoSystem;
 import crystal.core.PlayerXiuWeiSystem;
 import crystal.core.ScrollSystem;
 import crystal.core.ShenWuSystem;
+import crystal.core.XianWenSystem;
 import crystal.entities.units.UnitEnum.JingJie;
 import crystal.entities.units.UnitEnum.XiuWei;
 import crystal.magic.FaBao;
 import crystal.magic.ShenWu;
 import crystal.magic.Skill;
 import crystal.magic.SkillUnlockable;
+import crystal.magic.XianWen;
 import crystal.type.GongFa;
 import mindustry.gen.Icon;
 import mindustry.gen.Tex;
@@ -73,6 +75,7 @@ public class XiuWeiDialog extends BaseDialog {
       buildDuJie(t);
       buildGongFa(t);
       buildMagicSkills(t);
+      buildXianWenSlots(t);
       buildShenWuSkills(t);
       buildScrollInventory(t);
       buildFaBaoSlots(t);
@@ -318,6 +321,66 @@ public class XiuWeiDialog extends BaseDialog {
           grid.row();
         }
       }
+    }).growX().padBottom(6f);
+    t.row();
+  }
+
+  /**
+   * 修为界面只展示下一次核心发射的仙纹配置。实际选择集中在发射面板，
+   * 避免同一套配置出现两个编辑入口。
+   */
+  private void buildXianWenSlots(Table t) {
+    sectionTitle(t, Core.bundle.get("xianwen", "仙纹"));
+
+    t.table(Styles.black6, s -> {
+      s.left();
+      s.add("").growX().left()
+          .update(label -> label.setText(XianWenSystem.selectionSummary()));
+      s.row();
+
+      if (XianWenSystem.selected.isEmpty()) {
+        s.add(Core.bundle.get(
+            "xianwen.xiuwei.empty",
+            "尚未配置仙纹。核心发射前可在发射界面选择携带内容。"))
+            .color(Color.lightGray)
+            .wrap()
+            .width(contentWidth - 28f)
+            .pad(6f, 10f, 8f, 10f)
+            .left();
+        return;
+      }
+
+      int columns = contentWidth < 390f ? 1 : 2;
+      float cardWidth = (contentWidth - 32f) / columns;
+      int index = 0;
+      for (XianWen xianWen : XianWenSystem.selected) {
+        s.table(Tex.button, card -> {
+          card.left();
+          card.image(xianWen.uiIcon()).size(34f).scaling(Scaling.fit)
+              .color(xianWen.usingFallbackIcon() ? xianWen.iconColor : Color.white)
+              .padRight(7f);
+          card.table(info -> {
+            info.left();
+            info.add(xianWen.localizedName).left().row();
+            info.add(Core.bundle.format("xianwen.loadCost", xianWen.loadCost))
+                .color(Color.lightGray).fontScale(0.78f).left();
+          }).left().growX();
+        }).width(cardWidth - 8f).height(62f).pad(3f).left();
+        if (++index % columns == 0) {
+          s.row();
+        }
+      }
+      s.row();
+      s.add(Core.bundle.get(
+          "xianwen.xiuwei.hint",
+          "配置入口：核心发射界面。确认发射后，当前配置固定为本次运行的仙纹快照。"))
+          .colspan(columns)
+          .color(Color.lightGray)
+          .wrap()
+          .width(contentWidth - 28f)
+          .fontScale(0.82f)
+          .pad(6f, 10f, 8f, 10f)
+          .left();
     }).growX().padBottom(6f);
     t.row();
   }

@@ -27,7 +27,7 @@ public final class CoreUnitSkill extends Skill {
   @Override
   public boolean visible() {
     return Vars.state != null
-        && Vars.state.isPlaying()
+        && Vars.state.isGame()
         && Vars.state.rules != null
         && !Vars.state.rules.editor
         && Vars.player != null

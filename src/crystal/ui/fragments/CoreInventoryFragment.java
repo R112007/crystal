@@ -92,7 +92,7 @@ public class CoreInventoryFragment {
     int amount = Math.min(requested, player.unit().maxAccepted(lastItem));
     amount = Math.min(amount, items.get(lastItem));
     if (amount > 0) {
-      items.remove(lastItem, amount);
+      core.removeCoreItems(lastItem, amount);
       for (int i = 0; i < amount; i++) {
         player.unit().addItem(lastItem);
       }

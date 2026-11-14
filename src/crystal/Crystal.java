@@ -147,6 +147,7 @@ public class Crystal extends Mod {
             ui.showErrorMessage("你的游戏版本太高，要" + CVars.maxVersion + "才行");
         }
         checkGongFa();
+        checkScroll();
     }
 
     public void checkGongFa() {
@@ -154,6 +155,12 @@ public class Crystal extends Mod {
                 || CultivationState.playerMagicPower >= JingJie.kaiqiao.amount - 0.1f)
                 && !GongFas.taiXuanTianGong1.unlocked()) {
             GongFas.taiXuanTianGong1.unlock();
+        }
+    }
+
+    public void checkScroll() {
+        if ((LxMaps.jianglindian.sector.info.wasCaptured || LxMaps.jianglindian.sector.info.wave > 15) && !Skills.coreUnit().unlocked) {
+            ScrollSystem.give(Scrolls.coreUnit, 1);
         }
     }
 
@@ -176,6 +183,7 @@ public class Crystal extends Mod {
         UnitInfoSystem.checkAllSector();
         UnitInfoSystem.saveUnitInfo();
         PlayerXiuWeiSystem.init();
+        XianWenSystem.init();
         FaBaoSystem.init();
         ShenWuSystem.init();
         Events.on(ClientLoadEvent.class, e -> {
@@ -215,6 +223,7 @@ public class Crystal extends Mod {
         // 改为每 120 tick 轮询一次（与 UnitInfoSystem 的节流约定一致）
         if (timer % 120 == 1) {
             checkGongFa();
+            checkScroll();
         }
         updateSector();
         updateMap();
@@ -366,7 +375,23 @@ public class Crystal extends Mod {
                     Core.app.setClipboardText(scqq);
                 }
             }).color(Color.valueOf("#556352")).size(120.0f, 50.0f);
+            c.button(Core.bundle.get("crystal.update"), () -> {
+                BaseDialog updateDialog = new BaseDialog(Core.bundle.get("crystal.update"));
+                updateDialog.cont.pane(t -> {
+                    t.add(Core.bundle.get("crystal.update.text")).row();
+                });
+                updateDialog.addCloseButton();
+                updateDialog.show();
+            });
         }).pad(3f).row();
+        welcomeDialog.button(Core.bundle.get("crystal.update"), () -> {
+            BaseDialog updateDialog = new BaseDialog(Core.bundle.get("crystal.update"));
+            updateDialog.cont.pane(t -> {
+                t.add(Core.bundle.get("crystal.update.text")).row();
+            });
+            updateDialog.addCloseButton();
+            updateDialog.show();
+        });
         welcomeDialog.show();
     }
 

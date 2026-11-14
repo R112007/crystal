@@ -5,7 +5,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import arc.Core;
 import arc.Events;
 import arc.graphics.Color;
+import arc.graphics.g2d.Draw;
+import arc.graphics.g2d.Fill;
+import arc.graphics.g2d.Lines;
 import arc.graphics.g2d.TextureRegion;
+import arc.math.Mathf;
 import arc.struct.ObjectMap;
 import arc.struct.Seq;
 import arc.util.Nullable;
@@ -24,6 +28,7 @@ import mindustry.gen.Icon;
 import mindustry.gen.Player;
 import mindustry.gen.Teamc;
 import mindustry.gen.Timedc;
+import mindustry.graphics.Layer;
 
 /**
  * A player skill that can either run immediately or be hosted by a
@@ -60,6 +65,15 @@ public abstract class Skill implements SkillUnlockable {
   public float baseCost;
   /** Entity lifetime in seconds for continuous skills. */
   public float duration = 1f;
+  /**
+   * Whether the HUD should ask for a world-space target before casting.
+   * Self-centered or state-toggle skills leave this false.
+   */
+  public boolean targeted = false;
+  /** Maximum distance from the caster to a targeted point, in world units. */
+  public float targetRange = 20f * 8f;
+  /** Radius of the default target marker, in world units. */
+  public float targetAreaRadius = 24f;
   /** Whether the skill has been unlocked. */
   public boolean unlocked = false;
 
@@ -125,6 +139,47 @@ public abstract class Skill implements SkillUnlockable {
 
   /** Optional world rendering callback for a continuous skill. */
   public void draw(SkillEntity skillEntity) {
+  }
+
+  /**
+   * Draws the target preview while the player is choosing where to cast. Skills
+   * with a special footprint can override this without touching the HUD.
+   */
+  public void drawTargeting(Player player, float x, float y, boolean valid) {
+    if (player == null) {
+      return;
+    }
+
+    Color color = valid ? iconColor : Color.scarlet;
+    Draw.z(Layer.flyingUnit + 1f);
+    Draw.color(color, 0.14f);
+    Fill.circle(x, y, targetAreaRadius);
+    Draw.color(color, 0.72f);
+    Lines.stroke(2f);
+    Lines.circle(x, y, targetAreaRadius);
+
+    float angle = Mathf.angle(x - player.x(), y - player.y());
+    Lines.stroke(1.5f);
+    Lines.line(player.x(), player.y(),
+        x - Mathf.cosDeg(angle) * targetAreaRadius,
+        y - Mathf.sinDeg(angle) * targetAreaRadius);
+    Draw.reset();
+  }
+
+  /**
+   * Checks a candidate world-space target. This deliberately uses the same
+   * range check as actual casting so the preview and cast cannot disagree.
+   */
+  public boolean validTarget(@Nullable Player player, float x, float y) {
+    if (!targeted()) {
+      return true;
+    }
+    if (player == null) {
+      return false;
+    }
+    float dx = x - player.x();
+    float dy = y - player.y();
+    return dx * dx + dy * dy <= targetRange * targetRange;
   }
 
   /** Whether the skill should appear in the radial HUD. */
@@ -229,7 +284,7 @@ public abstract class Skill implements SkillUnlockable {
    * @return whether a cast was started
    */
   public boolean cast(@Nullable Player player, float x, float y, float angle) {
-    if (player == null || !canCast(player)) {
+    if (player == null || !canCast(player) || !validTarget(player, x, y)) {
       return false;
     }
 
@@ -276,6 +331,11 @@ public abstract class Skill implements SkillUnlockable {
 
   public boolean continuous() {
     return continuous;
+  }
+
+  /** Whether this skill requires a world-space cast point. */
+  public boolean targeted() {
+    return targeted;
   }
 
   public float cooldown() {

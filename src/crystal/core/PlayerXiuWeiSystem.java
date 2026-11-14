@@ -161,7 +161,7 @@ public class PlayerXiuWeiSystem {
       root.touchable = arc.scene.event.Touchable.disabled;
 
       root.update(() -> {
-        panel.visible = state.isPlaying() && state.rules != null && !state.rules.editor;
+        panel.visible = state.isGame() && state.rules != null && !state.rules.editor;
         panel.touchable = arc.scene.event.Touchable.disabled;
       });
     });

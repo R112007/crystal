@@ -55,9 +55,9 @@ public class Storys {
     public Character core;
 
     // 主线模块
-    public DialogueModule
-            // 降临点的
-            jianglindian_lanuch, jianglindian_teach, jianglindian_skill_start, jianglindian_gongfa, jianglindian_fatian, jianglindian_capture,
+    public DialogueModule tutorial,
+    // 降临点的
+    jianglindian_lanuch, jianglindian_teach, jianglindian_skill_start, jianglindian_gongfa, jianglindian_fatian, jianglindian_capture,
     // 晶流断峡的
     jingliuduanxia_launch;
     // 分支
@@ -195,6 +195,14 @@ public class Storys {
     }
 
     public void initModels() {
+        tutorial = new DialogueModule("tutorial", Core.bundle.get("tutorial")).addNode(new Seq<>(new DialogueLine[]{
+                new DialogueLine(background, normal, Core.bundle.get("tutorial1")),
+                new DialogueLine(background, normal, Core.bundle.get("tutorial2")),
+                new DialogueLine(background, normal, Core.bundle.get("tutorial3")),
+                new DialogueLine(background, normal, Core.bundle.get("tutorial4")),
+                new DialogueLine(background, normal, Core.bundle.get("tutorial5")),
+                new DialogueLine(background, normal, Core.bundle.get("tutorial6"))
+        }));
         jianglindian_lanuch = new DialogueModule("jianglindian-lanuch", CVars.plot.getOrBundle("gal.jianglindian-lanuch"))
                 .addNode(new Seq<>(new DialogueLine[]{
                         new DialogueLine(background, normal, "@jianglindian-lanuch-1"), // 科技文明与修仙文明，不过是宇宙在漫长遗忘中，偶然翻涌起的两朵浪花。
@@ -280,7 +288,11 @@ public class Storys {
                         new DialogueLine(player, normal, yi, normal, Side.left,
                                 CVars.plot.formatOrBundle("jianglindian-lanuch-51", player.getName())), // "它"告诉我科技文明的战斗方式不是逃跑，是建立据点、扩张、占领。你在我身后待着，不要乱跑。接下来就看我的表演吧
                         new DialogueLine(player, normal, yi, normal, Side.right,
-                                CVars.plot.formatOrBundle("jianglindian-lanuch-52", player.getName())) // 我…我知道了。注意安全，{0}。
+                                CVars.plot.formatOrBundle("jianglindian-lanuch-52", player.getName())).complete(() -> {
+                            Time.runTask(60f, () -> {
+                                GalgameDialogueManager.instance.playModule(tutorial);
+                            });
+                        }) // 我…我知道了。注意安全，{0}。
                 }));
         jianglindian_teach = new DialogueModule("jianglindian-teach", CVars.plot.getOrBundle("gal.jianglindian-teach"))
                 .withPrerequisite("jianglindian-lanuch")
@@ -392,7 +404,7 @@ public class Storys {
     }
 
     public void registerModules() {
-        GalgameDialogueManager.instance.modules.addAll(jianglindian_lanuch, jianglindian_teach,
+        GalgameDialogueManager.instance.modules.addAll(tutorial, jianglindian_lanuch, jianglindian_teach,
                 jianglindian_gongfa, jianglindian_fatian, jianglindian_skill_start, jianglindian_capture, jingliuduanxia_launch);
         for (DialogueModule module : mgr.modules) {
             if (module != null)
