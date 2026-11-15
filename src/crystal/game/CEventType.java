@@ -188,11 +188,11 @@ public class CEventType {
         }
     }
 
-    public static class YiCarryItems {
-        public float x, y;
-        public ItemStack[] items;
+    public static class YiCarryItemsEvent {
+        public final float x, y;
+        public final ItemStack[] items;
 
-        public YiCarryItems(float x, float y, ItemStack[] items) {
+        public YiCarryItemsEvent(float x, float y, ItemStack[] items) {
             this.x = x;
             this.y = y;
             this.items = items;

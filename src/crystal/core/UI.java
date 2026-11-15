@@ -9,12 +9,18 @@ import arc.struct.Seq;
 import crystal.CVars;
 import crystal.aviation.ui.SatelliteDebugDialog;
 import crystal.content.WorldStuffs;
+import crystal.content.XianWens;
+import crystal.gen.Corec;
 import crystal.type.Contributor;
 import crystal.ui.dialogs.*;
 import crystal.ui.gal.GalgameDialogueManager;
+import crystal.world.blocks.stroage.MobileCoreControlSystem;
 import crystal.world.time.TimeRewindEvent;
+import mindustry.content.Items;
 import mindustry.Vars;
 import mindustry.gen.Icon;
+import mindustry.gen.Unit;
+import mindustry.type.ItemStack;
 import mindustry.ui.Styles;
 import mindustry.ui.dialogs.BaseDialog;
 
@@ -124,6 +130,15 @@ public class UI {
                     table.translation.set(0, height);
                 });
             });
+        if (debug)
+            Vars.ui.hudGroup.fill(null, table -> {
+                table.table(null, t -> {
+                    t.button("仙纹测试", Styles.flatt, this::testCarryItems).size(100, 70);
+                }).size(100, 70);
+                table.center().left().update(() -> {
+                    table.translation.set(200, height);
+                });
+            });
         // 小行星测试入口不依赖 CVars.debug，普通游戏里也能直接用。
         Vars.ui.hudGroup.fill(null, table -> {
             table.visible = false;
@@ -134,6 +149,33 @@ public class UI {
                 table.translation.set(100, height + 390);
             });
         });
+    }
+
+    private void testCarryItems() {
+        if (Vars.headless || Vars.state == null || !Vars.state.isPlaying() || Vars.player == null) {
+            return;
+        }
+
+        Unit anchor = Vars.player.unit();
+        if (anchor == null) {
+            Corec mobileCore = MobileCoreControlSystem.findPlayerCore(Vars.player);
+            anchor = mobileCore == null ? null : (Unit) mobileCore;
+        }
+        if (anchor == null) {
+            return;
+        }
+
+        XianWens.load();
+        XianWens.carryItems.unlock();
+        if (!XianWenSystem.isSelected(XianWens.carryItems)
+            && XianWenSystem.canSelect(XianWens.carryItems)) {
+            XianWenSystem.select(XianWens.carryItems);
+        }
+
+        XianWens.carryItems.carryTo(
+            anchor.x() + 32f,
+            anchor.y(),
+            ItemStack.with(Items.copper, 10, Items.lead, 10));
     }
 
     void setupGeneralMagicDialog() {

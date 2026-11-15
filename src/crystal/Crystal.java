@@ -23,6 +23,7 @@ import crystal.entities.units.UnitEnum.JingJie;
 import crystal.game.CEventType.MapChangeEvent;
 import crystal.game.CEventType.SectorChangeEvent;
 import crystal.game.MultiSectorWaveTrigger;
+import crystal.game.YiCarryLogic;
 import crystal.gen.EntityRegistry;
 import crystal.graphics.BlackHoleRenderer;
 import crystal.mod.ClassMapLoader;
@@ -78,6 +79,10 @@ public class Crystal extends Mod {
         EntityMapping.nameMap.put("crystal-cardUpgradeUnit", EntityMapping.idMap[54]);
     }
 
+    public static String name(String name) {
+        return "crystal-" + name;
+    }
+
     @Override
     public void loadContent() {
         Log.info("Start to Load Contents");
@@ -95,6 +100,7 @@ public class Crystal extends Mod {
         CUnits.load();
         SpecialUnits.load();
         Skills.load();
+        XianWens.load();
         ShenWus.load();
         Scrolls.load();
         ScrollSystem.init();
@@ -184,6 +190,7 @@ public class Crystal extends Mod {
         UnitInfoSystem.saveUnitInfo();
         PlayerXiuWeiSystem.init();
         XianWenSystem.init();
+        YiCarryLogic.init();
         FaBaoSystem.init();
         ShenWuSystem.init();
         Events.on(ClientLoadEvent.class, e -> {

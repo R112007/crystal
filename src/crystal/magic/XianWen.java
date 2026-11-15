@@ -84,6 +84,10 @@ public abstract class XianWen {
     return unlocked;
   }
 
+  public void unlock() {
+    unlocked = true;
+  }
+
   /**
    * 修改一个数值。默认原样返回。
    *
