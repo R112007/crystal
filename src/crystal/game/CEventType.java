@@ -7,6 +7,7 @@ import crystal.type.GongFa;
 import mindustry.entities.Effect;
 import mindustry.game.Team;
 import mindustry.maps.Map;
+import mindustry.type.ItemStack;
 import mindustry.type.Sector;
 import mindustry.type.UnitType;
 import mindustry.world.Block;
@@ -184,6 +185,17 @@ public class CEventType {
 
         public SectorEnterEvent(Sector sector) {
             this.sector = sector;
+        }
+    }
+
+    public static class YiCarryItems {
+        public float x, y;
+        public ItemStack[] items;
+
+        public YiCarryItems(float x, float y, ItemStack[] items) {
+            this.x = x;
+            this.y = y;
+            this.items = items;
         }
     }
 }
