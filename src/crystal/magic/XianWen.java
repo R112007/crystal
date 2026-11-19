@@ -9,6 +9,7 @@ import arc.graphics.g2d.TextureRegion;
 import arc.struct.ObjectMap;
 import arc.struct.Seq;
 import arc.util.Nullable;
+import crystal.Crystal;
 import mindustry.game.EventType.ClientLoadEvent;
 import mindustry.gen.Icon;
 import mindustry.type.Sector;
@@ -17,10 +18,12 @@ import mindustry.type.UnitType;
 /**
  * 仙纹基类，参考 {@link Skill} 的注册与懒加载方式。
  *
- * <p>仙纹只在核心发射前配置，确认发射时由
+ * <p>
+ * 仙纹只在核心发射前配置，确认发射时由
  * {@link crystal.core.XianWenSystem} 生成一次运行快照。数值型仙纹覆盖
  * {@link #modify(Stat, float)}；行为型仙纹覆盖 {@link #onLaunch(LaunchContext)}
- * 或后续按实际需求增加世界事件钩子。</p>
+ * 或后续按实际需求增加世界事件钩子。
+ * </p>
  */
 public abstract class XianWen {
   private static final AtomicInteger maxId = new AtomicInteger(0);
@@ -91,8 +94,10 @@ public abstract class XianWen {
   /**
    * 修改一个数值。默认原样返回。
    *
-   * <p>多个仙纹按配置顺序依次调用，因此实现应明确自己是加法、乘法还是覆盖，
-   * 不要假设只会在基础值上调用一次。</p>
+   * <p>
+   * 多个仙纹按配置顺序依次调用，因此实现应明确自己是加法、乘法还是覆盖，
+   * 不要假设只会在基础值上调用一次。
+   * </p>
    */
   public float modify(Stat stat, float value) {
     return value;
@@ -119,10 +124,26 @@ public abstract class XianWen {
     if (iconLoaded || Core.atlas == null) {
       return;
     }
-    TextureRegion found = Core.atlas.find("xianwen-" + fullName);
+    TextureRegion found = findRegion(name);
     fallbackIcon = !found.found();
     loadedIcon = fallbackIcon ? Icon.bookOpen.getRegion() : found;
     iconLoaded = true;
+  }
+
+  private TextureRegion findRegion(String name) {
+    if (Core.atlas == null) {
+      return null;
+    }
+    TextureRegion region = Core.atlas.find(Crystal.name(name));
+    if (region.found()) {
+      return region;
+    }
+    region = Core.atlas.find("icon/xianWen/" + name);
+    if (region.found()) {
+      return region;
+    }
+    region = Core.atlas.find("crystal-" + name.toLowerCase());
+    return region.found() ? region : null;
   }
 
   public TextureRegion uiIcon() {

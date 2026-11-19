@@ -165,7 +165,8 @@ public class Crystal extends Mod {
     }
 
     public void checkScroll() {
-        if ((LxMaps.jianglindian.sector.info.wasCaptured || LxMaps.jianglindian.sector.info.wave > 15) && !Skills.coreUnit().unlocked) {
+        if ((LxMaps.jianglindian.sector.info.wasCaptured || LxMaps.jianglindian.sector.info.wave > 15)
+                && !Skills.coreUnit().unlocked) {
             ScrollSystem.give(Scrolls.coreUnit, 1);
         }
     }
@@ -391,14 +392,6 @@ public class Crystal extends Mod {
                 updateDialog.show();
             });
         }).pad(3f).row();
-        welcomeDialog.button(Core.bundle.get("crystal.update"), () -> {
-            BaseDialog updateDialog = new BaseDialog(Core.bundle.get("crystal.update"));
-            updateDialog.cont.pane(t -> {
-                t.add(Core.bundle.get("crystal.update.text")).row();
-            });
-            updateDialog.addCloseButton();
-            updateDialog.show();
-        });
         welcomeDialog.show();
     }
 

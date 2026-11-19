@@ -64,8 +64,9 @@ public class UI {
                     Icon.bookOpen,
                     gongFa::show).size(Vars.mobile ? 130f : 220f, Vars.mobile ? 130f : 55f).pad(5f).colspan(2);
             cpaused.cont.button(
-                            "历史记录",
-                            Icon.book, GalgameDialogueManager.instance.historyUI::show).size(Vars.mobile ? 130f : 220f, Vars.mobile ? 130f : 55f)
+                    "历史记录",
+                    Icon.book, GalgameDialogueManager.instance.historyUI::show)
+                    .size(Vars.mobile ? 130f : 220f, Vars.mobile ? 130f : 55f)
                     .pad(5f).colspan(20);
         });
 
@@ -164,18 +165,16 @@ public class UI {
         if (anchor == null) {
             return;
         }
-
-        XianWens.load();
         XianWens.carryItems.unlock();
         if (!XianWenSystem.isSelected(XianWens.carryItems)
-            && XianWenSystem.canSelect(XianWens.carryItems)) {
+                && XianWenSystem.canSelect(XianWens.carryItems)) {
             XianWenSystem.select(XianWens.carryItems);
         }
 
         XianWens.carryItems.carryTo(
-            anchor.x() + 32f,
-            anchor.y(),
-            ItemStack.with(Items.copper, 10, Items.lead, 10));
+                anchor.x() + 32f,
+                anchor.y(),
+                ItemStack.with(Items.copper, 10, Items.lead, 10));
     }
 
     void setupGeneralMagicDialog() {

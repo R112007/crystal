@@ -53,10 +53,10 @@ public abstract class YiCarryComp implements Drawc, Timedc, YiCarryc {
   private static final float RELAX_TIME = 90f;
   private static final float FADE_OUT_TIME = 36f;
 
-  private static final float APPROACH_DISTANCE = 72f;
-  private static final float HOLD_OFFSET = 22f;
-  private static final float STEP_OFFSET = 10f;
-  private static final float PICKUP_RANGE = 48f;
+  private static final float APPROACH_DISTANCE = 120f;
+  private static final float HOLD_OFFSET = 50f;
+  private static final float STEP_OFFSET = 30f;
+  private static final float PICKUP_RANGE = 28f;
 
   private static final float YI_WIDTH = 20f;
   private static final float YI_HEIGHT = 30.833334f;
@@ -225,8 +225,7 @@ public abstract class YiCarryComp implements Drawc, Timedc, YiCarryc {
     }
 
     if (nearest == null
-        || Mathf.dst2(targetX, targetY, proxy.x, proxy.y)
-            < Mathf.dst2(targetX, targetY, nearest.x, nearest.y)) {
+        || Mathf.dst2(targetX, targetY, proxy.x, proxy.y) < Mathf.dst2(targetX, targetY, nearest.x, nearest.y)) {
       return proxy;
     }
     return nearest;
@@ -306,7 +305,7 @@ public abstract class YiCarryComp implements Drawc, Timedc, YiCarryc {
       float progress = stageProgress(TOSS_TIME);
       boxX = Mathf.lerp(x - 3f, targetX, progress);
       boxY = Mathf.lerp(y + 8f, targetY,
-          progress) + Mathf.sin(progress * Mathf.pi) * 30f;
+          progress) + Mathf.sin(progress * Mathf.pi) * 40f;
       rotation = progress * 270f;
     }
 
